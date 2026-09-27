@@ -169,16 +169,14 @@
     scrollbar-width: none;
     display: flex;
     flex-direction: column;
+    /* Scroll room so the last line can rise to mid-screen; sits below the bottom frame. */
+    padding-bottom: 260px;
   }
   .ed-scroll::-webkit-scrollbar {
     width: 0;
   }
-  .ed-host {
-    flex-grow: 1;
-  }
   .ed-body {
     outline: 0;
-    padding: 0 0 260px;
     font-size: 20px;
     line-height: 1.8;
     color: var(--ink);
@@ -187,6 +185,9 @@
   }
   .ed-body p {
     margin: 0 0 1em;
+  }
+  .ed-body > :last-child {
+    margin-bottom: 0;
   }
   .ed-body p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
