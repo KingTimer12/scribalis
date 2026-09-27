@@ -49,9 +49,9 @@ fn flush(lines: &mut Vec<&str>, blocks: &mut Vec<Block>) {
             line.strip_suffix('\\').unwrap_or(line)
         };
         if !text.is_empty() {
-            content.push(Inline::Text { text: text.to_string() });
+            content.push(Inline::text(text));
         }
     }
-    blocks.push(Block::Paragraph { content });
+    blocks.push(Block::paragraph(content));
     lines.clear();
 }

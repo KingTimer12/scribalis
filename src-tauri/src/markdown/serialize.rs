@@ -9,11 +9,11 @@ pub fn serialize(doc: &Doc) -> String {
 
 fn block_md(block: &Block) -> Option<String> {
     match block {
-        Block::Paragraph { content } => {
+        Block::Paragraph { content, .. } => {
             let mut lines = vec![String::new()];
             for inline in content {
                 match inline {
-                    Inline::Text { text } => lines.last_mut().expect("never empty").push_str(text),
+                    Inline::Text { text, .. } => lines.last_mut().expect("never empty").push_str(text),
                     Inline::HardBreak => lines.push(String::new()),
                 }
             }

@@ -51,7 +51,7 @@ mod tests {
     fn write_read_delete() {
         let dir = tempfile::tempdir().unwrap();
         let entry = ChapterEntry::new("c1".into());
-        let doc = Doc::new(vec![Block::Paragraph { content: vec![Inline::Text { text: "Oi".into() }] }]);
+        let doc = Doc::new(vec![Block::paragraph(vec![Inline::text("Oi")])]);
         write_chapter(dir.path(), &entry, &doc).unwrap();
         assert_eq!(read_chapter(dir.path(), &entry).unwrap(), doc);
         delete_chapter_file(dir.path(), &entry).unwrap();

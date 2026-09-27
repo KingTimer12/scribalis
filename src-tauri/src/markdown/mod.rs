@@ -7,10 +7,10 @@ mod tests {
     use crate::model::doc::{Block, Doc, ImageAttrs, Inline};
 
     fn p(parts: Vec<Inline>) -> Block {
-        Block::Paragraph { content: parts }
+        Block::paragraph(parts)
     }
     fn t(s: &str) -> Inline {
-        Inline::Text { text: s.to_string() }
+        Inline::text(s)
     }
 
     #[test]

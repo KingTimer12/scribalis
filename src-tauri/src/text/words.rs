@@ -9,11 +9,11 @@ pub fn count_words(s: &str) -> usize {
 pub fn doc_text(doc: &Doc) -> String {
     let mut out = Vec::new();
     for block in &doc.content {
-        if let Block::Paragraph { content } = block {
+        if let Block::Paragraph { content, .. } = block {
             let line: Vec<&str> = content
                 .iter()
                 .map(|i| match i {
-                    Inline::Text { text } => text.as_str(),
+                    Inline::Text { text, .. } => text.as_str(),
                     Inline::HardBreak => "\n",
                 })
                 .collect();
