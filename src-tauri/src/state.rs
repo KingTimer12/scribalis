@@ -25,9 +25,21 @@ impl Library {
     }
 
     /// Records a book seen on disk; the first full scan fixes the daily-goal baseline.
+    /// A book first seen after that (new, restored sample, copied folder) joins the
+    /// baseline, so only words written in the app count as today's.
     pub fn register(&mut self, dir: &Path, meta: &Metadata) {
+        let total = meta.total_words();
+        if let Some(base) = self.session_base.as_mut() {
+            if !self.totals.contains_key(&meta.id) {
+                *base += total;
+            }
+        }
+        // The cached metadata belongs to another folder now: reread it next time.
+        if self.open.as_ref().is_some_and(|(d, m)| m.id == meta.id && d != dir) {
+            self.open = None;
+        }
         self.dirs.insert(meta.id.clone(), dir.to_path_buf());
-        self.totals.insert(meta.id.clone(), meta.total_words());
+        self.totals.insert(meta.id.clone(), total);
     }
 
     pub fn start_session_if_needed(&mut self) {
@@ -36,8 +48,11 @@ impl Library {
         }
     }
 
+    /// Drops a deleted book; its words leave the baseline too, so today is unchanged.
     pub fn forget(&mut self, id: &str) -> Option<PathBuf> {
-        self.totals.remove(id);
+        if let (Some(total), Some(base)) = (self.totals.remove(id), self.session_base.as_mut()) {
+            *base = base.saturating_sub(total);
+        }
         if self.open.as_ref().is_some_and(|(_, m)| m.id == id) {
             self.open = None;
         }
@@ -93,6 +108,27 @@ mod tests {
             chapter::save(d, m, &chapter_id, &crate::markdown::parse::parse("um dois")).map(|_| ())
         })
         .unwrap();
+        assert_eq!(lib.today(), 2);
+    }
+
+    #[test]
+    fn books_added_or_removed_mid_session_do_not_move_today() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "A").unwrap();
+        let mut lib = Library::new(root.path().to_path_buf());
+        lib.register(&dir, &meta);
+        lib.start_session_if_needed();
+        let (dir_b, mut meta_b) = create_book(root.path(), "B").unwrap();
+        meta_b.chapters[0].words = 100;
+        lib.register(&dir_b, &meta_b);
+        assert_eq!(lib.today(), 0);
+        let chapter_id = meta.chapters[0].id.clone();
+        lib.with_book(&meta.id, |d, m| {
+            chapter::save(d, m, &chapter_id, &crate::markdown::parse::parse("um dois")).map(|_| ())
+        })
+        .unwrap();
+        assert_eq!(lib.today(), 2);
+        lib.forget(&meta_b.id);
         assert_eq!(lib.today(), 2);
     }
 
