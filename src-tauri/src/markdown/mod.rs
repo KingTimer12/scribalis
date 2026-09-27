@@ -64,4 +64,14 @@ mod tests {
         let doc = Doc::new(vec![p(vec![t("a\\"), Inline::HardBreak, t("b")])]);
         assert_eq!(parse(&serialize(&doc)), doc);
     }
+
+    #[test]
+    fn whitespace_only_last_line_after_hard_break_is_dropped() {
+        let doc = Doc::new(vec![p(vec![t("a"), Inline::HardBreak, t(" ")])]);
+        assert_eq!(serialize(&doc), "a
+");
+        assert_eq!(parse(&serialize(&doc)), Doc::new(vec![p(vec![t("a")])]));
+        let trailing = Doc::new(vec![p(vec![t("a"), Inline::HardBreak, t("  "), Inline::HardBreak])]);
+        assert_eq!(parse(&serialize(&trailing)), Doc::new(vec![p(vec![t("a")])]));
+    }
 }
