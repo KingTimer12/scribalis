@@ -14,13 +14,20 @@ export function setEditor(e: Editor | null) {
   }
 }
 
+/** The schema requires `block+`; an empty doc (e.g. a fresh chapter, or a split half) needs a placeholder paragraph. */
+export function normalizeDoc(doc: DocJSON): DocJSON {
+  if (doc.content.length === 0) return { type: "doc", content: [{ type: "paragraph" }] };
+  return doc;
+}
+
 /** Replaces the document without triggering a save or an undo step. */
 export function loadDoc(doc: DocJSON) {
+  const normalized = normalizeDoc(doc);
   if (!editor) {
-    pendingDoc = doc;
+    pendingDoc = normalized;
     return;
   }
-  editor.chain().setMeta("addToHistory", false).setContent(doc, { emitUpdate: false }).run();
+  editor.chain().setMeta("addToHistory", false).setContent(normalized, { emitUpdate: false }).run();
 }
 
 export function getDoc(): DocJSON | null {
@@ -35,7 +42,7 @@ export function liveText(): string {
 
 export function focusEditor(caret: number | "end" | null) {
   if (!editor) return;
-  editor.commands.focus(caret === 0 ? "start" : caret === "end" ? "end" : null, { scrollIntoView: caret !== null });
+  editor.commands.focus(caret === 0 ? "start" : caret === "end" ? "end" : caret, { scrollIntoView: caret !== null });
 }
 
 export function insertSeparator() {
