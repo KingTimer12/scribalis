@@ -8,6 +8,7 @@ import { bookTitleKey } from "../../store/keys/fields";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
+import { AppBrand } from "./AppBrand";
 import { UpdateBadge } from "./UpdateBadge";
 import { WindowControls } from "./WindowControls";
 
@@ -24,7 +25,9 @@ export function TopBar() {
       data-tauri-drag-region="deep"
     >
       <div class="flex items-center gap-2.5">
+        <AppBrand />
         <Show when={state.view === "editor"}>
+          <span class="brand-rule" aria-hidden="true" />
           <button class="ui crumb" onClick={goLibrary}>
             Obras
           </button>

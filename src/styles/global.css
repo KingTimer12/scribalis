@@ -125,6 +125,27 @@
   .crumb:hover {
     color: var(--ink);
   }
+  /* app identity at the left of the title bar */
+  .app-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    /* The icon carries its own tile; a hairline keeps it visible on a same-colored bar. */
+    box-shadow: 0 0 0 1px var(--faint);
+  }
+  .app-name {
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .app-version {
+    opacity: 0.8;
+  }
+  .brand-rule {
+    width: 1px;
+    height: 16px;
+    margin: 0 6px;
+    background: var(--faint);
+  }
   /* new release offer in the top bar */
   .update-badge {
     border: 1px solid var(--accent);
