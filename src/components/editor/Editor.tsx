@@ -1,7 +1,8 @@
 import { focusTarget } from "../../store/focus";
-import { ChapterBody } from "./ChapterBody";
+import { BookImage } from "./BookImage";
 import { ChapterLabel } from "./ChapterLabel";
 import { ChapterTitle } from "./ChapterTitle";
+import { RichEditor } from "./RichEditor";
 
 /** Central writing column. Clicking outside the text refocuses it. */
 export function Editor() {
@@ -12,9 +13,13 @@ export function Editor() {
     >
       <div class="col flex h-full flex-col gap-3.5 pt-16">
         <ChapterLabel />
-        <ChapterTitle />
-        <div class="h-[22px]" />
-        <ChapterBody />
+        <div class="ed-scroll">
+          <BookImage slot="header" />
+          <ChapterTitle />
+          <div class="h-[22px] shrink-0" />
+          <RichEditor />
+          <BookImage slot="footer" />
+        </div>
       </div>
     </div>
   );

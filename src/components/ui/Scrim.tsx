@@ -1,4 +1,4 @@
-import { closePanel } from "../../store/ui";
+import { closePanel } from "../../store/actions/ui";
 
 /** Dimmed backdrop behind panels; click closes. */
 export function Scrim() {

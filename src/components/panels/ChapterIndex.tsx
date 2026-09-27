@@ -1,8 +1,10 @@
 import { createEffect, For, on } from "solid-js";
-import { fmt, pad, wc } from "../../lib/format";
-import { indexKey, openFromIndex } from "../../store/chapters";
+import { fmt, pad } from "../../lib/format";
+import { openFromIndex } from "../../store/actions/chapters";
 import { focusRef } from "../../store/focus";
-import { bookLabel, currentBook, state } from "../../store/state";
+import { indexKey } from "../../store/keys/index";
+import { bookLabel } from "../../store/selectors/book";
+import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { Scrim } from "../ui/Scrim";
 import { StatusDot } from "../ui/StatusDot";
@@ -31,20 +33,20 @@ export function ChapterIndex() {
         onKeyDown={indexKey}
       >
         <div class="flex flex-col gap-1.5 px-3">
-          <div class="text-xl font-medium">{currentBook()?.title || "Obra sem título"}</div>
+          <div class="text-xl font-medium">{state.book?.title || "Obra sem título"}</div>
           <div class="ui">{bookLabel()}</div>
         </div>
         <div class="flex grow flex-col gap-0.5 overflow-y-auto [scrollbar-width:none]">
-          <For each={currentBook()?.chapters ?? []}>
+          <For each={state.book?.chapters ?? []}>
             {(c, i) => (
               <button
                 class="ix-item"
-                classList={{ sel: i() === state.indexSel, cur: i() === currentBook()?.cur }}
+                classList={{ sel: i() === state.indexSel, cur: i() === state.book?.cur }}
                 onClick={() => openFromIndex(i())}
               >
                 <span class="ui">{pad(i() + 1)}</span>
                 <span class="ix-t">{c.title || "Sem título"}</span>
-                <span class="ui">{fmt(wc(c.body))}</span>
+                <span class="ui">{fmt(i() === state.book?.cur ? state.liveWords : c.words)}</span>
                 <StatusDot status={c.status} />
               </button>
             )}

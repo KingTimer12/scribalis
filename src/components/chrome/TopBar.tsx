@@ -1,8 +1,9 @@
 import { Show } from "solid-js";
-import { bookTitleKey, setBookTitle } from "../../store/chapters";
+import { setBookTitle } from "../../store/actions/book";
+import { goLibrary } from "../../store/actions/library";
 import { focusRef } from "../../store/focus";
-import { goLibrary } from "../../store/library";
-import { currentBook, state } from "../../store/state";
+import { bookTitleKey } from "../../store/keys/fields";
+import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
 
@@ -19,7 +20,7 @@ export function TopBar() {
           <input
             id="book-title"
             class="ui book"
-            value={currentBook()?.title ?? ""}
+            value={state.book?.title ?? ""}
             onInput={(e) => setBookTitle(e.currentTarget.value)}
             onKeyDown={bookTitleKey}
             ref={focusRef("book")}

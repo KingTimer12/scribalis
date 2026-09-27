@@ -1,15 +1,15 @@
-import { allWords, plural } from "../../lib/format";
+import { plural } from "../../lib/format";
 import { focusRef } from "../../store/focus";
-import { libQKey } from "../../store/library";
+import { libQKey } from "../../store/keys/library";
 import { setState, state } from "../../store/state";
 import { Kbd } from "../ui/Kbd";
 import { SrLabel } from "../ui/SrLabel";
 
 export function LibraryHeader() {
   const stats = () =>
-    plural(state.books.length, "obra", "obras") +
+    plural(state.library.length, "obra", "obras") +
     " · " +
-    plural(allWords(state.books), "palavra escrita", "palavras escritas");
+    plural(state.library.reduce((a, b) => a + b.words, 0), "palavra escrita", "palavras escritas");
 
   return (
     <div class="flex items-end justify-between gap-8">

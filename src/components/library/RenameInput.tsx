@@ -1,5 +1,5 @@
 import { focusRef } from "../../store/focus";
-import { renameKey } from "../../store/library";
+import { renameKey } from "../../store/keys/library";
 import { setState, state } from "../../store/state";
 
 /** Inline input to name/rename a book. Enter confirms, Esc cancels. */

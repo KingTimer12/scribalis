@@ -1,7 +1,8 @@
-import { cycleStatus, goChapter, moveChapter } from "./chapters";
-import { goLibrary } from "./library";
-import { currentBook, state } from "./state";
-import { closePanel, openPanel, toggleFocusMode, toggleTheme } from "./ui";
+import { cycleStatus, goChapter, moveChapter } from "../actions/chapters";
+import { goLibrary } from "../actions/library";
+import { toggleTheme } from "../actions/prefs";
+import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
+import { state } from "../state";
 
 /**
  * Global shortcuts. Lives on `window`, so it runs after field/panel handlers,
@@ -12,13 +13,12 @@ export function rootKey(e: KeyboardEvent) {
   const k = (e.key || "").toLowerCase();
   const code = e.code || "";
   const ed = state.view === "editor";
-  const cur = currentBook()?.cur ?? 0;
+  const cur = state.book?.cur ?? 0;
   let handled = true;
 
   if (mod && (k === "k" || code === "KeyK")) openPanel("palette");
   else if (mod && (k === "j" || code === "KeyJ")) toggleTheme();
-  else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide"))
-    openPanel("help");
+  else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
   else if (ed && mod && (k === "o" || code === "KeyO")) goLibrary();
   else if (ed && mod && (k === "e" || code === "KeyE")) openPanel("index");
   else if (ed && mod && (k === "." || code === "Period")) toggleFocusMode();

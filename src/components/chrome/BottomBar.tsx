@@ -1,7 +1,8 @@
 import { Show } from "solid-js";
-import { plural, wc } from "../../lib/format";
-import { bookLabel, currentChapter, state } from "../../store/state";
-import { openPanel } from "../../store/ui";
+import { plural } from "../../lib/format";
+import { openPanel } from "../../store/actions/ui";
+import { bookLabel } from "../../store/selectors/book";
+import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { GoalProgress } from "./GoalProgress";
 import { StatusMessage } from "./StatusMessage";
@@ -25,7 +26,7 @@ export function BottomBar() {
             onClick={() => openPanel("index")}
             title="Índice de capítulos (Ctrl E)"
           >
-            <span>{plural(wc(currentChapter()?.body), "palavra", "palavras")}</span>
+            <span>{plural(state.liveWords, "palavra", "palavras")}</span>
             <span class="opacity-50">·</span>
             <span>{bookLabel()}</span>
           </button>
