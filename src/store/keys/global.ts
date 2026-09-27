@@ -18,13 +18,13 @@ export function rootKey(e: KeyboardEvent) {
   let handled = true;
 
   if (mod && (k === "k" || code === "KeyK")) openPanel("palette");
-  else if (mod && (k === "j" || code === "KeyJ")) toggleTheme();
+  else if (mod && !e.shiftKey && (k === "j" || code === "KeyJ")) toggleTheme();
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
   else if (ed && mod && (k === "o" || code === "KeyO")) goLibrary();
-  else if (ed && mod && (k === "e" || code === "KeyE")) openPanel("index");
+  else if (ed && mod && !e.shiftKey && (k === "e" || code === "KeyE")) openPanel("index");
   else if (ed && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (ed && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
-  else if (ed && mod && !e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
+  else if (ed && mod && e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
   else if (ed && e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
     const dir = e.key === "ArrowUp" ? -1 : 1;
     if (e.shiftKey) moveChapter(cur, dir);

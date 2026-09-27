@@ -17,6 +17,7 @@ export interface WriterEditorOptions extends WriterKeysOptions {
   separator: () => SeparatorView;
   resolveImage: (src: string) => string | null;
   onChange: () => void;
+  onFormat: (editor: Editor) => void;
 }
 
 /** The chapter editor with only the nodes and marks our markdown can store. */
@@ -40,5 +41,6 @@ export function createWriterEditor(o: WriterEditorOptions): Editor {
     ],
     editorProps: { attributes: { class: "ed-body", id: "ch-body", "aria-label": "Texto do capítulo" } },
     onUpdate: () => o.onChange(),
+    onTransaction: ({ editor }) => o.onFormat(editor),
   });
 }

@@ -1,6 +1,7 @@
 import { onCleanup, onMount } from "solid-js";
 import { setEditor, focusEditor } from "../../editor/bridge";
 import { createWriterEditor } from "../../editor/createEditor";
+import { readFormat, setFormatState } from "../../editor/format";
 import type { SeparatorView } from "../../editor/separator";
 import { bookAsset } from "../../lib/assets";
 import { onEditorChange, splitCurrent } from "../../store/actions/chapters";
@@ -25,6 +26,7 @@ export function RichEditor() {
       separator,
       resolveImage,
       onChange: onEditorChange,
+      onFormat: (ed) => setFormatState(readFormat(ed)),
       onSplit: splitCurrent,
       onHint: (show) => setState("tripleHint", show && !state.toast),
       onExitTop: () => focusTarget("title", "end"),

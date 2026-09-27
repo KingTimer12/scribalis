@@ -11,6 +11,7 @@ export type FocusTarget =
   | "index"
   | "palette"
   | "help"
+  | "spacing"
   | "lib"
   | "libq"
   | "rename";

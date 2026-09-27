@@ -14,6 +14,7 @@ import { focusTarget } from "../focus";
 import { currentChapter } from "../selectors/book";
 import { libList, libSelIndex } from "../selectors/library";
 import { setState, state } from "../state";
+import { formatCommands } from "./format";
 import { promptFor } from "./prompt";
 
 export interface Command {
@@ -65,7 +66,7 @@ function bookSettingsCommands(): Command[] {
     ...(b.header ? [{ label: "Moldura superior: remover", hint: "", act: () => clearBookImage("header") }] : []),
     { label: "Moldura inferior: escolher imagem", hint: "", act: () => pickBookImage("footer") },
     ...(b.footer ? [{ label: "Moldura inferior: remover", hint: "", act: () => clearBookImage("footer") }] : []),
-    { label: "Inserir imagem no capítulo", hint: "Ctrl I", act: insertChapterImage },
+    { label: "Inserir imagem no capítulo", hint: "Ctrl Shift I", act: insertChapterImage },
     { label: "Inserir separador", hint: "Ctrl Enter", act: insertSeparator },
     { label: "Capa da obra", hint: "", act: () => pickCover(b.id) },
   ];
@@ -92,6 +93,7 @@ function editorCommands(): Command[] {
     { label: "Largura do texto: " + WIDTH_LABEL[state.prefs.width], hint: "", act: cycleWidth },
     { label: "Tamanho da letra: " + FONT_LABEL[state.prefs.font], hint: "", act: cycleFont },
     { label: "Renomear obra", hint: "", act: () => focusTarget("book", "end") },
+    ...formatCommands(),
     ...bookSettingsCommands(),
     ...commonCommands(),
   ];

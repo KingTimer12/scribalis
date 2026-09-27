@@ -16,6 +16,9 @@ let editor: Editor | null = null;
 let pending: { doc: DocJSON; key: DocKey } | null = null;
 let loadedKey: DocKey | null = null;
 
+/** The editor currently mounted, if any. */
+export const activeEditor = (): Editor | null => editor;
+
 export function setEditor(e: Editor | null) {
   editor = e;
   // A fresh (or no) editor holds no chapter until a document is loaded into it.
