@@ -22,4 +22,13 @@ describe("mock chapter commands", () => {
       "A obra precisa de pelo menos um capítulo",
     );
   });
+
+  it("rejects move with out-of-range from and leaves chapter count unchanged", async () => {
+    const { books } = await mockInvoke<LibraryListing>("library_list", {});
+    const b = await mockInvoke<BookMeta>("book_open", { id: books[0].id });
+    const initialCount = b.chapters.length;
+    await expect(mockInvoke("chapter_move", { bookId: b.id, from: 999, to: 0 })).rejects.toBe("Posição inválida");
+    const after = await mockInvoke<BookMeta>("book_open", { id: b.id });
+    expect(after.chapters.length).toBe(initialCount);
+  });
 });

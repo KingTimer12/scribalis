@@ -45,7 +45,7 @@ export const chapter = {
   },
   chapter_move: ({ bookId, from, to }: { bookId: string; from: number; to: number }): BookMeta => {
     const b = findBook(bookId);
-    if (to < 0 || to >= b.chapters.length) throw "Posição inválida";
+    if (from < 0 || from >= b.chapters.length || to < 0 || to >= b.chapters.length) throw "Posição inválida";
     const currentId = b.chapters[b.cur]?.id;
     const [c] = b.chapters.splice(from, 1);
     b.chapters.splice(to, 0, c);
