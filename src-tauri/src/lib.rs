@@ -8,6 +8,7 @@ mod samples;
 mod state;
 mod storage;
 mod text;
+mod window;
 
 use std::sync::Mutex;
 
@@ -26,6 +27,8 @@ pub fn run() {
         .setup(|app| {
             let root = app.path().document_dir()?.join(ROOT_NAME);
             app.manage(Mutex::new(Library::new(root)));
+            let theme = prefs::read(app.handle()).map(|p| p.theme).unwrap_or_default();
+            window::build_main(app, &theme)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

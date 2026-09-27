@@ -10,14 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "scribalis",
-        "width": 1440,
-        "height": 900,
-        "decorations": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null,
       "assetProtocol": { "enable": true, "scope": ["$DOCUMENT/Scribalis/**"] }

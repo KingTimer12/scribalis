@@ -1,5 +1,6 @@
 import { Show } from "solid-js";
 import { isTauri } from "../../api/invoke";
+import { isMac } from "../../lib/platform";
 import { setBookTitle } from "../../store/actions/book";
 import { goLibrary } from "../../store/actions/library";
 import { focusRef } from "../../store/focus";
@@ -9,11 +10,16 @@ import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
 import { WindowControls } from "./WindowControls";
 
+/** Custom buttons everywhere but macOS, whose native traffic lights stay. */
+const ownButtons = isTauri && !isMac;
+/** Room on the left for the macOS traffic lights. */
+const leftPad = isTauri && isMac ? "pl-[92px]" : "pl-9";
+
 /** Also the window's title bar: empty areas drag the window, double-click maximizes. */
 export function TopBar() {
   return (
     <header
-      class={"chrome absolute inset-x-0 top-0 flex h-16 items-center justify-between pl-9 " + (isTauri ? "pr-3" : "pr-9")}
+      class={`chrome absolute inset-x-0 top-0 flex h-16 items-center justify-between ${leftPad} ${ownButtons ? "pr-3" : "pr-9"}`}
       data-tauri-drag-region="deep"
     >
       <div class="flex items-center gap-2.5">
@@ -38,7 +44,7 @@ export function TopBar() {
       <div class="flex items-center gap-[18px]">
         <Hint keys="Ctrl K">comandos</Hint>
         <Hint keys="Ctrl /">atalhos</Hint>
-        <Show when={isTauri}>
+        <Show when={ownButtons}>
           <WindowControls />
         </Show>
       </div>
