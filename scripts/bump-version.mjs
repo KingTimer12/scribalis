@@ -18,4 +18,4 @@ edit("package.json", /"version": "[^"]+"/, `"version": "${version}"`);
 edit("src-tauri/tauri.conf.json", /"version": "[^"]+"/, `"version": "${version}"`);
 // Only the [package] entry: the first `version = ` line of the manifest.
 edit("src-tauri/Cargo.toml", /^version = "[^"]+"/m, `version = "${version}"`);
-console.log(`v${version}: commit, then \`git tag v${version} && git push --follow-tags\``);
+console.log(`v${version}: commit, then \`git tag -a v${version} -m v${version} && git push --follow-tags\``);

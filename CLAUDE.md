@@ -28,6 +28,7 @@ Editor de webnovel desktop: Tauri 2 (Rust) + SolidJS + Tailwind v4, gerenciado c
 - CI (`.github/workflows/ci.yml`): typecheck, testes e build a cada push no `master` e em PRs.
 - Release (`.github/workflows/release.yml`): tag `vX.Y.Z` gera instaladores assinados (Windows, Linux, macOS arm/intel)
   e publica a release com `latest.json`, que o updater do app lê.
-- Para lançar: `bun run bump X.Y.Z`, commit, `git tag vX.Y.Z && git push --follow-tags`.
+- Para lançar: `bun run bump X.Y.Z`, commit, `git tag -a vX.Y.Z -m vX.Y.Z && git push --follow-tags`
+  (tag anotada: `--follow-tags` ignora tags simples; para uma tag simples use `git push origin vX.Y.Z`).
 - Secrets do repositório: `TAURI_SIGNING_PRIVATE_KEY` (conteúdo de `~/.tauri/scribalis.key`) e
   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. A chave privada nunca entra no repositório; perdê-la impede novas atualizações.
