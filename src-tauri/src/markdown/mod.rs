@@ -1,17 +1,21 @@
 pub mod attrs;
+pub mod inline;
 pub mod parse;
 pub mod serialize;
 
 #[cfg(test)]
 mod tests {
     use super::{parse::parse, serialize::serialize};
-    use crate::model::doc::{Block, Doc, ImageAttrs, Inline};
+    use crate::model::doc::{Align, Block, Doc, ImageAttrs, Inline, Marks, ParaAttrs};
 
     fn p(parts: Vec<Inline>) -> Block {
         Block::paragraph(parts)
     }
     fn t(s: &str) -> Inline {
         Inline::text(s)
+    }
+    fn pa(attrs: ParaAttrs, parts: Vec<Inline>) -> Block {
+        Block::Paragraph { attrs, content: parts }
     }
 
     #[test]
@@ -74,5 +78,32 @@ mod tests {
         assert_eq!(parse(&serialize(&doc)), Doc::new(vec![p(vec![t("a")])]));
         let trailing = Doc::new(vec![p(vec![t("a"), Inline::HardBreak, t("  "), Inline::HardBreak])]);
         assert_eq!(parse(&serialize(&trailing)), Doc::new(vec![p(vec![t("a")])]));
+    }
+
+    #[test]
+    fn roundtrip_formatting() {
+        let centered = ParaAttrs { text_align: Some(Align::Center), space_before: Some(24), ..Default::default() };
+        let novel = ParaAttrs { indent: Some(1.25), line_height: Some(1.5), space_after: Some(0), ..Default::default() };
+        let doc = Doc::new(vec![
+            pa(centered, vec![Inline::marked("Capítulo um", Marks::BOLD)]),
+            pa(novel, vec![t("Era "), Inline::marked("uma", Marks::ITALIC), t(" vez"), Inline::HardBreak, t("{: não é attr}")]),
+            Block::Separator,
+            p(vec![t("***")]),
+            p(vec![t("![](../imagens/falsa.png)")]),
+        ]);
+        let md = serialize(&doc);
+        assert_eq!(parse(&md), doc, "via {md:?}");
+        assert!(md.starts_with("**Capítulo um**\n{: align=center before=24}\n\n"));
+    }
+
+    #[test]
+    fn plain_chapters_are_byte_identical() {
+        let md = "Primeiro\\\nsegunda linha\n\n***\n\n![](../imagens/a.png)\n\n— Então é hoje — murmurou.\n";
+        assert_eq!(serialize(&parse(md)), md);
+    }
+
+    #[test]
+    fn a_lone_attr_line_is_text() {
+        assert_eq!(parse("{: align=center}").content, vec![p(vec![t("{: align=center}")])]);
     }
 }
