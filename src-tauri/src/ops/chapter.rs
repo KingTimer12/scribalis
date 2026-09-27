@@ -68,9 +68,11 @@ pub fn insert(dir: &Path, meta: &mut Metadata, at: usize) -> AppResult<()> {
 /// Enter ×3: `before` stays in the chapter, `after` opens a new one right below.
 pub fn split(dir: &Path, meta: &mut Metadata, chapter_id: &str, before: &Doc, after: &Doc) -> AppResult<()> {
     let i = index_of(meta, chapter_id)?;
+    // Write the new chapter first so it exists on disk before modifying the original
+    insert_entry(dir, meta, i + 1, after)?;
+    // After insert_entry, index i still refers to the original chapter
     write_chapter(dir, &meta.chapters[i], before)?;
     meta.chapters[i].words = doc_words(before);
-    insert_entry(dir, meta, i + 1, after)?;
     touch_and_write(dir, meta)
 }
 
@@ -95,9 +97,11 @@ pub fn delete(dir: &Path, meta: &mut Metadata, chapter_id: &str) -> AppResult<()
     }
     let i = index_of(meta, chapter_id)?;
     let entry = meta.chapters.remove(i);
-    delete_chapter_file(dir, &entry)?;
     meta.cur = meta.cur.min(meta.chapters.len() - 1);
-    touch_and_write(dir, meta)
+    // Persist metadata first (it no longer references the removed entry)
+    touch_and_write(dir, meta)?;
+    // Only then delete the file
+    delete_chapter_file(dir, &entry)
 }
 
 /// Accent/case-insensitive search in titles, then bodies, one file at a time.
@@ -203,5 +207,20 @@ mod tests {
         update(&dir, &mut meta, &id, ChapterPatch { title: Some("Início".into()), ..Default::default() }).unwrap();
         save(&dir, &mut meta, &id, &parse("Texto")).unwrap();
         assert_eq!(markdown(&dir, &meta, &id).unwrap(), "Capítulo 1 — Início\n\nTexto\n");
+    }
+
+    #[test]
+    fn update_persists_notes_and_status() {
+        let (_r, dir, mut meta) = setup();
+        let id = meta.chapters[0].id.clone();
+        use crate::model::metadata::Status;
+        update(&dir, &mut meta, &id, ChapterPatch {
+            notes: Some("Minhas notas".into()),
+            status: Some(Status::Revisao),
+            ..Default::default()
+        }).unwrap();
+        let reread = read_metadata(&dir).unwrap();
+        assert_eq!(reread.chapters[0].notes, "Minhas notas");
+        assert_eq!(reread.chapters[0].status, Status::Revisao);
     }
 }

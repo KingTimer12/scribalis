@@ -8,6 +8,7 @@ use crate::storage::{images::{import_as, import_cover, remove_image}, metadata_i
 /// Applies a patch. Only a `cur` change leaves `updated_at` alone.
 pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()> {
     let mut touched = false;
+    let mut old_separator_image = None;
     if let Some(title) = patch.title {
         meta.title = title;
         touched = true;
@@ -18,7 +19,7 @@ pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()
     }
     if let Some(text) = patch.separator_text {
         if let Separator::Image { image } = &meta.separator {
-            remove_image(dir, image)?;
+            old_separator_image = Some(image.clone());
         }
         meta.separator = Separator::Text { text };
         touched = true;
@@ -29,7 +30,12 @@ pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()
     if touched {
         meta.updated_at = now_ms();
     }
-    write_metadata(dir, meta)
+    write_metadata(dir, meta)?;
+    // Only delete old image after metadata is persisted
+    if let Some(old) = old_separator_image {
+        remove_image(dir, &old)?;
+    }
+    Ok(())
 }
 
 fn current(meta: &Metadata, slot: ImageSlot) -> Option<String> {
@@ -61,27 +67,34 @@ fn assign(meta: &mut Metadata, slot: ImageSlot, rel: Option<String>) {
 /// Imports `src` into the slot, replacing (and deleting) the previous file.
 pub fn set_image(dir: &Path, meta: &mut Metadata, slot: ImageSlot, src: &Path) -> AppResult<()> {
     let old = current(meta, slot);
+    // Import the new file first (before modifying metadata)
     let rel = match slot {
         ImageSlot::Cover => import_cover(src, dir)?,
         ImageSlot::Header => import_as(src, dir, "cabecalho")?,
         ImageSlot::Footer => import_as(src, dir, "rodape")?,
         ImageSlot::Separator => import_as(src, dir, "separador")?,
     };
-    if let Some(old) = old.filter(|o| *o != rel) {
-        remove_image(dir, &old)?;
-    }
+    let rel_copy = rel.clone();
     assign(meta, slot, Some(rel));
     meta.updated_at = now_ms();
-    write_metadata(dir, meta)
+    write_metadata(dir, meta)?;
+    // Only delete old image after metadata is persisted
+    if let Some(old) = old.filter(|o| *o != rel_copy) {
+        remove_image(dir, &old)?;
+    }
+    Ok(())
 }
 
 pub fn clear_image(dir: &Path, meta: &mut Metadata, slot: ImageSlot) -> AppResult<()> {
-    if let Some(old) = current(meta, slot) {
-        remove_image(dir, &old)?;
-    }
+    let old = current(meta, slot);
     assign(meta, slot, None);
     meta.updated_at = now_ms();
-    write_metadata(dir, meta)
+    write_metadata(dir, meta)?;
+    // Only delete old image after metadata is persisted
+    if let Some(old) = old {
+        remove_image(dir, &old)?;
+    }
+    Ok(())
 }
 
 /// Copies an image to be referenced from a chapter; returns its relative path.
@@ -130,5 +143,31 @@ mod tests {
         meta.updated_at = 5;
         update(&dir, &mut meta, BookPatch { cur: Some(9), ..Default::default() }).unwrap();
         assert_eq!((meta.cur, meta.updated_at), (0, 5));
+    }
+
+    #[test]
+    fn insert_image_returns_path_and_file_exists() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, _meta) = create_book(root.path(), "Obra").unwrap();
+        let src = png(root.path());
+        let rel = insert_image(&dir, &src).unwrap();
+        assert!(rel.starts_with("imagens/"));
+        assert!(rel.ends_with(".png"));
+        assert!(dir.join(&rel).exists());
+    }
+
+    #[test]
+    fn update_persists_title_and_author() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, mut meta) = create_book(root.path(), "Obra").unwrap();
+        update(&dir, &mut meta, BookPatch {
+            title: Some("Novo Título".into()),
+            author: Some("Autor".into()),
+            ..Default::default()
+        }).unwrap();
+        let reread = crate::storage::metadata_io::read_metadata(&dir).unwrap();
+        assert_eq!(reread.title, "Novo Título");
+        assert_eq!(reread.author, "Autor");
+        assert!(reread.updated_at > 0);
     }
 }
