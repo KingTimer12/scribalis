@@ -5,6 +5,14 @@ use crate::ids::{new_id, now_ms};
 use crate::model::{metadata::{Metadata, Separator}, patches::{BookPatch, ImageSlot}};
 use crate::storage::{images::{import_as, import_cover, remove_image}, metadata_io::write_metadata};
 
+/// Deletes an image the metadata no longer references. The change is already
+/// saved, so a failure here (e.g. a locked file) only leaves an orphan behind.
+fn discard_image(dir: &Path, rel: &str) {
+    if let Err(e) = remove_image(dir, rel) {
+        eprintln!("could not remove old image {rel}: {e}");
+    }
+}
+
 /// Applies a patch. Only a `cur` change leaves `updated_at` alone.
 pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()> {
     let mut touched = false;
@@ -33,7 +41,7 @@ pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()
     write_metadata(dir, meta)?;
     // Only delete old image after metadata is persisted
     if let Some(old) = old_separator_image {
-        remove_image(dir, &old)?;
+        discard_image(dir, &old);
     }
     Ok(())
 }
@@ -80,7 +88,7 @@ pub fn set_image(dir: &Path, meta: &mut Metadata, slot: ImageSlot, src: &Path) -
     write_metadata(dir, meta)?;
     // Only delete old image after metadata is persisted
     if let Some(old) = old.filter(|o| *o != rel_copy) {
-        remove_image(dir, &old)?;
+        discard_image(dir, &old);
     }
     Ok(())
 }
@@ -92,7 +100,7 @@ pub fn clear_image(dir: &Path, meta: &mut Metadata, slot: ImageSlot) -> AppResul
     write_metadata(dir, meta)?;
     // Only delete old image after metadata is persisted
     if let Some(old) = old {
-        remove_image(dir, &old)?;
+        discard_image(dir, &old);
     }
     Ok(())
 }
