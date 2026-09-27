@@ -2,6 +2,8 @@ mod error;
 mod ids;
 mod text;
 mod storage;
+mod model;
+mod markdown;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
