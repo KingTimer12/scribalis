@@ -4,6 +4,8 @@ mod text;
 mod storage;
 mod model;
 mod markdown;
+mod ops;
+mod samples;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

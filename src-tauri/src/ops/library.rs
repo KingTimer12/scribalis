@@ -1,0 +1,133 @@
+use std::{fs, path::{Path, PathBuf}};
+
+use crate::error::AppResult;
+use crate::ids::{new_id, now_ms};
+use crate::markdown::parse::parse;
+use crate::model::{doc::Doc, metadata::{ChapterEntry, Metadata}};
+use crate::samples::sample_books;
+use crate::storage::{
+    chapter_io::write_chapter,
+    metadata_io::{read_metadata, write_metadata},
+    paths::{slugify, unique_dir, CHAPTERS_DIR, IMAGES_DIR},
+};
+use crate::text::words::doc_words;
+
+pub struct Scan {
+    pub books: Vec<(PathBuf, Metadata)>,
+    pub warnings: Vec<String>,
+}
+
+/// Reads every `<root>/<folder>/metadata.json`. Unreadable folders become warnings.
+pub fn scan(root: &Path) -> AppResult<Scan> {
+    let mut books = Vec::new();
+    let mut skipped = 0;
+    for entry in fs::read_dir(root)? {
+        let path = entry?.path();
+        if !path.is_dir() {
+            continue;
+        }
+        match read_metadata(&path) {
+            Ok(meta) => books.push((path, meta)),
+            Err(_) => skipped += 1,
+        }
+    }
+    let warnings = match skipped {
+        0 => vec![],
+        1 => vec!["1 pasta ignorada: metadata ausente ou inválido".to_string()],
+        n => vec![format!("{n} pastas ignoradas: metadata ausente ou inválido")],
+    };
+    Ok(Scan { books, warnings })
+}
+
+/// Creates the folder tree, an empty first chapter and the metadata.
+pub fn create_book(root: &Path, title: &str) -> AppResult<(PathBuf, Metadata)> {
+    let dir = unique_dir(root, &slugify(title));
+    fs::create_dir_all(dir.join(IMAGES_DIR))?;
+    fs::create_dir_all(dir.join(CHAPTERS_DIR))?;
+    let chapter = ChapterEntry::new(new_id());
+    write_chapter(&dir, &chapter, &Doc::default())?;
+    let meta = Metadata::new(new_id(), title, vec![chapter]);
+    write_metadata(&dir, &meta)?;
+    Ok((dir, meta))
+}
+
+/// Removes the whole book folder. Permanent.
+pub fn delete_book(dir: &Path) -> AppResult<()> {
+    fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+/// Writes the sample books into `root`.
+pub fn write_samples(root: &Path) -> AppResult<()> {
+    for sample in sample_books() {
+        let dir = unique_dir(root, &slugify(sample.title));
+        fs::create_dir_all(dir.join(IMAGES_DIR))?;
+        fs::create_dir_all(dir.join(CHAPTERS_DIR))?;
+        let mut chapters = Vec::new();
+        for c in &sample.chapters {
+            let mut entry = ChapterEntry::new(new_id());
+            let doc = parse(c.body);
+            entry.title = c.title.to_string();
+            entry.status = c.status;
+            entry.notes = c.notes.to_string();
+            entry.words = doc_words(&doc);
+            write_chapter(&dir, &entry, &doc)?;
+            chapters.push(entry);
+        }
+        let mut meta = Metadata::new(new_id(), sample.title, chapters);
+        meta.cur = sample.cur;
+        meta.updated_at = now_ms().saturating_sub(sample.age_hours * 3_600_000);
+        write_metadata(&dir, &meta)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_then_scan() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "Meu Livro").unwrap();
+        assert!(dir.ends_with("meu-livro"));
+        assert!(dir.join("imagens").is_dir());
+        assert!(dir.join(&meta.chapters[0].file).is_file());
+        let scan = scan(root.path()).unwrap();
+        assert_eq!(scan.books.len(), 1);
+        assert!(scan.warnings.is_empty());
+    }
+
+    #[test]
+    fn same_title_twice_gets_two_folders() {
+        let root = tempfile::tempdir().unwrap();
+        let (a, _) = create_book(root.path(), "X").unwrap();
+        let (b, _) = create_book(root.path(), "X").unwrap();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn broken_folders_become_warnings() {
+        let root = tempfile::tempdir().unwrap();
+        create_book(root.path(), "Boa").unwrap();
+        fs::create_dir(root.path().join("sem-meta")).unwrap();
+        let bad = root.path().join("quebrada");
+        fs::create_dir(&bad).unwrap();
+        fs::write(bad.join("metadata.json"), "{ nope").unwrap();
+        fs::write(root.path().join("solto.txt"), "x").unwrap();
+        let scan = scan(root.path()).unwrap();
+        assert_eq!(scan.books.len(), 1);
+        assert_eq!(scan.warnings, vec!["2 pastas ignoradas: metadata ausente ou inválido"]);
+    }
+
+    #[test]
+    fn samples_have_word_counts_and_delete_works() {
+        let root = tempfile::tempdir().unwrap();
+        write_samples(root.path()).unwrap();
+        let scan = scan(root.path()).unwrap();
+        assert_eq!(scan.books.len(), 3);
+        assert!(scan.books.iter().all(|(_, m)| m.total_words() > 0));
+        delete_book(&scan.books[0].0).unwrap();
+        assert_eq!(super::scan(root.path()).unwrap().books.len(), 2);
+    }
+}
