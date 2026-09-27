@@ -125,6 +125,23 @@
   .crumb:hover {
     color: var(--ink);
   }
+  /* new release offer in the top bar */
+  .update-badge {
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--accent);
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .update-badge:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .update-badge:disabled {
+    opacity: 0.7;
+    cursor: progress;
+  }
   /* custom window controls (the native title bar is off) */
   .win-btn {
     display: grid;

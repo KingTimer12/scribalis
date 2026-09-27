@@ -9,6 +9,7 @@ import { clearBookImage, clearCover, insertChapterImage, pickBookImage, pickCove
 import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../actions/library";
 import { cycleFont, cycleGoal, cycleWidth, toggleTheme } from "../actions/prefs";
 import { homeTarget, openPanel } from "../actions/ui";
+import { installUpdate } from "../actions/update";
 import { focusTarget } from "../focus";
 import { currentChapter } from "../selectors/book";
 import { libList, libSelIndex } from "../selectors/library";
@@ -30,6 +31,7 @@ function commonCommands(): Command[] {
   return [
     { label: state.prefs.theme === "dark" ? "Tema claro" : "Tema escuro", hint: "Ctrl J", act: toggleTheme },
     { label: "Atalhos", hint: "Ctrl /", act: () => openPanel("help") },
+    ...(state.update ? [{ label: "Instalar versão " + state.update.version + " (reinicia)", hint: "", act: () => void installUpdate() }] : []),
   ];
 }
 

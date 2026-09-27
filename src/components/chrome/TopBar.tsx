@@ -8,6 +8,7 @@ import { bookTitleKey } from "../../store/keys/fields";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
+import { UpdateBadge } from "./UpdateBadge";
 import { WindowControls } from "./WindowControls";
 
 /** Custom buttons everywhere but macOS, whose native traffic lights stay. */
@@ -42,6 +43,7 @@ export function TopBar() {
         </Show>
       </div>
       <div class="flex items-center gap-[18px]">
+        <UpdateBadge />
         <Hint keys="Ctrl K">comandos</Hint>
         <Hint keys="Ctrl /">atalhos</Hint>
         <Show when={ownButtons}>

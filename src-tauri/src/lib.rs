@@ -8,13 +8,14 @@ mod samples;
 mod state;
 mod storage;
 mod text;
+mod update;
 mod window;
 
 use std::sync::Mutex;
 
 use tauri::Manager;
 
-use commands::{book, chapter, library, prefs, stats};
+use commands::{book, chapter, library, prefs, stats, update as update_cmd};
 use state::Library;
 use storage::paths::ROOT_NAME;
 
@@ -24,9 +25,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let root = app.path().document_dir()?.join(ROOT_NAME);
             app.manage(Mutex::new(Library::new(root)));
+            app.manage(update::PendingUpdate::default());
             let theme = prefs::read(app.handle()).map(|p| p.theme).unwrap_or_default();
             window::build_main(app, &theme)?;
             Ok(())
@@ -55,6 +58,8 @@ pub fn run() {
             prefs::prefs_get,
             prefs::prefs_set,
             stats::stats_today,
+            update_cmd::update_check,
+            update_cmd::update_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

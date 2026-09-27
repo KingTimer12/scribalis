@@ -58,6 +58,11 @@ export interface LibraryListing {
   warnings: string[];
 }
 
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+}
+
 export interface Prefs {
   theme: "light" | "dark";
   goal: number;

@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store";
-import type { BookMeta, BookSummary, Prefs, SearchHit } from "../api/types";
+import type { BookMeta, BookSummary, Prefs, SearchHit, UpdateInfo } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import type { Panel, View } from "../lib/types";
 
@@ -42,6 +42,11 @@ export interface AppState {
   renaming: string | null;
   renameVal: string;
   libConfirm: string | null;
+  // updater
+  /** Newer release found at startup, or null. */
+  update: UpdateInfo | null;
+  /** True while the update downloads and installs. */
+  updating: boolean;
 }
 
 export const [state, setState] = createStore<AppState>({
@@ -69,6 +74,8 @@ export const [state, setState] = createStore<AppState>({
   renaming: null,
   renameVal: "",
   libConfirm: null,
+  update: null,
+  updating: false,
 });
 
 /** Values outside the store: they never need to re-render anything. */

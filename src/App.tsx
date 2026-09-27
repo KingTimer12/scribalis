@@ -11,6 +11,7 @@ import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
+import { checkForUpdate } from "./store/actions/update";
 import { focusTarget } from "./store/focus";
 import { listenImageDrops } from "./store/imageDrops";
 import { rootKey } from "./store/keys/global";
@@ -39,6 +40,7 @@ export default function App() {
     }
     await Promise.all([loadPrefs(), refreshLibrary()]);
     focusTarget("lib");
+    if (isTauri) void checkForUpdate();
   });
   onCleanup(() => {
     disposed = true;

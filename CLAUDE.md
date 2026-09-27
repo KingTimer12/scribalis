@@ -22,3 +22,12 @@ Editor de webnovel desktop: Tauri 2 (Rust) + SolidJS + Tailwind v4, gerenciado c
 - `bun run tauri dev`: app desktop
 - `bun run build`: build do front
 - Typecheck: `./node_modules/.bin/tsc.exe --noEmit -p .`
+
+## Release e updater
+
+- CI (`.github/workflows/ci.yml`): typecheck, testes e build a cada push no `master` e em PRs.
+- Release (`.github/workflows/release.yml`): tag `vX.Y.Z` gera instaladores assinados (Windows, Linux, macOS arm/intel)
+  e publica a release com `latest.json`, que o updater do app lê.
+- Para lançar: `bun run bump X.Y.Z`, commit, `git tag vX.Y.Z && git push --follow-tags`.
+- Secrets do repositório: `TAURI_SIGNING_PRIVATE_KEY` (conteúdo de `~/.tauri/scribalis.key`) e
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. A chave privada nunca entra no repositório; perdê-la impede novas atualizações.
