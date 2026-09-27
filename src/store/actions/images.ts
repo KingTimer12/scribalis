@@ -1,6 +1,7 @@
 import * as api from "../../api/book";
 import type { ImageSlot } from "../../api/types";
 import { insertImage } from "../../editor/bridge";
+import { flushAll } from "../saving";
 import { refreshLibrary } from "./library";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -34,8 +35,10 @@ export async function pickBookImage(slot: ImageSlot) {
   const id = state.book?.id;
   if (!id) return;
   try {
+    // Pending title/author edits first, or the returned metadata would revert them.
+    await flushAll();
     const meta = await api.pickBookImage(id, slot);
-    if (meta) {
+    if (meta && state.book?.id === id) {
       setState("book", meta);
       flash(LABEL[slot] + " atualizado");
     }
@@ -48,7 +51,10 @@ export async function clearBookImage(slot: ImageSlot) {
   const id = state.book?.id;
   if (!id) return;
   try {
-    setState("book", await api.clearBookImage(id, slot));
+    await flushAll();
+    const meta = await api.clearBookImage(id, slot);
+    if (state.book?.id !== id) return;
+    setState("book", meta);
     flash(LABEL[slot] + " removido");
   } catch (e) {
     flashError(e);
@@ -60,7 +66,8 @@ export async function insertChapterImage() {
   if (!id) return;
   try {
     const src = await api.insertChapterImage(id);
-    if (src) insertImage(src);
+    // The image was copied into book `id`: only insert it if that book is still open.
+    if (src && state.book?.id === id) insertImage(src);
   } catch (e) {
     flashError(e);
   }
