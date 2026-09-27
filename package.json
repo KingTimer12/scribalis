@@ -18,6 +18,13 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tiptap/core": "3",
+    "@tiptap/extension-document": "3",
+    "@tiptap/extension-hard-break": "3",
+    "@tiptap/extension-paragraph": "3",
+    "@tiptap/extension-text": "3",
+    "@tiptap/extensions": "3",
+    "@tiptap/pm": "3",
     "solid-js": "^1.9.3",
     "tailwindcss": "^4.3.3"
   },
