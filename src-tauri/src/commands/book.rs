@@ -1,4 +1,4 @@
-use tauri::{AppHandle, State};
+use tauri::{State, WebviewWindow};
 
 use super::dialog::pick_image;
 use crate::error::AppResult;
@@ -21,13 +21,13 @@ pub async fn book_update(state: State<'_, SharedLibrary>, id: String, patch: Boo
 
 #[tauri::command]
 pub async fn book_pick_image(
-    app: AppHandle,
+    window: WebviewWindow,
     state: State<'_, SharedLibrary>,
     id: String,
     slot: ImageSlot,
 ) -> AppResult<Option<BookMeta>> {
     // The dialog runs before locking so the state is never held while the user browses.
-    let Some(src) = pick_image(&app) else { return Ok(None) };
+    let Some(src) = pick_image(&window) else { return Ok(None) };
     lock(&state)?.with_book(&id, |dir, meta| {
         book::set_image(dir, meta, slot, &src)?;
         Ok(Some(BookMeta::from_meta(dir, meta)))
@@ -43,8 +43,8 @@ pub async fn book_clear_image(state: State<'_, SharedLibrary>, id: String, slot:
 }
 
 #[tauri::command]
-pub async fn book_insert_image(app: AppHandle, state: State<'_, SharedLibrary>, id: String) -> AppResult<Option<String>> {
-    let Some(src) = pick_image(&app) else { return Ok(None) };
+pub async fn book_insert_image(window: WebviewWindow, state: State<'_, SharedLibrary>, id: String) -> AppResult<Option<String>> {
+    let Some(src) = pick_image(&window) else { return Ok(None) };
     let dir = lock(&state)?.dir_of(&id)?;
     book::insert_image(&dir, &src).map(Some)
 }

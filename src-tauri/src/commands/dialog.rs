@@ -1,14 +1,16 @@
 use std::path::PathBuf;
 
-use tauri::AppHandle;
+use tauri::WebviewWindow;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::storage::images::ALLOWED_EXTENSIONS;
 
-/// Native "open image" dialog. Blocking: call only from async commands.
-pub fn pick_image(app: &AppHandle) -> Option<PathBuf> {
-    app.dialog()
+/// Native "open image" dialog, modal to the calling window. Blocking: call only from async commands.
+pub fn pick_image(window: &WebviewWindow) -> Option<PathBuf> {
+    window
+        .dialog()
         .file()
+        .set_parent(window)
         .add_filter("Imagens", &ALLOWED_EXTENSIONS)
         .blocking_pick_file()
         .and_then(|f| f.into_path().ok())
