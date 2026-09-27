@@ -66,14 +66,15 @@ pub fn insert(dir: &Path, meta: &mut Metadata, at: usize) -> AppResult<()> {
 }
 
 /// Enter ×3: `before` stays in the chapter, `after` opens a new one right below.
+/// Order matters: new file, then metadata, and only then the original is cut,
+/// so a failure at any step leaves the text duplicated, never lost.
 pub fn split(dir: &Path, meta: &mut Metadata, chapter_id: &str, before: &Doc, after: &Doc) -> AppResult<()> {
     let i = index_of(meta, chapter_id)?;
-    // Write the new chapter first so it exists on disk before modifying the original
     insert_entry(dir, meta, i + 1, after)?;
     // After insert_entry, index i still refers to the original chapter
-    write_chapter(dir, &meta.chapters[i], before)?;
     meta.chapters[i].words = doc_words(before);
-    touch_and_write(dir, meta)
+    touch_and_write(dir, meta)?;
+    write_chapter(dir, &meta.chapters[i], before)
 }
 
 /// Moves chapter `from` to `to`, keeping `cur` on the same chapter.
@@ -164,6 +165,36 @@ mod tests {
         let new_id = meta.chapters[1].id.clone();
         assert_eq!(load(&dir, &meta, &new_id).unwrap(), parse("depois do cursor"));
         assert_eq!(meta.chapters[1].words, 3);
+    }
+
+    #[test]
+    fn split_persists_both_files_and_metadata() {
+        let (_r, dir, mut meta) = setup();
+        let id = meta.chapters[0].id.clone();
+        split(&dir, &mut meta, &id, &parse("um dois"), &parse("três quatro cinco")).unwrap();
+        let disk = read_metadata(&dir).unwrap();
+        assert_eq!(disk.chapters.len(), 2);
+        assert_eq!(disk.cur, 1);
+        assert_eq!((disk.chapters[0].words, disk.chapters[1].words), (2, 3));
+        assert_eq!(load(&dir, &disk, &id).unwrap(), parse("um dois"));
+        assert_eq!(load(&dir, &disk, &disk.chapters[1].id).unwrap(), parse("três quatro cinco"));
+    }
+
+    #[test]
+    fn failed_split_duplicates_text_instead_of_losing_it() {
+        let (_r, dir, mut meta) = setup();
+        let id = meta.chapters[0].id.clone();
+        save(&dir, &mut meta, &id, &parse("antes depois")).unwrap();
+        // A directory where the original's temp file goes makes its overwrite fail.
+        let blocker = dir.join(format!("{}.tmp", meta.chapters[0].file));
+        std::fs::create_dir_all(&blocker).unwrap();
+        assert!(split(&dir, &mut meta, &id, &parse("antes"), &parse("depois")).is_err());
+        let disk = read_metadata(&dir).unwrap();
+        // The new chapter is already listed with the `after` text...
+        assert_eq!(disk.chapters.len(), 2);
+        assert_eq!(load(&dir, &disk, &disk.chapters[1].id).unwrap(), parse("depois"));
+        // ...and the original still holds everything.
+        assert_eq!(load(&dir, &disk, &id).unwrap(), parse("antes depois"));
     }
 
     #[test]
