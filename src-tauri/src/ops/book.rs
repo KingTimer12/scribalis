@@ -160,6 +160,7 @@ mod tests {
     fn update_persists_title_and_author() {
         let root = tempfile::tempdir().unwrap();
         let (dir, mut meta) = create_book(root.path(), "Obra").unwrap();
+        meta.updated_at = 5;
         update(&dir, &mut meta, BookPatch {
             title: Some("Novo Título".into()),
             author: Some("Autor".into()),
@@ -168,6 +169,6 @@ mod tests {
         let reread = crate::storage::metadata_io::read_metadata(&dir).unwrap();
         assert_eq!(reread.title, "Novo Título");
         assert_eq!(reread.author, "Autor");
-        assert!(reread.updated_at > 0);
+        assert!(reread.updated_at > 5);
     }
 }
