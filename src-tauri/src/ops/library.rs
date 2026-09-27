@@ -1,4 +1,4 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{collections::HashSet, fs, path::{Path, PathBuf}};
 
 use crate::error::AppResult;
 use crate::ids::{new_id, now_ms};
@@ -25,18 +25,35 @@ fn init_book_dirs(dir: &Path) -> AppResult<()> {
 }
 
 /// Reads every `<root>/<folder>/metadata.json`. Unreadable folders become warnings.
+/// A folder whose id was already seen (a copied book folder) gets a fresh id,
+/// written back, so every id maps to exactly one folder.
 pub fn scan(root: &Path) -> AppResult<Scan> {
-    let mut books = Vec::new();
-    let mut skipped = 0;
+    let mut dirs = Vec::new();
     for entry in fs::read_dir(root)? {
         let path = entry?.path();
-        if !path.is_dir() {
+        if path.is_dir() {
+            dirs.push(path);
+        }
+    }
+    // Sorted so the original (usually the shorter name) keeps its id.
+    dirs.sort();
+    let mut books = Vec::new();
+    let mut seen = HashSet::new();
+    let mut skipped = 0;
+    for path in dirs {
+        let Ok(mut meta) = read_metadata(&path) else {
+            skipped += 1;
             continue;
+        };
+        if !seen.insert(meta.id.clone()) {
+            meta.id = new_id();
+            if write_metadata(&path, &meta).is_err() {
+                skipped += 1;
+                continue;
+            }
+            seen.insert(meta.id.clone());
         }
-        match read_metadata(&path) {
-            Ok(meta) => books.push((path, meta)),
-            Err(_) => skipped += 1,
-        }
+        books.push((path, meta));
     }
     let warnings = match skipped {
         0 => vec![],
@@ -133,6 +150,34 @@ mod tests {
         let scan = scan(root.path()).unwrap();
         assert_eq!(scan.books.len(), 1);
         assert_eq!(scan.warnings, vec!["1 pasta ignorada: metadata ausente ou inválido"]);
+    }
+
+    fn copy_dir(from: &Path, to: &Path) {
+        fs::create_dir_all(to).unwrap();
+        for entry in fs::read_dir(from).unwrap() {
+            let p = entry.unwrap().path();
+            let target = to.join(p.file_name().unwrap());
+            if p.is_dir() { copy_dir(&p, &target) } else { fs::copy(&p, &target).map(|_| ()).unwrap() }
+        }
+    }
+
+    #[test]
+    fn copied_folder_becomes_an_independent_book() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "Obra").unwrap();
+        let copy = root.path().join("obra - copia");
+        copy_dir(&dir, &copy);
+        let scan = scan(root.path()).unwrap();
+        assert_eq!(scan.books.len(), 2);
+        let original = scan.books.iter().find(|(d, _)| *d == dir).unwrap();
+        let copied = scan.books.iter().find(|(d, _)| *d == copy).unwrap();
+        assert_eq!(original.1.id, meta.id);
+        assert_ne!(copied.1.id, meta.id);
+        assert_eq!(read_metadata(&copy).unwrap().id, copied.1.id);
+        // A second scan is stable.
+        let again = super::scan(root.path()).unwrap();
+        let ids: HashSet<_> = again.books.iter().map(|(_, m)| m.id.clone()).collect();
+        assert_eq!(ids, HashSet::from([meta.id.clone(), copied.1.id.clone()]));
     }
 
     #[test]
