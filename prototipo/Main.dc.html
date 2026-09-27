@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Editor de webnovel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F6F4EF}
+a{color:#A8481F}a:hover{color:#7E3414}
+.app{--bg:#F6F4EF;--ink:#1D1C1A;--muted:#66625A;--faint:#E3DFD6;--soft:#ECE8E0;--panel:#FBFAF7;--accent:#A8481F;--rev:#8A5E00;--ok:#2F6B4A;--scrim:rgba(29,28,26,.16);--shadow:0 30px 70px -24px rgba(40,30,20,.28);position:relative;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Literata',Georgia,serif;transition:background .3s,color .3s}
+.app.dark{--bg:#151513;--ink:#E7E3D9;--muted:#A09B90;--faint:#2D2C29;--soft:#23221F;--panel:#1C1B19;--accent:#E0895A;--rev:#D9A441;--ok:#7CC39A;--scrim:rgba(0,0,0,.5);--shadow:0 30px 70px -24px rgba(0,0,0,.7)}
+.ui{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:var(--muted);letter-spacing:.02em}
+.cap{text-transform:uppercase;letter-spacing:.12em}
+.kbd{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;line-height:1;padding:4px 6px;border:1px solid var(--faint);border-radius:5px;color:var(--muted);background:var(--bg);white-space:nowrap}
+.hint{display:flex;align-items:center;gap:6px}
+.chrome{transition:opacity .35s}
+.focus .chrome{opacity:0}
+.focus .chrome:hover{opacity:1}
+.crumb{border:0;background:transparent;padding:6px 0;cursor:pointer}
+.crumb:hover{color:var(--ink)}
+.book{border:0;outline:0;background:transparent;padding:0;width:280px}
+.book:focus{color:var(--ink)}
+.ed-title{border:0;outline:0;background:transparent;padding:0;margin:0;width:100%;font-family:inherit;font-size:40px;font-weight:500;letter-spacing:-.01em;color:var(--ink)}
+.ed-body{flex-grow:1;width:100%;border:0;outline:0;resize:none;background:transparent;padding:0 0 260px;margin:0;font-family:inherit;font-size:20px;line-height:1.8;color:var(--ink);scrollbar-width:none;caret-color:var(--accent)}
+.ed-body::-webkit-scrollbar{width:0}
+.ed-title::placeholder,.ed-body::placeholder,.pal-in::placeholder,.notes-ta::placeholder,.lib-q::placeholder,.lib-rename::placeholder{color:var(--muted);opacity:.75}
+.f0 .ed-body{font-size:18px}.f2 .ed-body{font-size:22px}
+.w0 .col{width:580px}.w1 .col{width:660px}.w2 .col{width:780px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;box-sizing:border-box;flex-shrink:0}
+.st-rascunho{border:1.5px solid var(--muted)}.st-revisao{background:var(--rev)}.st-pronto{background:var(--ok)}
+.lib{outline:none;animation:fadeIn .25s ease-out}
+.lib-q{flex-grow:1;border:0;outline:0;background:transparent;padding:0;font-family:inherit;font-size:16px;color:var(--ink)}
+.tile{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cover-btn{position:relative;display:block;width:160px;height:240px;padding:0;border:0;border-radius:4px 8px 8px 4px;overflow:hidden;cursor:pointer;background:var(--soft);box-shadow:inset 7px 0 0 rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.08),0 12px 28px -18px rgba(40,30,20,.45);transition:transform .2s ease,box-shadow .2s ease;outline:none}
+.cover-btn:hover{transform:translateY(-3px)}
+.tile.sel .cover-btn{transform:translateY(-5px);box-shadow:inset 7px 0 0 rgba(0,0,0,.07),0 0 0 2px var(--bg),0 0 0 4px var(--accent),0 20px 36px -18px rgba(40,30,20,.5)}
+.cover-img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block}
+.cover-letter{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:'Literata',Georgia,serif;font-size:104px;font-weight:400;line-height:1;color:#2A2622}
+.cover-letter::after{content:'';position:absolute;left:22px;right:16px;bottom:26px;height:1px;background:currentColor;opacity:.35}
+.cov-0{background:#DCCDB8}.cov-1{background:#C7D3C3}.cov-2{background:#C9D1DD}.cov-3{background:#DEC7C2}.cov-4{background:#D5CDE0}.cov-5{background:#E2D4AE}
+.dark .cover-letter{color:#EDE7DC}
+.dark .cov-0{background:#4A3F33}.dark .cov-1{background:#34443A}.dark .cov-2{background:#323D4D}.dark .cov-3{background:#4D3533}.dark .cov-4{background:#403850}.dark .cov-5{background:#4B4127}
+.tile-title{font-size:16px;font-weight:500;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tile.cur .tile-title{color:var(--accent)}
+.lib-rename{border:0;border-bottom:1px solid var(--accent);outline:0;background:transparent;padding:0 0 4px;width:160px;font-family:inherit;font-size:16px;font-weight:500;color:var(--ink);caret-color:var(--accent)}
+.warn{color:var(--accent)}
+.scrim{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--scrim);animation:fadeIn .18s ease-out}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:340px;background:var(--panel);border-right:1px solid var(--faint);box-sizing:border-box;padding:32px 16px 24px;display:flex;flex-direction:column;gap:20px;outline:none;animation:slideL .22s ease-out}
+.ix-item{display:grid;grid-template-columns:32px minmax(0,1fr) auto 14px;align-items:center;gap:8px;width:100%;min-height:46px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink);font-family:inherit;font-size:15px;text-align:left;cursor:pointer}
+.ix-item.sel{background:var(--soft)}
+.ix-item.cur .ix-t{color:var(--accent)}
+.ix-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pal{position:absolute;top:140px;left:420px;width:600px;background:var(--panel);border:1px solid var(--faint);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;animation:drop .18s ease-out}
+.pal-in{width:100%;box-sizing:border-box;border:0;outline:0;background:transparent;padding:22px 24px;font-family:inherit;font-size:19px;color:var(--ink);border-bottom:1px solid var(--faint)}
+.pal-list{padding:8px;display:flex;flex-direction:column;max-height:500px;overflow-y:auto;scrollbar-width:none}
+.pal-item{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:44px;padding:0 14px;border:0;border-radius:8px;background:transparent;color:var(--ink);font-family:inherit;font-size:15px;text-align:left;cursor:pointer;flex-shrink:0}
+.pal-item.sel{background:var(--soft)}
+.pal-item.danger{color:var(--accent)}
+.pal-kind{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-right:10px}
+.notes{position:absolute;top:72px;bottom:72px;right:32px;width:320px;box-sizing:border-box;padding:24px;background:var(--panel);border:1px solid var(--faint);border-radius:14px;display:flex;flex-direction:column;gap:14px;animation:slideR .22s ease-out}
+.notes-ta{flex-grow:1;border:0;outline:0;resize:none;background:transparent;padding:0;font-family:inherit;font-size:15px;line-height:1.65;color:var(--ink);scrollbar-width:none}
+.help{position:absolute;top:80px;left:320px;width:800px;box-sizing:border-box;padding:36px 44px;background:var(--panel);border:1px solid var(--faint);border-radius:16px;box-shadow:var(--shadow);outline:none;display:flex;flex-direction:column;gap:24px;animation:drop .2s ease-out}
+.help-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:9px 0;border-bottom:1px solid var(--faint);font-size:15px}
+.toast{animation:toast 1.8s ease-out forwards}
+.pulse{animation:fadeIn .25s ease-out}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes slideL{from{transform:translateX(-18px);opacity:0}}
+@keyframes slideR{from{transform:translateX(18px);opacity:0}}
+@keyframes drop{from{transform:translateY(-8px);opacity:0}}
+@keyframes toast{0%{opacity:0;transform:translateY(4px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+</style>
+</helmet>
+<div class="{{appClass}}" onKeyDown="{{onRootKey}}" style="width: 1440px; height: 900px">
+  <input type="file" accept="image/*" aria-label="Imagem da capa" tabIndex="-1" ref="{{setFile}}" onChange="{{onFile}}" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: -9999px">
+
+  <div class="chrome" style="position: absolute; top: 0; left: 0; right: 0; height: 64px; box-sizing: border-box; padding: 0 36px; display: flex; align-items: center; justify-content: space-between">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <sc-if value="{{showEditor}}" hint-placeholder-val="{{ false }}">
+        <button class="ui crumb" onClick="{{goLib}}">Obras</button>
+        <span class="ui" style="opacity: .5">/</span>
+        <label for="book-title" style="position: absolute; left: -9999px">Nome da obra</label>
+        <input id="book-title" class="ui book" value="{{bookTitle}}" onChange="{{onBook}}" onKeyDown="{{onBookKey}}" ref="{{setBook}}" placeholder="Nome da obra" autoComplete="off">
+      </sc-if>
+    </div>
+    <div style="display: flex; align-items: center; gap: 18px">
+      <span class="ui hint"><span class="kbd">Ctrl K</span>comandos</span>
+      <span class="ui hint"><span class="kbd">Ctrl /</span>atalhos</span>
+    </div>
+  </div>
+
+  <sc-if value="{{showLibrary}}" hint-placeholder-val="{{ true }}">
+    <div class="lib" tabIndex="-1" ref="{{setLib}}" onKeyDown="{{onLibKey}}" style="position: absolute; top: 64px; bottom: 64px; left: 0; right: 0; display: flex; justify-content: center">
+      <div style="width: 1120px; height: 100%; box-sizing: border-box; padding-top: 48px; display: flex; flex-direction: column; gap: 40px">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 32px">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <div class="ui cap">Biblioteca</div>
+            <h1 style="margin: 0; font-size: 46px; font-weight: 500; letter-spacing: -.015em">Suas obras</h1>
+            <div class="ui">{{libStats}}</div>
+          </div>
+          <div style="width: 300px; display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--faint)">
+            <span class="kbd">/</span>
+            <label for="lib-q" style="position: absolute; left: -9999px">Buscar obra</label>
+            <input id="lib-q" class="lib-q" value="{{libQ}}" onChange="{{onLibQ}}" onKeyDown="{{onLibQKey}}" ref="{{setLibQ}}" placeholder="Buscar obra" autoComplete="off">
+          </div>
+        </div>
+        <div style="flex-grow: 1; overflow-y: auto; scrollbar-width: none; margin: 0 -12px; padding: 12px 12px 48px">
+          <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 32px; row-gap: 44px">
+            <sc-if value="{{showNewRow}}" hint-placeholder-val="{{ false }}">
+              <div class="tile sel">
+                <div class="cover-btn">
+                  <span class="cover-letter cov-{{newTone}}">{{newLetter}}</span>
+                </div>
+                <label for="new-work" style="position: absolute; left: -9999px">Nome da nova obra</label>
+                <input id="new-work" class="lib-rename" value="{{renameVal}}" onChange="{{onRename}}" onKeyDown="{{onRenameKey}}" ref="{{setRename}}" placeholder="Nome da obra" autoComplete="off">
+                <div class="ui">Enter cria · Esc cancela</div>
+              </div>
+            </sc-if>
+            <sc-for list="{{libItems}}" as="item" hint-placeholder-count="3">
+              <div class="tile {{item.cls}}">
+                <button class="cover-btn" onClick="{{item.open}}" aria-label="Abrir {{item.title}}">
+                  <sc-if value="{{item.hasImg}}" hint-placeholder-val="{{ false }}">
+                    <img class="cover-img" src="{{item.cover}}" alt="">
+                  </sc-if>
+                  <sc-if value="{{item.noImg}}" hint-placeholder-val="{{ true }}">
+                    <span class="cover-letter cov-{{item.tone}}">{{item.letter}}</span>
+                  </sc-if>
+                </button>
+                <sc-if value="{{item.renaming}}" hint-placeholder-val="{{ false }}">
+                  <input class="lib-rename" aria-label="Novo nome da obra" value="{{item.renameVal}}" onChange="{{item.onRename}}" onKeyDown="{{item.onRenameKey}}" ref="{{item.setRename}}" autoComplete="off">
+                </sc-if>
+                <sc-if value="{{item.normal}}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <div class="tile-title">{{item.title}}</div>
+                    <sc-if value="{{item.confirm}}" hint-placeholder-val="{{ false }}">
+                      <div class="ui warn" style="line-height: 1.5">Del de novo exclui · Esc cancela</div>
+                    </sc-if>
+                    <sc-if value="{{item.plain}}" hint-placeholder-val="{{ true }}">
+                      <div class="ui" style="line-height: 1.5">{{item.meta}}<br>{{item.when}}</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{libEmpty}}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 24px 0; display: flex; flex-direction: column; gap: 12px">
+              <div style="font-size: 20px; font-style: italic">{{libEmptyText}}</div>
+              <div class="ui hint">Aperte <span class="kbd">N</span> para começar uma obra nova.</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showEditor}}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{onStageClick}}" style="position: absolute; top: 64px; bottom: 64px; left: 0; right: 0; display: flex; justify-content: center">
+      <div class="col" style="height: 100%; box-sizing: border-box; padding-top: 64px; display: flex; flex-direction: column; gap: 14px">
+        <div class="ui chrome cap" style="display: flex; align-items: center; gap: 10px">
+          <span>{{chLabel}}</span>
+          <span style="opacity: .5">·</span>
+          <span class="dot st-{{status}}"></span>
+          <span>{{statusLabel}}</span>
+        </div>
+        <label for="ch-title" style="position: absolute; left: -9999px">Título do capítulo</label>
+        <input id="ch-title" class="ed-title" value="{{chTitle}}" onChange="{{onTitle}}" onKeyDown="{{onTitleKey}}" ref="{{setTitle}}" placeholder="Título do capítulo" autoComplete="off">
+        <div style="height: 22px"></div>
+        <label for="ch-body" style="position: absolute; left: -9999px">Texto do capítulo</label>
+        <textarea id="ch-body" class="ed-body" value="{{body}}" onChange="{{onBody}}" onKeyDown="{{onBodyKey}}" onClick="{{onBodyClick}}" ref="{{setBody}}" placeholder="Comece a escrever…"></textarea>
+      </div>
+    </div>
+  </sc-if>
+
+  <div class="chrome" style="position: absolute; bottom: 0; left: 0; right: 0; height: 64px; box-sizing: border-box; padding: 0 36px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); align-items: center">
+    <div class="ui" style="display: flex; gap: 14px">
+      <sc-if value="{{showEditor}}" hint-placeholder-val="{{ false }}">
+        <span>{{wordsLabel}}</span>
+        <span style="opacity: .5">·</span>
+        <span>{{bookLabel}}</span>
+      </sc-if>
+      <sc-if value="{{showLibrary}}" hint-placeholder-val="{{ true }}">
+        <span class="hint"><span class="kbd">←→↑↓</span>escolher</span>
+        <span class="hint"><span class="kbd">Enter</span>abrir</span>
+      </sc-if>
+    </div>
+    <div class="ui" style="display: flex; justify-content: center">
+      <sc-if value="{{showToast}}" hint-placeholder-val="{{ false }}">
+        <span class="toast" key="{{toastKey}}" style="color: var(--ink)">{{toast}}</span>
+      </sc-if>
+      <sc-if value="{{showTriple}}" hint-placeholder-val="{{ false }}">
+        <span class="pulse hint" style="gap: 8px; color: var(--accent)"><span class="kbd" style="color: var(--accent); border-color: var(--accent)">Enter</span>mais uma vez para abrir um novo capítulo</span>
+      </sc-if>
+    </div>
+    <div class="ui" style="display: flex; justify-content: flex-end; align-items: center; gap: 12px">
+      <sc-if value="{{showEditor}}" hint-placeholder-val="{{ false }}">
+        <span>{{goalLabel}}</span>
+        <div style="width: 120px; height: 3px; background: var(--faint); border-radius: 3px; overflow: hidden">
+          <div style="height: 3px; background: var(--accent); width: {{goalW}}; transition: width .4s"></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{showLibrary}}" hint-placeholder-val="{{ true }}">
+        <span class="hint"><span class="kbd">N</span>nova</span>
+        <span class="hint"><span class="kbd">C</span>capa</span>
+        <span class="hint"><span class="kbd">R</span>renomear</span>
+        <span class="hint"><span class="kbd">Del</span>excluir</span>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{showNotes}}" hint-placeholder-val="{{ false }}">
+    <div class="notes">
+      <div class="ui cap">Notas · {{chLabel}}</div>
+      <label for="ch-notes" style="position: absolute; left: -9999px">Notas do capítulo</label>
+      <textarea id="ch-notes" class="notes-ta" value="{{notes}}" onChange="{{onNotes}}" ref="{{setNotes}}" placeholder="Ideias, pendências, lembretes de continuidade…"></textarea>
+      <div class="ui hint"><span class="kbd">Esc</span>voltar ao texto</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showIndex}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim" onClick="{{closePanel}}"></div>
+    <div class="drawer" tabIndex="-1" ref="{{setIndex}}" onKeyDown="{{onIndexKey}}">
+      <div style="padding: 0 12px; display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 20px; font-weight: 500">{{bookTitleShown}}</div>
+        <div class="ui">{{bookLabel}}</div>
+      </div>
+      <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; scrollbar-width: none">
+        <sc-for list="{{indexItems}}" as="item" hint-placeholder-count="3">
+          <button class="ix-item {{item.cls}}" onClick="{{item.open}}">
+            <span class="ui">{{item.num}}</span>
+            <span class="ix-t">{{item.title}}</span>
+            <span class="ui">{{item.words}}</span>
+            <span class="dot st-{{item.status}}"></span>
+          </button>
+        </sc-for>
+      </div>
+      <div class="ui" style="padding: 0 12px; display: flex; flex-wrap: wrap; gap: 10px 14px; line-height: 1.4">
+        <span class="hint"><span class="kbd">↑↓</span>navegar</span>
+        <span class="hint"><span class="kbd">Enter</span>abrir</span>
+        <span class="hint"><span class="kbd">Alt ↑↓</span>mover</span>
+        <span class="hint"><span class="kbd">Esc</span>fechar</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showPalette}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim" onClick="{{closePanel}}"></div>
+    <div class="pal">
+      <label for="pal-in" style="position: absolute; left: -9999px">Buscar comando</label>
+      <input id="pal-in" class="pal-in" value="{{q}}" onChange="{{onQ}}" onKeyDown="{{onPalKey}}" ref="{{setPal}}" placeholder="{{palPlaceholder}}" autoComplete="off">
+      <div class="pal-list" ref="{{setPalList}}">
+        <sc-for list="{{palItems}}" as="item" hint-placeholder-count="6">
+          <button class="pal-item {{item.cls}}" onClick="{{item.run}}" onMouseEnter="{{item.hover}}">
+            <span><span class="pal-kind">{{item.kind}}</span>{{item.label}}</span>
+            <sc-if value="{{item.hasHint}}" hint-placeholder-val="{{ true }}">
+              <span class="kbd">{{item.hint}}</span>
+            </sc-if>
+          </button>
+        </sc-for>
+        <sc-if value="{{palEmpty}}" hint-placeholder-val="{{ false }}">
+          <div class="ui" style="padding: 14px">Nada encontrado.</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showHelp}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim" onClick="{{closePanel}}"></div>
+    <div class="help" tabIndex="-1" ref="{{setHelp}}">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <div style="font-size: 28px; font-weight: 500">Atalhos</div>
+        <div class="ui hint"><span class="kbd">Esc</span>fechar</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px">
+        <sc-for list="{{shortcuts}}" as="s" hint-placeholder-count="12">
+          <div class="help-row">
+            <span>{{s.label}}</span>
+            <span style="display: flex; gap: 4px">
+              <sc-for list="{{s.keys}}" as="k" hint-placeholder-count="1">
+                <span class="kbd">{{k}}</span>
+              </sc-for>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+var STORE_KEY = 'webnovel-editor-proto-v2';
+var STATUS = ['rascunho', 'revisao', 'pronto'];
+var STATUS_LABEL = { rascunho: 'Rascunho', revisao: 'Revisão', pronto: 'Pronto' };
+var GOALS = [1000, 2000, 3000, 5000];
+var WIDTH_LABEL = ['estreita', 'média', 'larga'];
+var FONT_LABEL = ['pequena', 'média', 'grande'];
+var HOUR = 3600000, DAY = 86400000;
+
+function uid() { return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function wc(s) { var m = (s || '').match(/\S+/g); return m ? m.length : 0; }
+function fmt(n) { return n.toLocaleString('pt-BR'); }
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function norm(s) { return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+function plural(n, one, many) { return fmt(n) + ' ' + (n === 1 ? one : many); }
+function bookWords(b) { return b.chapters.reduce(function (a, c) { return a + wc(c.body); }, 0); }
+function ago(t) {
+  var d = Date.now() - (t || 0);
+  if (d < 60000) return 'agora';
+  if (d < HOUR) return 'há ' + Math.floor(d / 60000) + ' min';
+  if (d < DAY) return 'há ' + Math.floor(d / HOUR) + ' h';
+  if (d < 2 * DAY) return 'ontem';
+  if (d < 30 * DAY) return 'há ' + Math.floor(d / DAY) + ' dias';
+  return new Date(t).toLocaleDateString('pt-BR');
+}
+var COLS = 6;
+function coverLetter(title) {
+  var m = (title || '').trim().match(/[\p{L}\p{N}]/u);
+  return m ? m[0].toLocaleUpperCase('pt-BR') : '+';
+}
+function coverTone(seed) {
+  var h = 0, s = seed || '';
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 6;
+}
+function shrinkImage(file, done) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var img = new Image();
+    img.onload = function () {
+      var W = 400, H = 600, c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      var ctx = c.getContext('2d');
+      var scale = Math.max(W / img.width, H / img.height);
+      var w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+      try { done(c.toDataURL('image/jpeg', 0.85)); } catch (e) { done(reader.result); }
+    };
+    img.onerror = function () { done(null); };
+    img.src = reader.result;
+  };
+  reader.onerror = function () { done(null); };
+  reader.readAsDataURL(file);
+}
+function chap(title, status, body, notes) { return { id: uid(), title: title, status: status, body: body, notes: notes || '' }; }
+function emptyChap() { return chap('', 'rascunho', '', ''); }
+
+function sampleBooks() {
+  var now = Date.now();
+  return [
+    { id: uid(), title: 'A Torre das Mil Luas', cur: 2, updatedAt: now - 2 * HOUR, chapters: [
+      chap('O sino que não tocava', 'pronto', 'Na cidade de Vael, todo mundo sabia que o sino da torre norte não tocava havia cem anos.\n\nPor isso, quando ele soou à meia-noite — uma única vez, grave e longa —, Ilen Marr foi a única pessoa da rua que não saiu de casa para olhar. Ela já estava de pé, com a lanterna acesa e a bolsa de ferramentas no ombro, como se tivesse esperado por aquele som a vida inteira.\n\n— Então é hoje — murmurou, e apagou a vela da mesa.', 'Revelar quem tocou o sino só no capítulo 5.\n\nIlen já sabia do sino — plantar a pista da bolsa de ferramentas.'),
+      chap('A aprendiz de cartógrafo', 'revisao', 'O mapa de Ilen tinha um erro, e o erro estava se mexendo.\n\nDurante três semanas ela tinha marcado com tinta vermelha a mesma viela atrás do mercado de sal. Toda manhã, a viela estava dois passos mais perto da torre.\n\nMestre Odran dizia que mapas não mentem. Ilen começava a desconfiar que mapas apenas escolhem a quem contar a verdade.'),
+      chap('Mapas que mentem', 'rascunho', 'A torre norte não tinha porta. Tinha, no lugar dela, uma parede lisa onde alguém havia desenhado a giz o contorno de uma.', 'Odran aparece no fim? Decidir.')
+    ] },
+    { id: uid(), title: 'Herdeira das Cinzas', cur: 1, updatedAt: now - DAY - 3 * HOUR, chapters: [
+      chap('A coroação que não houve', 'revisao', 'A coroa chegou ao salão numa caixa de madeira comum, carregada por um menino de recados que não sabia o que levava.\n\nQuando Saera abriu a tampa, encontrou apenas cinza — fina, morna, ainda cheirando a fumaça.'),
+      chap('Sal e ferro', 'rascunho', 'O conselho levou três dias para decidir que a culpa era dela.')
+    ] },
+    { id: uid(), title: 'Crônicas do Quinto Andar', cur: 0, updatedAt: now - 6 * DAY, chapters: [
+      chap('O vizinho do 502', 'rascunho', 'O vizinho do 502 recebia cartas endereçadas a pessoas que ainda não tinham nascido.')
+    ] }
+  ];
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var saved = null;
+    try { var raw = window.localStorage.getItem(STORE_KEY); if (raw) saved = JSON.parse(raw); } catch (e) { saved = null; }
+    var books = saved && Array.isArray(saved.books) ? saved.books : sampleBooks();
+    this.state = {
+      books: books, curId: null, view: 'library',
+      bookTitle: '', chapters: [emptyChap()], cur: 0,
+      theme: (saved && saved.theme) || 'light',
+      goal: (saved && saved.goal) || 2000,
+      width: saved && saved.width != null ? saved.width : 1,
+      font: saved && saved.font != null ? saved.font : 1,
+      focus: false, panel: null,
+      q: '', pIdx: 0, confirmDel: false, indexSel: 0,
+      toast: '', toastKey: 0, tripleHint: false,
+      libSel: 0, libQ: '', renaming: null, renameVal: '', libConfirm: null
+    };
+    this.baseWords = this.allWords(books);
+    this.enterStreak = 0;
+    this.pf = null;
+
+    var self = this;
+    this.setBook = function (el) { self.bookEl = el; };
+    this.setTitle = function (el) { self.titleEl = el; };
+    this.setBody = function (el) { self.bodyEl = el; };
+    this.setNotes = function (el) { self.notesEl = el; };
+    this.setIndex = function (el) { self.indexEl = el; };
+    this.setPal = function (el) { self.palEl = el; };
+    this.setPalList = function (el) { self.palListEl = el; };
+    this.setHelp = function (el) { self.helpEl = el; };
+    this.setLib = function (el) { self.libEl = el; };
+    this.setLibQ = function (el) { self.libQEl = el; };
+    this.setRename = function (el) { self.renameEl = el; };
+    this.setFile = function (el) { self.fileEl = el; };
+    this.onFile = function (e) {
+      var f = e.target.files && e.target.files[0], id = self.coverTarget;
+      e.target.value = '';
+      if (!f || !id) return;
+      if (!/^image\//.test(f.type)) { self.flash('Escolha um arquivo de imagem'); return; }
+      shrinkImage(f, function (url) {
+        if (!url) { self.flash('Não foi possível ler a imagem'); return; }
+        self.setCover(id, url);
+        self.flash('Capa atualizada');
+      });
+    };
+
+    this.goLib = function () { self.goLibrary(); };
+    this.onBook = function (e) { self.setState({ bookTitle: e.target.value }); };
+    this.onBookKey = function (e) {
+      if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); self.focusNow('title', 'end'); }
+    };
+    this.onTitle = function (e) { self.updCur({ title: e.target.value }); };
+    this.onTitleKey = function (e) {
+      if (e.key === 'Enter' || (e.key === 'ArrowDown' && !e.altKey)) { e.preventDefault(); self.focusNow('body', 0); }
+    };
+    this.onBody = function (e) {
+      var el = e.target, v = el.value, p = el.selectionStart;
+      var hint = self.enterStreak >= 2 && v.slice(0, p).endsWith('\n\n');
+      var chapters = self.state.chapters.slice();
+      chapters[self.state.cur] = Object.assign({}, chapters[self.state.cur], { body: v });
+      self.setState({ chapters: chapters, tripleHint: hint });
+    };
+    this.onBodyKey = function (e) { self.bodyKey(e); };
+    this.onBodyClick = function () { self.enterStreak = 0; if (self.state.tripleHint) self.setState({ tripleHint: false }); };
+    this.onNotes = function (e) { self.updCur({ notes: e.target.value }); };
+    this.onStageClick = function (e) { if (e.target === e.currentTarget && self.bodyEl) self.focusNow('body', null); };
+    this.onRootKey = function (e) { self.rootKey(e); };
+    this.onIndexKey = function (e) { self.indexKey(e); };
+    this.onPalKey = function (e) { self.palKey(e); };
+    this.onQ = function (e) { self.setState({ q: e.target.value, pIdx: 0, confirmDel: false }); };
+    this.closePanel = function () { self.close(); };
+
+    this.onLibKey = function (e) { self.libKey(e); };
+    this.onLibQ = function (e) { self.setState({ libQ: e.target.value, libSel: 0, libConfirm: null }); };
+    this.onLibQKey = function (e) { self.libQKey(e); };
+    this.onRename = function (e) { self.setState({ renameVal: e.target.value }); };
+    this.onRenameKey = function (e) { self.renameKey(e); };
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    var s = this.state;
+    if (this.pf) {
+      var pf = this.pf; this.pf = null;
+      var map = { book: this.bookEl, title: this.titleEl, body: this.bodyEl, notes: this.notesEl, index: this.indexEl, palette: this.palEl, help: this.helpEl, lib: this.libEl, libq: this.libQEl, rename: this.renameEl };
+      var el = map[pf.t];
+      if (el) {
+        el.focus({ preventScroll: true });
+        if (pf.caret != null && el.setSelectionRange) {
+          var p = pf.caret === 'end' ? el.value.length : pf.caret;
+          el.setSelectionRange(p, p);
+          if (pf.t === 'body') el.scrollTop = pf.caret === 'end' ? el.scrollHeight : 0;
+        }
+      }
+    }
+    if (s.panel === 'palette' && this.palListEl && (prevState.pIdx !== s.pIdx || prevState.q !== s.q)) {
+      var sel = this.palListEl.querySelector('.pal-item.sel');
+      if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest' });
+    }
+    if (s.view === 'library' && this.libEl && prevState.libSel !== s.libSel) {
+      var row = this.libEl.querySelector('.tile.sel');
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }
+    if (prevState.chapters !== s.chapters || prevState.bookTitle !== s.bookTitle || prevState.books !== s.books || prevState.cur !== s.cur || prevState.theme !== s.theme || prevState.goal !== s.goal || prevState.width !== s.width || prevState.font !== s.font) {
+      try {
+        window.localStorage.setItem(STORE_KEY, JSON.stringify({ books: this.mergedBooks(), theme: s.theme, goal: s.goal, width: s.width, font: s.font }));
+      } catch (e) { /* armazenamento indisponível: segue em memória */ }
+    }
+  }
+
+  componentWillUnmount() { clearTimeout(this.tt); }
+
+  allWords(books) { return books.reduce(function (a, b) { return a + bookWords(b); }, 0); }
+
+  /* a obra aberta vive em bookTitle/chapters/cur; aqui ela volta para a lista */
+  mergedBooks() {
+    var s = this.state;
+    if (!s.curId) return s.books;
+    return s.books.map(function (b) {
+      if (b.id !== s.curId) return b;
+      var changed = b.chapters !== s.chapters || b.title !== s.bookTitle;
+      if (!changed && b.cur === s.cur) return b;
+      return Object.assign({}, b, { title: s.bookTitle, chapters: s.chapters, cur: s.cur, updatedAt: changed ? Date.now() : b.updatedAt });
+    });
+  }
+
+  focusNow(t, caret) { this.pf = { t: t, caret: caret }; this.forceUpdate(); }
+
+  updCur(patch) {
+    var chapters = this.state.chapters.slice();
+    chapters[this.state.cur] = Object.assign({}, chapters[this.state.cur], patch);
+    this.setState({ chapters: chapters });
+  }
+
+  flash(msg) {
+    var self = this;
+    clearTimeout(this.tt);
+    this.setState({ toast: msg, toastKey: this.state.toastKey + 1, tripleHint: false });
+    this.tt = setTimeout(function () { self.setState({ toast: '' }); }, 1800);
+  }
+
+  homeTarget() { return this.state.view === 'library' ? 'lib' : 'body'; }
+
+  close() {
+    this.pf = { t: this.homeTarget(), caret: null };
+    if (!this.state.panel) { this.forceUpdate(); return; }
+    this.setState({ panel: null, q: '', pIdx: 0, confirmDel: false });
+  }
+
+  openPanel(name) {
+    if (this.state.panel === name) { this.close(); return; }
+    var focusMap = { palette: 'palette', index: 'index', help: 'help', notes: 'notes' };
+    this.pf = { t: focusMap[name], caret: name === 'notes' ? 'end' : null };
+    this.setState({ panel: name, q: '', pIdx: 0, confirmDel: false, indexSel: this.state.cur });
+  }
+
+  /* ---------- biblioteca ---------- */
+  libList() {
+    var s = this.state, q = norm(s.libQ.trim());
+    var list = s.books.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    if (q) list = list.filter(function (b) { return norm(b.title).indexOf(q) !== -1; });
+    return list;
+  }
+
+  openBook(id, target) {
+    var books = this.mergedBooks();
+    var b = books.filter(function (x) { return x.id === id; })[0];
+    if (!b) return;
+    var chapters = b.chapters && b.chapters.length ? b.chapters : [emptyChap()];
+    this.enterStreak = 0;
+    this.pf = target === 'title' ? { t: 'title', caret: 0 } : { t: 'body', caret: 'end' };
+    this.setState({
+      books: books, curId: id, bookTitle: b.title, chapters: chapters,
+      cur: Math.max(0, Math.min(b.cur || 0, chapters.length - 1)),
+      view: 'editor', panel: null, q: '', tripleHint: false, focus: false, libConfirm: null, renaming: null
+    });
+  }
+
+  goLibrary() {
+    var books = this.mergedBooks();
+    var s = this.state;
+    var sorted = books.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    var idx = Math.max(0, sorted.map(function (b) { return b.id; }).indexOf(s.curId));
+    this.pf = { t: 'lib', caret: null };
+    this.setState({ books: books, view: 'library', panel: null, focus: false, libSel: idx, libQ: '', libConfirm: null, renaming: null, tripleHint: false });
+  }
+
+  startNew() {
+    this.newId = uid();
+    this.pf = { t: 'rename', caret: 0 };
+    this.setState({ view: 'library', panel: null, renaming: 'new', renameVal: '', libConfirm: null });
+  }
+
+  startRename(id) {
+    var b = this.state.books.filter(function (x) { return x.id === id; })[0];
+    if (!b) return;
+    this.pf = { t: 'rename', caret: 'end' };
+    this.setState({ renaming: id, renameVal: b.title, libConfirm: null });
+  }
+
+  commitRename() {
+    var s = this.state, self = this, val = s.renameVal.trim();
+    if (s.renaming === 'new') {
+      var book = { id: this.newId || uid(), title: val || 'Obra sem título', cur: 0, updatedAt: Date.now(), chapters: [emptyChap()] };
+      this.setState({ books: [book].concat(s.books), renaming: null, renameVal: '' }, function () {
+        self.openBook(book.id, 'title');
+        self.flash('Obra criada — escreva o título do capítulo 01');
+      });
+      return;
+    }
+    var books = s.books.map(function (b) { return b.id === s.renaming ? Object.assign({}, b, { title: val || b.title, updatedAt: Date.now() }) : b; });
+    this.pf = { t: 'lib', caret: null };
+    this.setState({ books: books, renaming: null, renameVal: '', libSel: 0 });
+    this.flash('Obra renomeada');
+  }
+
+  deleteBook(id) {
+    var s = this.state;
+    var gone = s.books.filter(function (b) { return b.id === id; })[0];
+    var books = s.books.filter(function (b) { return b.id !== id; });
+    this.pf = { t: 'lib', caret: null };
+    this.setState({ books: books, curId: s.curId === id ? null : s.curId, libConfirm: null, libSel: Math.max(0, Math.min(s.libSel, books.length - 1)) });
+    this.flash('"' + (gone ? gone.title : 'Obra') + '" excluída');
+  }
+
+  pickCover(id) {
+    if (!id || !this.fileEl) return;
+    this.coverTarget = id;
+    try { this.fileEl.click(); } catch (e) { this.flash('Não foi possível abrir o seletor de arquivos aqui'); }
+  }
+
+  setCover(id, url) {
+    var books = this.state.books.map(function (b) { return b.id === id ? Object.assign({}, b, { cover: url || null }) : b; });
+    this.setState({ books: books });
+  }
+
+  libKey(e) {
+    if (e.target !== e.currentTarget) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var list = this.libList(), n = list.length, s = this.state, cur = list[s.libSel];
+    var code = e.code || '', k = e.key;
+    var isDel = k === 'Delete' || k === 'Backspace';
+    if (!isDel && s.libConfirm && k !== 'Shift') this.setState({ libConfirm: null });
+    var step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: COLS, ArrowUp: -COLS }[k];
+    if (step) {
+      e.preventDefault();
+      if (n) {
+        var next = s.libSel + step;
+        if (next >= 0 && next < n) this.setState({ libSel: next });
+        else if (step === COLS && Math.floor(s.libSel / COLS) < Math.floor((n - 1) / COLS)) this.setState({ libSel: n - 1 });
+      }
+    } else if ((code === 'KeyC' || k === 'c' || k === 'C') && cur) {
+      e.preventDefault();
+      if (e.shiftKey) { if (cur.cover) { this.setCover(cur.id, null); this.flash('Capa removida — volta a letra'); } }
+      else this.pickCover(cur.id);
+    } else if (k === 'Enter') {
+      e.preventDefault(); if (cur) this.openBook(cur.id);
+    } else if (code === 'KeyN' || k === 'n' || k === 'N') {
+      e.preventDefault(); this.startNew();
+    } else if ((code === 'KeyR' || k === 'r' || k === 'R') && cur) {
+      e.preventDefault(); this.startRename(cur.id);
+    } else if (isDel && cur) {
+      e.preventDefault();
+      if (s.libConfirm === cur.id) this.deleteBook(cur.id);
+      else this.setState({ libConfirm: cur.id });
+    } else if (k === '/') {
+      e.preventDefault(); this.focusNow('libq', 'end');
+    } else if (k === 'Escape' && (s.libConfirm || s.libQ)) {
+      e.preventDefault(); e.stopPropagation();
+      this.setState({ libConfirm: null, libQ: '' });
+    }
+  }
+
+  libQKey(e) {
+    var list = this.libList();
+    if (e.key === 'ArrowDown') { e.preventDefault(); this.focusNow('lib', null); }
+    else if (e.key === 'Enter') { e.preventDefault(); var b = list[this.state.libSel]; if (b) this.openBook(b.id); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.pf = { t: 'lib', caret: null }; this.setState({ libQ: '', libSel: 0 }); }
+  }
+
+  renameKey(e) {
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); this.commitRename(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.pf = { t: 'lib', caret: null }; this.setState({ renaming: null, renameVal: '' }); }
+  }
+
+  /* ---------- capítulos ---------- */
+  insertChapter(atIndex) {
+    var chapters = this.state.chapters.slice();
+    chapters.splice(atIndex, 0, emptyChap());
+    this.enterStreak = 0;
+    this.pf = { t: 'title', caret: 0 };
+    this.setState({ chapters: chapters, cur: atIndex, tripleHint: false });
+    this.flash('Capítulo ' + pad(atIndex + 1) + ' criado');
+  }
+
+  splitHere(before, after) {
+    var chapters = this.state.chapters.slice();
+    var cur = this.state.cur;
+    chapters[cur] = Object.assign({}, chapters[cur], { body: before });
+    var fresh = emptyChap(); fresh.body = after;
+    chapters.splice(cur + 1, 0, fresh);
+    this.enterStreak = 0;
+    this.pf = { t: 'title', caret: 0 };
+    this.setState({ chapters: chapters, cur: cur + 1, tripleHint: false });
+    this.flash('Capítulo ' + pad(cur + 2) + ' criado' + (after ? ' — o texto seguinte foi junto' : ''));
+  }
+
+  go(i, caret) {
+    var n = this.state.chapters.length;
+    if (i < 0 || i >= n) { this.flash(i < 0 ? 'Este é o primeiro capítulo' : 'Este é o último capítulo'); return; }
+    this.enterStreak = 0;
+    this.pf = { t: 'body', caret: caret == null ? 'end' : caret };
+    this.setState({ cur: i, tripleHint: false });
+  }
+
+  move(from, dir) {
+    var to = from + dir, chapters = this.state.chapters.slice();
+    if (to < 0 || to >= chapters.length) return null;
+    var tmp = chapters[from]; chapters[from] = chapters[to]; chapters[to] = tmp;
+    var cur = this.state.cur;
+    if (cur === from) cur = to; else if (cur === to) cur = from;
+    this.setState({ chapters: chapters, cur: cur });
+    this.flash('Movido para a posição ' + pad(to + 1));
+    return to;
+  }
+
+  cycleStatus() {
+    var c = this.state.chapters[this.state.cur];
+    var next = STATUS[(STATUS.indexOf(c.status) + 1) % STATUS.length];
+    this.updCur({ status: next });
+    this.flash('Status: ' + STATUS_LABEL[next]);
+  }
+
+  deleteCur() {
+    var chapters = this.state.chapters.slice();
+    if (chapters.length === 1) { this.flash('A obra precisa de pelo menos um capítulo'); return; }
+    var gone = this.state.cur;
+    chapters.splice(gone, 1);
+    this.pf = { t: 'body', caret: 'end' };
+    this.setState({ chapters: chapters, cur: Math.min(gone, chapters.length - 1) });
+    this.flash('Capítulo ' + pad(gone + 1) + ' excluído');
+  }
+
+  copyCur() {
+    var c = this.state.chapters[this.state.cur];
+    var text = 'Capítulo ' + (this.state.cur + 1) + (c.title ? ' — ' + c.title : '') + '\n\n' + c.body;
+    var self = this;
+    try {
+      navigator.clipboard.writeText(text).then(function () { self.flash('Capítulo copiado'); }, function () { self.flash('Não foi possível copiar aqui'); });
+    } catch (e) { this.flash('Não foi possível copiar aqui'); }
+  }
+
+  /* ---------- teclado ---------- */
+  bodyKey(e) {
+    var mods = e.ctrlKey || e.metaKey || e.altKey;
+    if (e.key === 'Enter' && !mods && !e.shiftKey) {
+      var el = e.target, s = el.selectionStart, end = el.selectionEnd, v = el.value;
+      var before = v.slice(0, s);
+      if (this.enterStreak >= 2 && s === end && before.endsWith('\n\n')) {
+        e.preventDefault();
+        this.splitHere(before.slice(0, -2).replace(/\s+$/, ''), v.slice(end).replace(/^\s+/, ''));
+        return;
+      }
+      this.enterStreak += 1;
+      return;
+    }
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].indexOf(e.key) === -1) {
+      this.enterStreak = 0;
+      if (this.state.tripleHint) this.setState({ tripleHint: false });
+    }
+    if (e.key === 'ArrowUp' && !mods && e.target.selectionStart === 0 && e.target.selectionEnd === 0) {
+      e.preventDefault();
+      this.focusNow('title', 'end');
+    }
+  }
+
+  rootKey(e) {
+    var mod = e.ctrlKey || e.metaKey, k = (e.key || '').toLowerCase(), code = e.code || '';
+    var ed = this.state.view === 'editor';
+    var handled = true;
+    if (mod && (k === 'k' || code === 'KeyK')) this.openPanel('palette');
+    else if (mod && (k === 'j' || code === 'KeyJ')) this.setState({ theme: this.state.theme === 'dark' ? 'light' : 'dark' });
+    else if (mod && (k === '/' || k === '?' || code === 'Slash' || code === 'IntlRo' || code === 'NumpadDivide')) this.openPanel('help');
+    else if (ed && mod && (k === 'o' || code === 'KeyO')) this.goLibrary();
+    else if (ed && mod && (k === 'e' || code === 'KeyE')) this.openPanel('index');
+    else if (ed && mod && (k === '.' || code === 'Period')) { this.setState({ focus: !this.state.focus }); this.flash(this.state.focus ? 'Modo foco desligado' : 'Modo foco'); }
+    else if (ed && mod && (k === ';' || code === 'Semicolon')) this.openPanel('notes');
+    else if (ed && e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      var dir = e.key === 'ArrowUp' ? -1 : 1;
+      if (e.shiftKey) this.move(this.state.cur, dir);
+      else this.go(this.state.cur + dir);
+    }
+    else if (ed && e.altKey && !mod && code === 'KeyS') this.cycleStatus();
+    else if (e.key === 'Escape') this.close();
+    else handled = false;
+    if (handled) { e.preventDefault(); e.stopPropagation(); }
+  }
+
+  indexKey(e) {
+    var n = this.state.chapters.length, sel = this.state.indexSel;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); e.stopPropagation();
+      var dir = e.key === 'ArrowUp' ? -1 : 1;
+      if (e.altKey) { var to = this.move(sel, dir); if (to != null) this.setState({ indexSel: to }); }
+      else this.setState({ indexSel: Math.max(0, Math.min(n - 1, sel + dir)) });
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      this.setState({ panel: null });
+      this.go(sel);
+    }
+  }
+
+  palKey(e) {
+    var items = this._items || [], n = items.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); e.stopPropagation();
+      if (!n) return;
+      var d = e.key === 'ArrowDown' ? 1 : -1;
+      this.setState({ pIdx: (this.state.pIdx + d + n) % n });
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      var it = items[this.state.pIdx];
+      if (it) it.run();
+    }
+  }
+
+  runCommand(cmd) {
+    if (cmd.keep) { cmd.act(); return; }
+    this.pf = { t: this.homeTarget(), caret: null };
+    this.setState({ panel: null, q: '', pIdx: 0, confirmDel: false }, function () { cmd.act(); });
+  }
+
+  commonCommands() {
+    var self = this, s = this.state;
+    return [
+      { label: s.theme === 'dark' ? 'Tema claro' : 'Tema escuro', hint: 'Ctrl J', act: function () { self.setState({ theme: s.theme === 'dark' ? 'light' : 'dark' }); } },
+      { label: 'Atalhos', hint: 'Ctrl /', act: function () { self.openPanel('help'); } }
+    ];
+  }
+
+  libraryCommands() {
+    var self = this, s = this.state, list = this.libList(), cur = list[s.libSel];
+    var out = [{ label: 'Nova obra', hint: 'N', act: function () { self.startNew(); } }];
+    if (cur) {
+      out.push({ label: 'Renomear "' + cur.title + '"', hint: 'R', act: function () { self.startRename(cur.id); } });
+      out.push({ label: (cur.cover ? 'Trocar capa de "' : 'Escolher capa para "') + cur.title + '"', hint: 'C', act: function () { self.pickCover(cur.id); } });
+      if (cur.cover) out.push({ label: 'Remover capa (volta a letra)', hint: 'Shift C', act: function () { self.setCover(cur.id, null); } });
+      out.push({ label: 'Excluir "' + cur.title + '"', hint: 'Del', danger: true, act: function () { self.pf = { t: 'lib', caret: null }; self.setState({ libConfirm: cur.id }); } });
+    }
+    out = out.concat(this.commonCommands());
+    out.push({ label: 'Restaurar obras de exemplo', hint: '', act: function () { var b = sampleBooks(); self.baseWords = self.allWords(b); self.pf = { t: 'lib', caret: null }; self.setState({ books: b, curId: null, libSel: 0 }); self.flash('Exemplos restaurados'); } });
+    return out;
+  }
+
+  editorCommands() {
+    var self = this, s = this.state, c = s.chapters[s.cur];
+    var list = [
+      { label: 'Novo capítulo', hint: 'Enter ×3', act: function () { self.insertChapter(s.cur + 1); } },
+      { label: 'Voltar às obras', hint: 'Ctrl O', act: function () { self.goLibrary(); } },
+      { label: 'Índice de capítulos', hint: 'Ctrl E', act: function () { self.openPanel('index'); } },
+      { label: 'Notas do capítulo', hint: 'Ctrl ;', act: function () { self.openPanel('notes'); } },
+      { label: s.focus ? 'Sair do modo foco' : 'Modo foco', hint: 'Ctrl .', act: function () { self.setState({ focus: !s.focus }); } },
+      { label: 'Mudar status  (' + STATUS_LABEL[c.status] + ')', hint: 'Alt S', act: function () { self.cycleStatus(); } },
+      { label: 'Capítulo anterior', hint: 'Alt ↑', act: function () { self.go(s.cur - 1); } },
+      { label: 'Próximo capítulo', hint: 'Alt ↓', act: function () { self.go(s.cur + 1); } },
+      { label: 'Mover capítulo para cima', hint: 'Alt Shift ↑', act: function () { self.move(s.cur, -1); } },
+      { label: 'Mover capítulo para baixo', hint: 'Alt Shift ↓', act: function () { self.move(s.cur, 1); } },
+      { label: 'Copiar capítulo', hint: '', act: function () { self.copyCur(); } },
+      { label: 'Meta diária: ' + fmt(s.goal) + ' palavras', hint: '', act: function () { var g = GOALS[(GOALS.indexOf(s.goal) + 1) % GOALS.length]; self.setState({ goal: g }); self.flash('Meta diária: ' + fmt(g) + ' palavras'); } },
+      { label: 'Largura do texto: ' + WIDTH_LABEL[s.width], hint: '', act: function () { var w = (s.width + 1) % 3; self.setState({ width: w }); self.flash('Largura ' + WIDTH_LABEL[w]); } },
+      { label: 'Tamanho da letra: ' + FONT_LABEL[s.font], hint: '', act: function () { var f = (s.font + 1) % 3; self.setState({ font: f }); self.flash('Letra ' + FONT_LABEL[f]); } },
+      { label: 'Renomear obra', hint: '', act: function () { self.pf = { t: 'book', caret: 'end' }; self.forceUpdate(); } },
+      { label: 'Capa da obra', hint: '', act: function () { self.pickCover(s.curId); } }
+    ].concat(this.commonCommands());
+    list.push(s.confirmDel
+      ? { label: 'Confirmar: excluir o capítulo ' + pad(s.cur + 1) + '?', hint: 'Enter', danger: true, act: function () { self.deleteCur(); } }
+      : { label: 'Excluir capítulo', hint: '', danger: true, keep: true, act: function () { self.setState({ confirmDel: true }); } });
+    return list;
+  }
+
+  paletteItems() {
+    var self = this, s = this.state, q = norm(s.q.trim());
+    var out = [];
+    if (q && s.view === 'editor') {
+      s.chapters.forEach(function (c, i) {
+        var t = c.title || 'Sem título';
+        if (norm(t).indexOf(q) !== -1 || pad(i + 1).indexOf(q) === 0 || norm(c.body).indexOf(q) !== -1) {
+          out.push({ kind: pad(i + 1), label: t, hint: fmt(wc(c.body)) + ' pal.', act: function () { self.go(i); } });
+        }
+      });
+    }
+    if (q) {
+      this.mergedBooks().forEach(function (b) {
+        if (b.id !== s.curId && norm(b.title).indexOf(q) !== -1) {
+          out.push({ kind: 'obra', label: b.title, hint: '', act: function () { self.openBook(b.id); } });
+        }
+      });
+    }
+    var cmds = s.view === 'library' ? this.libraryCommands() : this.editorCommands();
+    cmds.forEach(function (c) {
+      if (!q || norm(c.label).indexOf(q) !== -1) out.push(Object.assign({ kind: '' }, c));
+    });
+    if (q) out = out.slice(0, 9);
+    var pIdx = Math.min(s.pIdx, Math.max(0, out.length - 1));
+    return out.map(function (it, i) {
+      return {
+        kind: it.kind, label: it.label, hint: it.hint, hasHint: !!it.hint,
+        cls: (i === pIdx ? 'sel' : '') + (it.danger ? ' danger' : ''),
+        run: function () { self.runCommand(it); },
+        hover: function () { if (self.state.pIdx !== i) self.setState({ pIdx: i }); }
+      };
+    });
+  }
+
+  renderVals() {
+    var self = this, s = this.state, ch = s.chapters[s.cur] || emptyChap();
+    var lib = s.view === 'library';
+    var merged = this.mergedBooks();
+    var words = wc(ch.body), total = s.chapters.reduce(function (a, c) { return a + wc(c.body); }, 0);
+    var today = Math.max(0, this.allWords(merged) - this.baseWords);
+    var pct = Math.min(100, Math.round(today / s.goal * 100));
+    var items = s.panel === 'palette' ? this.paletteItems() : [];
+    this._items = items;
+    var n = s.chapters.length;
+
+    var list = lib ? this.libList() : [];
+    var libSel = Math.min(s.libSel, Math.max(0, list.length - 1));
+    var libItems = list.map(function (b, i) {
+      var bw = bookWords(b), cn = b.chapters.length;
+      var done = b.chapters.filter(function (c) { return c.status === 'pronto'; }).length;
+      var renaming = s.renaming === b.id;
+      var confirm = s.libConfirm === b.id;
+      return {
+        num: pad(i + 1), title: b.title || 'Obra sem título',
+        letter: coverLetter(b.title), tone: coverTone(b.id),
+        hasImg: !!b.cover, noImg: !b.cover, cover: b.cover || '',
+        meta: fmt(cn) + ' cap. · ' + fmt(bw) + ' pal. · ' + fmt(done) + (done === 1 ? ' pronto' : ' prontos'),
+        when: 'editada ' + ago(b.updatedAt),
+        cls: (i === libSel && !s.renaming ? 'sel' : '') + (b.id === s.curId ? ' cur' : ''),
+        renaming: renaming, normal: !renaming, confirm: confirm, plain: !confirm,
+        renameVal: s.renameVal, onRename: self.onRename, onRenameKey: self.onRenameKey, setRename: self.setRename,
+        open: function () { self.openBook(b.id); }
+      };
+    });
+    var libTotal = this.allWords(s.books);
+
+    return {
+      appClass: 'app ' + s.theme + (s.focus && !lib ? ' focus' : '') + ' w' + s.width + ' f' + s.font,
+      showLibrary: lib, showEditor: !lib,
+      libStats: plural(s.books.length, 'obra', 'obras') + ' · ' + plural(libTotal, 'palavra escrita', 'palavras escritas'),
+      libQ: s.libQ,
+      libItems: libItems,
+      libEmpty: list.length === 0 && s.renaming !== 'new',
+      libEmptyText: s.libQ ? 'Nenhuma obra com esse nome.' : 'Nenhuma obra ainda.',
+      showNewRow: s.renaming === 'new',
+      newLetter: coverLetter(s.renameVal),
+      newTone: coverTone(this.newId || ''),
+      renameVal: s.renameVal,
+      bookTitle: s.bookTitle,
+      bookTitleShown: s.bookTitle || 'Obra sem título',
+      chLabel: 'Capítulo ' + pad(s.cur + 1),
+      chTitle: ch.title,
+      body: ch.body,
+      notes: ch.notes,
+      status: ch.status,
+      statusLabel: STATUS_LABEL[ch.status],
+      wordsLabel: plural(words, 'palavra', 'palavras'),
+      bookLabel: plural(n, 'capítulo', 'capítulos') + ' · ' + fmt(total) + ' na obra',
+      goalLabel: fmt(today) + ' de ' + fmt(s.goal) + ' hoje',
+      goalW: pct + '%',
+      showToast: !!s.toast, toast: s.toast, toastKey: s.toastKey,
+      showTriple: s.tripleHint && !s.toast && !lib,
+      showNotes: s.panel === 'notes' && !lib,
+      showIndex: s.panel === 'index' && !lib,
+      showPalette: s.panel === 'palette',
+      showHelp: s.panel === 'help',
+      q: s.q,
+      palPlaceholder: lib ? 'Comando ou obra…' : 'Comando, capítulo ou obra…',
+      palItems: items,
+      palEmpty: items.length === 0,
+      indexItems: s.chapters.map(function (c, i) {
+        return {
+          num: pad(i + 1), title: c.title || 'Sem título', words: fmt(wc(c.body)), status: c.status,
+          cls: (i === s.indexSel ? 'sel' : '') + (i === s.cur ? ' cur' : ''),
+          open: function () { self.setState({ panel: null }); self.go(i); }
+        };
+      }),
+      shortcuts: [
+        { label: 'Novo capítulo (divide no cursor)', keys: ['Enter', 'Enter', 'Enter'] },
+        { label: 'Nova linha sem contar', keys: ['Shift', 'Enter'] },
+        { label: 'Comandos e busca', keys: ['Ctrl', 'K'] },
+        { label: 'Voltar às obras', keys: ['Ctrl', 'O'] },
+        { label: 'Índice de capítulos', keys: ['Ctrl', 'E'] },
+        { label: 'Notas do capítulo', keys: ['Ctrl', ';'] },
+        { label: 'Capítulo anterior / próximo', keys: ['Alt', '↑ ↓'] },
+        { label: 'Mover capítulo', keys: ['Alt', 'Shift', '↑ ↓'] },
+        { label: 'Mudar status', keys: ['Alt', 'S'] },
+        { label: 'Modo foco', keys: ['Ctrl', '.'] },
+        { label: 'Tema claro / escuro', keys: ['Ctrl', 'J'] },
+        { label: 'Do título para o texto', keys: ['Enter'] },
+        { label: 'Obras: nova obra', keys: ['N'] },
+        { label: 'Obras: renomear', keys: ['R'] },
+        { label: 'Obras: capa (Shift remove)', keys: ['C'] },
+        { label: 'Obras: excluir', keys: ['Del', 'Del'] },
+        { label: 'Obras: buscar', keys: ['/'] },
+        { label: 'Esta ajuda', keys: ['Ctrl', '/'] },
+        { label: 'Fechar e voltar', keys: ['Esc'] }
+      ],
+      goLib: this.goLib,
+      onBook: this.onBook, onBookKey: this.onBookKey,
+      onTitle: this.onTitle, onTitleKey: this.onTitleKey,
+      onBody: this.onBody, onBodyKey: this.onBodyKey, onBodyClick: this.onBodyClick,
+      onNotes: this.onNotes, onStageClick: this.onStageClick,
+      onRootKey: this.onRootKey, onIndexKey: this.onIndexKey,
+      onPalKey: this.onPalKey, onQ: this.onQ, closePanel: this.closePanel,
+      onLibKey: this.onLibKey, onLibQ: this.onLibQ, onLibQKey: this.onLibQKey,
+      onRename: this.onRename, onRenameKey: this.onRenameKey,
+      setBook: this.setBook, setTitle: this.setTitle, setBody: this.setBody, setNotes: this.setNotes,
+      setIndex: this.setIndex, setPal: this.setPal, setPalList: this.setPalList, setHelp: this.setHelp,
+      setLib: this.setLib, setLibQ: this.setLibQ, setRename: this.setRename
+    };
+  }
+}
+</script>
+</body>
+</html>

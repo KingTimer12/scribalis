@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Mapa de atalhos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;font-family:'Literata',Georgia,serif;background:#F6F4EF;color:#1D1C1A}
+.k{font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1;padding:5px 7px;border:1px solid #D6D1C6;border-radius:5px;color:#4E4A43;background:#FBFAF7;white-space:nowrap}
+.cap{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#66625A}
+.row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid #E3DFD6;font-size:16px}
+.keys{display:flex;gap:5px}
+</style>
+</helmet>
+<div style="width: 720px; height: 1260px; box-sizing: border-box; padding: 64px 72px; background: #F6F4EF; display: flex; flex-direction: column; gap: 36px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div class="cap">Mapa de atalhos</div>
+    <h1 style="margin: 0; font-size: 40px; font-weight: 500; letter-spacing: -.01em">As mãos nunca saem do teclado.</h1>
+    <p style="margin: 0; font-size: 17px; line-height: 1.6; color: #4E4A43; font-style: italic">Nenhum botão na tela. Tudo que o editor faz cabe em poucas teclas.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column">
+    <div class="cap" style="padding-bottom: 6px">Obras</div>
+    <div class="row"><span>Escolher obra e abrir</span><span class="keys"><span class="k">← → ↑ ↓</span><span class="k">Enter</span></span></div>
+    <div class="row"><span>Nova obra</span><span class="keys"><span class="k">N</span></span></div>
+    <div class="row"><span>Renomear / excluir (Del duas vezes)</span><span class="keys"><span class="k">R</span><span class="k">Del</span></span></div>
+    <div class="row"><span>Capa com imagem (Shift C volta à letra)</span><span class="keys"><span class="k">C</span></span></div>
+    <div class="row"><span>Buscar obra</span><span class="keys"><span class="k">/</span></span></div>
+    <div class="row"><span>Voltar às obras de dentro do editor</span><span class="keys"><span class="k">Ctrl</span><span class="k">O</span></span></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column">
+    <div class="cap" style="padding-bottom: 6px">Escrever</div>
+    <div class="row"><span>Novo capítulo — o texto depois do cursor vai junto</span><span class="keys"><span class="k">Enter</span><span class="k">Enter</span><span class="k">Enter</span></span></div>
+    <div class="row"><span>Nova linha sem contar para o capítulo</span><span class="keys"><span class="k">Shift</span><span class="k">Enter</span></span></div>
+    <div class="row"><span>Do título para o texto</span><span class="keys"><span class="k">Enter</span></span></div>
+    <div class="row"><span>Do texto de volta ao título</span><span class="keys"><span class="k">↑ no início</span></span></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column">
+    <div class="cap" style="padding-bottom: 6px">Navegar e organizar</div>
+    <div class="row"><span>Comandos e busca de capítulos</span><span class="keys"><span class="k">Ctrl</span><span class="k">K</span></span></div>
+    <div class="row"><span>Índice de capítulos</span><span class="keys"><span class="k">Ctrl</span><span class="k">E</span></span></div>
+    <div class="row"><span>Capítulo anterior / próximo</span><span class="keys"><span class="k">Alt</span><span class="k">↑ ↓</span></span></div>
+    <div class="row"><span>Mover capítulo na ordem</span><span class="keys"><span class="k">Alt</span><span class="k">Shift</span><span class="k">↑ ↓</span></span></div>
+    <div class="row"><span>Status: rascunho → revisão → pronto</span><span class="keys"><span class="k">Alt</span><span class="k">S</span></span></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column">
+    <div class="cap" style="padding-bottom: 6px">Ambiente</div>
+    <div class="row"><span>Notas do capítulo</span><span class="keys"><span class="k">Ctrl</span><span class="k">;</span></span></div>
+    <div class="row"><span>Modo foco</span><span class="keys"><span class="k">Ctrl</span><span class="k">.</span></span></div>
+    <div class="row"><span>Tema claro / escuro</span><span class="keys"><span class="k">Ctrl</span><span class="k">J</span></span></div>
+    <div class="row"><span>Fechar tudo e voltar ao texto</span><span class="keys"><span class="k">Esc</span></span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":720,"height":1260}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
