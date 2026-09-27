@@ -52,4 +52,16 @@ mod tests {
     fn single_newline_becomes_hard_break() {
         assert_eq!(parse("a\nb").content, vec![p(vec![t("a"), Inline::HardBreak, t("b")])]);
     }
+
+    #[test]
+    fn roundtrip_text_ending_with_backslash() {
+        let doc = Doc::new(vec![p(vec![t("Isso acabou\\")])]);
+        assert_eq!(parse(&serialize(&doc)), doc);
+    }
+
+    #[test]
+    fn roundtrip_text_ending_with_backslash_before_hard_break() {
+        let doc = Doc::new(vec![p(vec![t("a\\"), Inline::HardBreak, t("b")])]);
+        assert_eq!(parse(&serialize(&doc)), doc);
+    }
 }

@@ -40,7 +40,14 @@ fn flush(lines: &mut Vec<&str>, blocks: &mut Vec<Block>) {
         if i > 0 {
             content.push(Inline::HardBreak);
         }
-        let text = line.strip_suffix('\\').unwrap_or(line);
+        // Only strip trailing \ on non-final lines (hard break markers).
+        // The last line keeps its text verbatim.
+        let is_last_line = i == lines.len() - 1;
+        let text = if is_last_line {
+            *line
+        } else {
+            line.strip_suffix('\\').unwrap_or(line)
+        };
         if !text.is_empty() {
             content.push(Inline::Text { text: text.to_string() });
         }
