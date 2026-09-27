@@ -2,6 +2,8 @@
 
 Data: 2026-09-27
 Status: aguardando revisão
+Depende de: `2026-09-27-formatacao-no-editor-design.md` (negrito, itálico, alinhamento
+e espaçamento no editor e no Markdown), que é implementado antes.
 
 ## Objetivo
 
@@ -25,8 +27,9 @@ usuário reorganiza depois.
 ### Fora de escopo
 
 - Visualizar PDF dentro do app.
-- Formatação rica vinda do RTF (negrito, itálico, fontes, tabelas, notas de rodapé,
-  comentários inline). O editor não tem marcas; o texto entra puro.
+- Formatação do RTF que o editor não suporta: fontes, tamanhos, cores, sublinhado,
+  recuo esquerdo/direito, tabelas, notas de rodapé, comentários inline. O texto entra;
+  essa formatação é descartada.
 - Metadados do Scrivener além de título, sinopse e notas (labels, status, palavras-chave,
   metadados customizados, snapshots, configurações de compilação).
 - Arrastar um `.scriv` para a janela; importar só pelo seletor de arquivos.
@@ -103,7 +106,13 @@ Seguindo a regra de um `mod` por assunto:
       `synopsis.txt`, `notes.rtf`;
     - Scrivener 2: `Files/Docs/<ID>.rtf` (ou `<ID>.<ext>`), `<ID>_synopsis.txt`,
       `<ID>_notes.rtf`.
-  - `rtf.rs`: RTF → lista de parágrafos de texto puro. Trata grupos, `\par`, `\line`
+  - `rtf.rs`: RTF → `Doc` **com formatação**: negrito (``, `0`), itálico (`\i`,
+    `\i0`), alinhamento (`\ql`, `\qc`, `\qr`, `\qj`), entrelinhas (`\sl` com
+    `\slmult1` → `sl/240`; sem `\slmult` → pontos exatos ÷ 12pt, arredondado a 0,05),
+    espaço antes/depois (`\sb`, `\sa`: twips ÷ 20 → pt) e recuo da primeira linha
+    (`i`: twips ÷ 567 → cm; negativo vira 0). `\pard` zera os atributos de parágrafo,
+    `\plain` zera as marcas; estado de caractere empilha/desempilha com os grupos
+    `{ }`. Valores passam pelos mesmos clamps do modelo. Trata `\par`, `\line`
     (vira `HardBreak`), `\tab`, escapes `\'hh` (cp1252), `\uN` com `\ucN`, e descarta
     destinos ignoráveis (`\*`, `fonttbl`, `colortbl`, `stylesheet`, `info`, `pict`…).
     Parágrafo com só `#`, `*`, `***` ou `* * *` vira `Separator`.
@@ -156,7 +165,7 @@ projeto inteiro fica em memória ao mesmo tempo.
 
 - `View` ganha `"workspace"`. Na obra aberta, a TopBar mostra duas abas:
   **Capítulos** | **Área de trabalho**. Troca também pela paleta e por atalho
-  (Ctrl B, de "binder", alterna entre as duas; Ctrl E continua abrindo o índice de capítulos).
+  (Ctrl 1 = Capítulos, Ctrl 2 = Área de trabalho; Ctrl B virou negrito).
 - Layout da aba: árvore à esquerda (largura fixa, rolável), conteúdo à direita.
   - `text`: mesmo `RichEditor` dos capítulos, salvando por `workspace_save_doc` (com o
     mesmo debounce/flush de `saving.ts`).
@@ -192,7 +201,8 @@ projeto inteiro fica em memória ao mesmo tempo.
 ## Testes
 
 - Rust (unit, `tempfile`):
-  - `rtf.rs`: parágrafos, `\line`, escapes `\'e9` e `\u233?`, destinos ignorados,
+  - `rtf.rs`: parágrafos, negrito/itálico aninhados em grupos, `\pard`/`\plain`,
+    alinhamento, `\sl`/`\slmult`, `\sb`/`\sa`, `i`, `\line`, escapes `\'e9` e `\u233?`, destinos ignorados,
     separadores, RTF malformado sem pânico;
   - `binder.rs`: fixtures mínimas de `.scrivx` do Scrivener 2 e 3;
   - `import.rs`: projeto fixture em disco (2 e 3) → capítulos (pasta = capítulo com
