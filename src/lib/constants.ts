@@ -1,4 +1,4 @@
-import type { Prefs, Status } from "./types";
+import type { Prefs, Status } from "../api/types";
 
 export const STATUS: Status[] = ["rascunho", "revisao", "pronto"];
 export const STATUS_LABEL: Record<Status, string> = {

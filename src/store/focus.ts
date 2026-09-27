@@ -20,6 +20,13 @@ export type Caret = number | "end" | null;
 const refs: Partial<Record<FocusTarget, HTMLElement>> = {};
 let pending: { t: FocusTarget; caret: Caret } | null = null;
 
+const handlers: Partial<Record<FocusTarget, (caret: Caret) => void>> = {};
+
+/** For targets that are not plain inputs (the rich editor). */
+export const focusHandler = (t: FocusTarget, fn: (caret: Caret) => void) => {
+  handlers[t] = fn;
+};
+
 export const focusRef = (t: FocusTarget) => (el: HTMLElement) => {
   refs[t] = el;
 };
@@ -35,6 +42,8 @@ function flush() {
   const p = pending;
   pending = null;
   if (!p) return;
+  const handler = handlers[p.t];
+  if (handler) return handler(p.caret);
   const el = refs[p.t];
   if (!el || !el.isConnected) return;
   el.focus({ preventScroll: true });

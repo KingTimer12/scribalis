@@ -1,9 +1,4 @@
 import { DAY, HOUR } from "./constants";
-import type { Book } from "./types";
-
-export function uid() {
-  return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
 
 /** Word count. */
 export function wc(s: string | undefined) {
@@ -26,14 +21,6 @@ export function norm(s: string | undefined) {
 
 export function plural(n: number, one: string, many: string) {
   return fmt(n) + " " + (n === 1 ? one : many);
-}
-
-export function bookWords(b: Book) {
-  return b.chapters.reduce((a, c) => a + wc(c.body), 0);
-}
-
-export function allWords(books: Book[]) {
-  return books.reduce((a, b) => a + bookWords(b), 0);
 }
 
 export function ago(t: number) {
