@@ -4,7 +4,7 @@ import { currentBook, currentChapter, updCur } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
 
-/** Notas do capítulo atual (Ctrl ;). */
+/** Notes for the current chapter (Ctrl ;). */
 export function NotesPanel() {
   return (
     <div class="notes">

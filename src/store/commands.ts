@@ -29,12 +29,12 @@ import {
 } from "./ui";
 
 export interface Command {
-  /** Rótulo curto à esquerda (nº do capítulo, "obra"). */
+  /** Short left label (chapter number, "obra"). */
   kind?: string;
   label: string;
   hint: string;
   danger?: boolean;
-  /** Mantém a paleta aberta ao executar. */
+  /** Keeps the palette open when run. */
   keep?: boolean;
   act: () => void;
 }
@@ -122,7 +122,7 @@ function editorCommands(): Command[] {
   return list;
 }
 
-/** Itens da paleta: capítulos e obras que batem com a busca, depois comandos. */
+/** Palette items: chapters and books matching the query, then commands. */
 export function paletteItems(): Command[] {
   const q = norm(state.q.trim());
   let out: Command[] = [];

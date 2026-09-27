@@ -246,6 +246,54 @@ descartados em cada comando.
 - Na biblioteca, C e Shift C continuam trocando/removendo a capa, agora via
   `book_pick_image` / `book_clear_image`.
 
+## Organização do código
+
+Regras do projeto (`CLAUDE.md`): comentários em inglês e nenhum arquivo Deus, ou seja,
+cada arquivo com uma responsabilidade.
+
+### Rust (`src-tauri/src/`)
+
+```
+lib.rs                 só monta o Builder: plugins, estado, lista de comandos
+state.rs               struct Library (raiz, índice id→pasta, obra aberta, base da sessão)
+error.rs               tipo de erro e conversão para mensagem em português
+model/                 structs serde: metadata.rs, summary.rs, doc.rs (JSON do editor), prefs.rs
+storage/
+  paths.rs             raiz, slug e desduplicação de pastas
+  atomic.rs            escrita atômica (tmp + rename)
+  metadata_io.rs       ler/gravar metadata.json preservando campos extras
+  chapter_io.rs        ler/gravar .md de capítulo
+  images.rs            copiar imagem, recortar capa (crate image)
+markdown/
+  parse.rs             .md → Doc
+  serialize.rs         Doc → .md
+text/
+  words.rs             contagem de palavras
+  normalize.rs         sem acento/caixa para busca
+samples.rs             obras de exemplo
+commands/              um arquivo por grupo, só adaptando IPC → funções acima
+  library.rs, book.rs, chapter.rs, prefs.rs, stats.rs
+```
+
+### Front (`src/`)
+
+```
+api/                   um arquivo por grupo de comandos + mock.ts
+editor/                extensões TipTap: separator.ts, image.ts, keymap.ts (Enter×3, Ctrl Enter, ↑),
+                       split.ts (fatiar documento), createEditor.ts
+store/
+  state.ts             só o store e tipos de estado
+  selectors/           library.ts, book.ts
+  actions/             library.ts, book.ts, chapters.ts, images.ts, prefs.ts, ui.ts
+  keys/                global.ts, library.ts, index.ts, palette.ts (handlers de teclado)
+  commands/            palette.ts (itens) e prompt.ts (modo campo de texto)
+  saving.ts            debounce e flush dos salvamentos
+components/            como hoje; RichEditor.tsx, BookHeaderImage.tsx, BookFooterImage.tsx novos
+```
+
+Hoje `store/library.ts` e `store/chapters.ts` misturam ações e handlers de teclado.
+Nesta mudança eles são reescritos já separados em `actions/` e `keys/`.
+
 ## Dependências e configuração
 
 - **Rust:** `tauri-plugin-dialog`, `tauri-plugin-store`,

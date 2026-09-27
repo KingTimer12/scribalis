@@ -3,7 +3,7 @@ import { pad } from "../../lib/format";
 import { currentBook, currentChapter } from "../../store/state";
 import { StatusDot } from "../ui/StatusDot";
 
-/** "CAPÍTULO 03 · ● RASCUNHO" acima do título. */
+/** "CAPÍTULO 03 · ● RASCUNHO" label above the title. */
 export function ChapterLabel() {
   const status = () => currentChapter()?.status ?? "rascunho";
   return (

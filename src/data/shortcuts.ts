@@ -3,7 +3,7 @@ export interface Shortcut {
   keys: string[];
 }
 
-/** Lista exibida no painel de ajuda (Ctrl /). */
+/** List shown in the help panel (Ctrl /). */
 export const SHORTCUTS: Shortcut[] = [
   { label: "Novo capítulo (divide no cursor)", keys: ["Enter", "Enter", "Enter"] },
   { label: "Nova linha sem contar", keys: ["Shift", "Enter"] },

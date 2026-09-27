@@ -1,6 +1,6 @@
 import { closePanel } from "../../store/ui";
 
-/** Fundo escurecido atrás dos painéis; clique fecha. */
+/** Dimmed backdrop behind panels; click closes. */
 export function Scrim() {
   return <div class="scrim" onClick={closePanel} />;
 }

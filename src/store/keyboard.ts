@@ -4,8 +4,8 @@ import { currentBook, state } from "./state";
 import { closePanel, openPanel, toggleFocusMode, toggleTheme } from "./ui";
 
 /**
- * Atalhos globais. Fica no `window`, então roda depois dos handlers dos
- * campos/painéis — que podem usar stopPropagation para ficar com a tecla.
+ * Global shortcuts. Lives on `window`, so it runs after field/panel handlers,
+ * which can call stopPropagation to keep a key for themselves.
  */
 export function rootKey(e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey;

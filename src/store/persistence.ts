@@ -5,7 +5,7 @@ import { state } from "./state";
 
 const SAVE_DELAY = 400;
 
-/** Lê cada campo salvo para o efeito rastrear mudanças, sem serializar nada. */
+/** Reads every saved field so the effect tracks changes, without serializing. */
 function track() {
   const read = (..._: unknown[]) => {};
   for (const b of state.books) {
@@ -16,7 +16,7 @@ function track() {
   read(p.theme, p.goal, p.width, p.font);
 }
 
-/** Salva obras e preferências (com debounce) sempre que algo muda. */
+/** Saves books and prefs (debounced) whenever something changes. */
 export function usePersistence() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const flush = () => {

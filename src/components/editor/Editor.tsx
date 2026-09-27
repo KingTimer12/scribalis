@@ -3,7 +3,7 @@ import { ChapterBody } from "./ChapterBody";
 import { ChapterLabel } from "./ChapterLabel";
 import { ChapterTitle } from "./ChapterTitle";
 
-/** Coluna central de escrita. Clique fora do texto devolve o foco a ele. */
+/** Central writing column. Clicking outside the text refocuses it. */
 export function Editor() {
   return (
     <div

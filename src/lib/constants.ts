@@ -10,7 +10,7 @@ export const GOALS = [1000, 2000, 3000, 5000];
 export const WIDTH_LABEL = ["estreita", "média", "larga"];
 export const FONT_LABEL = ["pequena", "média", "grande"];
 
-/** Capas por linha na biblioteca (também usado pela navegação ↑↓). */
+/** Covers per library row (also used by ↑↓ navigation). */
 export const COLS = 6;
 
 export const HOUR = 3600000;

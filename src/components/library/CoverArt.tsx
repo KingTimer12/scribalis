@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 import { coverLetter, coverTone } from "../../lib/cover";
 
-/** Conteúdo da capa: imagem, ou a primeira letra sobre um tom derivado do id. */
+/** Cover content: image, or the first letter over a tone derived from the id. */
 export function CoverArt(props: { id: string; title: string; cover?: string | null }) {
   return (
     <Show

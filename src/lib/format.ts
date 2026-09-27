@@ -5,7 +5,7 @@ export function uid() {
   return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-/** Contagem de palavras. */
+/** Word count. */
 export function wc(s: string | undefined) {
   const m = (s || "").match(/\S+/g);
   return m ? m.length : 0;
@@ -19,7 +19,7 @@ export function pad(n: number) {
   return n < 10 ? "0" + n : "" + n;
 }
 
-/** Normaliza para busca: sem acento, minúsculo. */
+/** Normalizes for search: no accents, lowercase. */
 export function norm(s: string | undefined) {
   return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }

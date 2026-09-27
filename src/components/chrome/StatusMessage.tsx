@@ -2,12 +2,12 @@ import { Show } from "solid-js";
 import { state } from "../../store/state";
 import { Kbd } from "../ui/Kbd";
 
-/** Centro da barra inferior: toast ou aviso do terceiro Enter. */
+/** Bottom bar center: toast or the third-Enter hint. */
 export function StatusMessage() {
   const showTriple = () => state.tripleHint && !state.toast && state.view === "editor";
   return (
     <>
-      {/* keyed: cada toast novo remonta e reinicia a animação */}
+      {/* keyed: each new toast remounts and restarts the animation */}
       <Show when={state.toast ? state.toastKey : false} keyed>
         <span class="toast text-ink">{state.toast}</span>
       </Show>

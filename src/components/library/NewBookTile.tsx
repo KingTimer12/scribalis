@@ -3,7 +3,7 @@ import { SrLabel } from "../ui/SrLabel";
 import { CoverArt } from "./CoverArt";
 import { RenameInput } from "./RenameInput";
 
-/** Capa provisória enquanto a obra nova recebe um nome. */
+/** Placeholder cover while the new book is being named. */
 export function NewBookTile() {
   return (
     <div class="tile sel">

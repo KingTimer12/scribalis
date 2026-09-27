@@ -8,7 +8,7 @@ import { focusTarget } from "./focus";
 import { libList, libSelIndex, session, setState, sortedBooks, state } from "./state";
 import { flash } from "./ui";
 
-/* ---------- abrir / voltar ---------- */
+/* ---------- open / go back ---------- */
 
 export function openBook(id: string, target: "title" | "body" = "body") {
   const i = state.books.findIndex((b) => b.id === id);
@@ -49,7 +49,7 @@ export function goLibrary() {
   });
 }
 
-/* ---------- criar / renomear / excluir ---------- */
+/* ---------- create / rename / delete ---------- */
 
 export function startNew() {
   session.newId = uid();
@@ -117,7 +117,7 @@ export function restoreSamples() {
   flash("Exemplos restaurados");
 }
 
-/* ---------- capa ---------- */
+/* ---------- cover ---------- */
 
 let fileInput: HTMLInputElement | undefined;
 let coverTarget: string | null = null;
@@ -150,12 +150,12 @@ export async function onCoverFile(file: File | undefined) {
   flash("Capa atualizada");
 }
 
-/* ---------- teclado ---------- */
+/* ---------- keyboard ---------- */
 
 const is = (e: KeyboardEvent, letter: string) =>
   e.code === "Key" + letter.toUpperCase() || e.key.toLowerCase() === letter;
 
-/** Teclas da grade de obras (só quando a própria grade tem o foco). */
+/** Book grid keys (only when the grid itself has focus). */
 export function libKey(e: KeyboardEvent, gridEl: HTMLElement) {
   if (e.target !== gridEl) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;

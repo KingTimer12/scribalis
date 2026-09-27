@@ -1,7 +1,7 @@
 /**
- * Foco programático. Componentes registram seus elementos com `focusRef`;
- * ações pedem foco com `focusTarget`, que roda depois que o DOM atualiza
- * (o elemento pode ter acabado de aparecer).
+ * Programmatic focus. Components register their elements with `focusRef`;
+ * actions request focus with `focusTarget`, which runs after the DOM updates
+ * (the element may have just appeared).
  */
 export type FocusTarget =
   | "book"
@@ -26,7 +26,7 @@ export const focusRef = (t: FocusTarget) => (el: HTMLElement) => {
 
 export function focusTarget(t: FocusTarget, caret: Caret = null) {
   const first = pending === null;
-  // o último pedido vence, como no protótipo
+  // the last request wins, as in the prototype
   pending = { t, caret };
   if (first) queueMicrotask(flush);
 }

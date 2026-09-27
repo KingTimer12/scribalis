@@ -5,7 +5,7 @@ import { Hint } from "../ui/Hint";
 import { Kbd } from "../ui/Kbd";
 import { Scrim } from "../ui/Scrim";
 
-/** Mapa de atalhos (Ctrl /). */
+/** Shortcut map (Ctrl /). */
 export function HelpPanel() {
   return (
     <>

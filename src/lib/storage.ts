@@ -1,8 +1,8 @@
 import type { Book, Prefs } from "./types";
 
 /**
- * Persistência. Hoje usa localStorage; trocar por arquivos/SQLite (Tauri)
- * ou backend exige mexer só aqui.
+ * Persistence. Uses localStorage today; switching to files/SQLite (Tauri)
+ * or a backend only touches this file.
  */
 const STORE_KEY = "scribalis-v1";
 
@@ -27,6 +27,6 @@ export function saveData(data: SavedData) {
   try {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
   } catch {
-    /* armazenamento indisponível: segue em memória */
+    /* storage unavailable: keep going in memory */
   }
 }

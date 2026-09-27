@@ -6,7 +6,7 @@ import { currentBook, setPrefs, setState, state } from "./state";
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-/** Mensagem breve no centro da barra inferior. */
+/** Short message in the center of the bottom bar. */
 export function flash(msg: string) {
   clearTimeout(toastTimer);
   setState({ toast: msg, toastKey: state.toastKey + 1, tripleHint: false });
@@ -15,14 +15,14 @@ export function flash(msg: string) {
 
 export const homeTarget = (): FocusTarget => (state.view === "library" ? "lib" : "body");
 
-/** Fecha qualquer painel e devolve o foco à tela principal. */
+/** Closes any panel and returns focus to the main screen. */
 export function closePanel() {
   focusTarget(homeTarget());
   if (!state.panel) return;
   setState({ panel: null, q: "", pIdx: 0, confirmDel: false });
 }
 
-/** Abre um painel; se já estiver aberto, fecha. */
+/** Opens a panel; closes it if already open. */
 export function openPanel(name: Panel) {
   if (state.panel === name) return closePanel();
   focusTarget(name, name === "notes" ? "end" : null);

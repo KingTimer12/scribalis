@@ -4,7 +4,7 @@
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 
-/* Tokens do tema viram utilitários: text-ink, bg-panel, border-faint… */
+/* Theme tokens become utilities: text-ink, bg-panel, border-faint… */
 @theme inline {
   --font-serif: "Literata Variable", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -28,9 +28,9 @@
   }
 }
 
-/* Classes do protótipo. Em `components` para que utilitários do Tailwind possam sobrescrever. */
+/* Prototype classes. In `components` so Tailwind utilities can override them. */
 @layer components {
-  /* ---------- tema ---------- */
+  /* ---------- theme ---------- */
   .app {
     --bg: #f6f4ef;
     --ink: #1d1c1a;
@@ -69,7 +69,7 @@
     color: var(--accent);
   }
 
-  /* ---------- tipografia de interface ---------- */
+  /* ---------- UI typography ---------- */
   .ui {
     font-family: var(--font-mono);
     font-size: 12px;
@@ -104,7 +104,7 @@
     left: -9999px;
   }
 
-  /* barras somem no modo foco */
+  /* bars fade out in focus mode */
   .chrome {
     transition: opacity 0.35s;
   }
@@ -115,7 +115,7 @@
     opacity: 1;
   }
 
-  /* ---------- barra superior ---------- */
+  /* ---------- top bar ---------- */
   .crumb {
     border: 0;
     background: transparent;
@@ -216,7 +216,7 @@
     background: var(--ok);
   }
 
-  /* ---------- biblioteca ---------- */
+  /* ---------- library ---------- */
   .lib {
     outline: none;
     animation: fadeIn 0.25s ease-out;
@@ -337,7 +337,7 @@
     caret-color: var(--accent);
   }
 
-  /* ---------- painéis ---------- */
+  /* ---------- panels ---------- */
   .scrim {
     position: absolute;
     inset: 0;
@@ -389,7 +389,7 @@
     text-overflow: ellipsis;
   }
 
-  /* centralizados com margin auto (o transform fica livre para a animação) */
+  /* centered with margin auto (keeps transform free for the animation) */
   .pal {
     position: absolute;
     top: 140px;
@@ -516,7 +516,7 @@
     font-size: 15px;
   }
 
-  /* ---------- animações ---------- */
+  /* ---------- animations ---------- */
   .toast {
     animation: toast 1.8s ease-out forwards;
   }

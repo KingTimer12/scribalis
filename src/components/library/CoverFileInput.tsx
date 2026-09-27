@@ -1,6 +1,6 @@
 import { onCoverFile, registerCoverInput } from "../../store/library";
 
-/** Seletor de arquivo invisível, aberto pelas teclas C / comando "Capa". */
+/** Hidden file picker, opened by the C key / "Capa" command. */
 export function CoverFileInput() {
   return (
     <input

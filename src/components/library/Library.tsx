@@ -7,7 +7,7 @@ import { BookTile } from "./BookTile";
 import { LibraryHeader } from "./LibraryHeader";
 import { NewBookTile } from "./NewBookTile";
 
-/** Tela "Suas obras": grade de capas navegável pelo teclado. */
+/** "Suas obras" screen: keyboard-navigable cover grid. */
 export function Library() {
   let el!: HTMLDivElement;
   const list = () => libList();

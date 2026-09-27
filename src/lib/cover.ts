@@ -1,10 +1,10 @@
-/** Letra exibida na capa sem imagem. */
+/** Letter shown on a cover without an image. */
 export function coverLetter(title: string | undefined) {
   const m = (title || "").trim().match(/[\p{L}\p{N}]/u);
   return m ? m[0].toLocaleUpperCase("pt-BR") : "+";
 }
 
-/** Tom da capa (0–5) derivado do id da obra. */
+/** Cover tone (0–5) derived from the book id. */
 export function coverTone(seed: string | undefined) {
   let h = 0;
   const s = seed || "";
@@ -15,7 +15,7 @@ export function coverTone(seed: string | undefined) {
 const COVER_W = 400;
 const COVER_H = 600;
 
-/** Recorta a imagem para 400×600 (cover) e devolve um data URL JPEG. */
+/** Crops the image to 400×600 (cover fit) and returns a JPEG data URL. */
 export function shrinkImage(file: File): Promise<string | null> {
   return new Promise((resolve) => {
     const reader = new FileReader();

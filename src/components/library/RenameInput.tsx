@@ -2,7 +2,7 @@ import { focusRef } from "../../store/focus";
 import { renameKey } from "../../store/library";
 import { setState, state } from "../../store/state";
 
-/** Campo inline para nomear/renomear obra. Enter confirma, Esc cancela. */
+/** Inline input to name/rename a book. Enter confirms, Esc cancels. */
 export function RenameInput(props: { id?: string; label: string; placeholder?: string }) {
   return (
     <input

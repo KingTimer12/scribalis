@@ -5,7 +5,7 @@ import { focusTarget } from "./focus";
 import { currentBook, currentChapter, editBook, session, setState, state, updCur } from "./state";
 import { flash } from "./ui";
 
-/* ---------- ações ---------- */
+/* ---------- actions ---------- */
 
 export function insertChapter(at: number) {
   session.enterStreak = 0;
@@ -18,7 +18,7 @@ export function insertChapter(at: number) {
   flash("Capítulo " + pad(at + 1) + " criado");
 }
 
-/** Divide o capítulo atual: `after` vira o corpo de um capítulo novo logo abaixo. */
+/** Splits the current chapter: `after` becomes the body of a new chapter right below. */
 export function splitHere(before: string, after: string) {
   const at = (currentBook()?.cur ?? 0) + 1;
   session.enterStreak = 0;
@@ -48,7 +48,7 @@ export function goChapter(i: number, caret: number | "end" = "end") {
   focusTarget("body", caret);
 }
 
-/** Troca o capítulo `from` com o vizinho. Devolve a nova posição, ou null. */
+/** Swaps chapter `from` with its neighbor. Returns the new position, or null. */
 export function moveChapter(from: number, dir: -1 | 1): number | null {
   const n = currentBook()?.chapters.length ?? 0;
   const to = from + dir;
@@ -104,7 +104,7 @@ export function setBookTitle(title: string) {
   });
 }
 
-/* ---------- campos do editor ---------- */
+/* ---------- editor fields ---------- */
 
 export function bookTitleKey(e: KeyboardEvent) {
   if (e.key === "Enter" || e.key === "ArrowDown") {
@@ -134,7 +134,7 @@ export function resetEnterStreak() {
 
 const MODIFIER_KEYS = ["Shift", "Control", "Alt", "Meta", "CapsLock"];
 
-/** Enter ×3 cria capítulo; ↑ no início volta ao título. */
+/** Enter ×3 creates a chapter; ↑ at the start goes back to the title. */
 export function bodyKey(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
   const el = e.currentTarget;
   const mods = e.ctrlKey || e.metaKey || e.altKey;
@@ -158,7 +158,7 @@ export function bodyKey(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement 
   }
 }
 
-/** Setas navegam, Alt+setas reordenam, Enter abre. */
+/** Arrows navigate, Alt+arrows reorder, Enter opens. */
 export function indexKey(e: KeyboardEvent) {
   const n = currentBook()?.chapters.length ?? 0;
   const sel = state.indexSel;

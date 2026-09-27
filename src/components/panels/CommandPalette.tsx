@@ -6,7 +6,7 @@ import { Kbd } from "../ui/Kbd";
 import { Scrim } from "../ui/Scrim";
 import { SrLabel } from "../ui/SrLabel";
 
-/** Paleta de comandos (Ctrl K): busca comandos, capítulos e outras obras. */
+/** Command palette (Ctrl K): searches commands, chapters and other books. */
 export function CommandPalette() {
   let listEl!: HTMLDivElement;
   const items = createMemo(paletteItems);

@@ -7,7 +7,7 @@ import { Hint } from "../ui/Hint";
 import { Scrim } from "../ui/Scrim";
 import { StatusDot } from "../ui/StatusDot";
 
-/** Gaveta com os capítulos da obra (Ctrl E). */
+/** Drawer listing the book's chapters (Ctrl E). */
 export function ChapterIndex() {
   let el!: HTMLDivElement;
 

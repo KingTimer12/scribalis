@@ -1,7 +1,7 @@
 import { allWords, fmt } from "../../lib/format";
 import { session, state } from "../../store/state";
 
-/** Meta diária: palavras escritas nesta sessão, em todas as obras. */
+/** Daily goal: words written this session across all books. */
 export function GoalProgress() {
   const today = () => Math.max(0, allWords(state.books) - session.baseWords);
   const pct = () => Math.min(100, Math.round((today() / state.prefs.goal) * 100));
