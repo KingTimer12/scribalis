@@ -3,10 +3,9 @@ import * as bookApi from "../../api/book";
 import * as chapterApi from "../../api/chapter";
 import * as api from "../../api/library";
 import { statsToday } from "../../api/prefs";
-import { loadDoc } from "../../editor/bridge";
 import { docWords } from "../../lib/doc";
 import { focusTarget } from "../focus";
-import { flushAll } from "../saving";
+import { flushAll, settleChapterSave, swapDocument } from "../saving";
 import { sortedLibrary } from "../selectors/library";
 import { session, setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -29,13 +28,14 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
     const book = await bookApi.openBook(id);
     const chapter = book.chapters[book.cur];
     const doc = await chapterApi.loadChapter(book.id, chapter.id);
-    batch(() => {
-      setState({
-        book, curId: id, view: "editor", panel: null, q: "", tripleHint: false, focus: false,
-        libConfirm: null, renaming: null, liveWords: docWords(doc),
+    await swapDocument(doc, { bookId: book.id, chapterId: chapter.id }, () => {
+      batch(() => {
+        setState({
+          book, curId: id, view: "editor", panel: null, q: "", tripleHint: false, focus: false,
+          libConfirm: null, renaming: null, liveWords: docWords(doc),
+        });
       });
     });
-    loadDoc(doc);
     if (target === "title") focusTarget("title", 0);
     else focusTarget("body", "end");
   } catch (e) {
@@ -46,6 +46,8 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
 export async function goLibrary() {
   await flushAll();
   await refreshLibrary();
+  // Text typed while the library loaded: save it before the editor unmounts.
+  await settleChapterSave();
   const idx = Math.max(0, sortedLibrary().findIndex((b) => b.id === state.curId));
   focusTarget("lib");
   setState({

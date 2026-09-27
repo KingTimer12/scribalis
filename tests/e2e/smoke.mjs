@@ -71,11 +71,68 @@ await page.keyboard.type("linha um");
 await page.waitForSelector(".pal-item .pal-kind:text('01')");
 await page.keyboard.press("Escape");
 
+// Enter ×3 at the end, then typing right away: the old chapter keeps its text,
+// what was typed lands in the new chapter
+await page.keyboard.press("Control+End");
+await page.keyboard.type(" fim");
+await page.keyboard.press("Enter");
+await page.keyboard.press("Enter");
+await page.keyboard.press("Enter");
+await page.keyboard.type("Novo");
+await page.waitForFunction(() => document.querySelector(".col .cap")?.textContent?.includes("03"));
+await page.keyboard.press("Enter");
+await page.keyboard.type("texto novo");
+await page.waitForTimeout(1200);
+await page.keyboard.press("Alt+ArrowUp");
+await page.waitForFunction(() => document.querySelector(".col .cap")?.textContent?.includes("02"));
+assert.match(await body(), /depois do separador[\s\S]* fim$/);
+await page.keyboard.press("Alt+ArrowDown");
+await page.waitForFunction(() => document.querySelector(".col .cap")?.textContent?.includes("03"));
+assert.equal((await body()).trim(), "texto novo");
+assert.equal(await page.locator("#ch-title").inputValue(), "Novo");
+
 // back to library shows the new book first with its word count
 await page.keyboard.press("Control+o");
 await page.waitForSelector(".tile.sel");
 assert.equal(await page.locator(".tile.sel .tile-title").innerText(), "Meu Livro");
-assert.match(await page.locator(".tile.sel .ui").first().innerText(), /2 cap\./);
+assert.match(await page.locator(".tile.sel .ui").first().innerText(), /3 cap\./);
+
+// Slow backend: text typed while switching chapters is saved to the chapter it
+// was typed in, and a late save never overwrites that chapter with the next one
+const slow = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+slow.on("pageerror", (e) => errors.push(e.message));
+const slowCap = (n) => slow.waitForFunction((n) => document.querySelector(".col .cap")?.textContent?.includes(n), n);
+const slowBody = () => slow.locator("#ch-body").innerText();
+await slow.goto(url + "?mockDelay=150");
+await slow.waitForSelector(".tile");
+await slow.waitForTimeout(500);
+await slow.keyboard.press("n");
+await slow.keyboard.type("Lento");
+await slow.keyboard.press("Enter");
+await slow.waitForSelector("#ch-body");
+await slow.waitForTimeout(400);
+// focus starts on the chapter title; Enter goes to the text
+await slow.keyboard.press("Enter");
+await slow.keyboard.type("Um dois");
+await slow.keyboard.press("Enter");
+await slow.keyboard.press("Enter");
+await slow.keyboard.press("Enter");
+await slowCap("02");
+await slow.keyboard.press("Enter");
+await slow.keyboard.type("Capitulo dois");
+await slow.keyboard.press("Alt+ArrowUp");
+await slowCap("01");
+await slow.waitForTimeout(400);
+await slow.keyboard.type(" tres");
+await slow.keyboard.press("Alt+ArrowDown");
+await slow.keyboard.type("XYZ");
+await slowCap("02");
+await slow.waitForTimeout(1500);
+assert.equal((await slowBody()).trim(), "Capitulo dois");
+await slow.keyboard.press("Alt+ArrowUp");
+await slowCap("01");
+await slow.waitForTimeout(400);
+assert.equal((await slowBody()).trim(), "Um dois tresXYZ");
 
 assert.deepEqual(errors, []);
 await browser.close();

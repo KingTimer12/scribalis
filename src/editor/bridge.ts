@@ -2,16 +2,28 @@ import type { Editor } from "@tiptap/core";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import type { DocJSON } from "../api/types";
 
+/** Identifies which chapter the editor holds. */
+export interface DocKey {
+  bookId: string;
+  chapterId: string;
+}
+
+export const sameKey = (a: DocKey | null, b: DocKey | null): boolean =>
+  !!a && !!b && a.bookId === b.bookId && a.chapterId === b.chapterId;
+
 /** Holds the mounted editor so store actions can talk to it. */
 let editor: Editor | null = null;
-let pendingDoc: DocJSON | null = null;
+let pending: { doc: DocJSON; key: DocKey } | null = null;
+let loadedKey: DocKey | null = null;
 
 export function setEditor(e: Editor | null) {
   editor = e;
-  if (e && pendingDoc) {
-    const doc = pendingDoc;
-    pendingDoc = null;
-    loadDoc(doc);
+  // A fresh (or no) editor holds no chapter until a document is loaded into it.
+  loadedKey = null;
+  if (e && pending) {
+    const { doc, key } = pending;
+    pending = null;
+    loadDoc(doc, key);
   }
 }
 
@@ -21,18 +33,26 @@ export function normalizeDoc(doc: DocJSON): DocJSON {
   return doc;
 }
 
-/** Replaces the document without triggering a save or an undo step. */
-export function loadDoc(doc: DocJSON) {
+/** Replaces the document without triggering a save or an undo step; `key` names its chapter. */
+export function loadDoc(doc: DocJSON, key: DocKey) {
   const normalized = normalizeDoc(doc);
   if (!editor) {
-    pendingDoc = normalized;
+    pending = { doc: normalized, key };
     return;
   }
   editor.chain().setMeta("addToHistory", false).setContent(normalized, { emitUpdate: false }).run();
+  loadedKey = { ...key };
 }
 
-export function getDoc(): DocJSON | null {
-  return editor ? (editor.getJSON() as DocJSON) : null;
+/** The chapter currently in the editor, or null. */
+export function currentDocKey(): DocKey | null {
+  return editor && loadedKey ? { ...loadedKey } : null;
+}
+
+/** The editor's document, only if it still holds chapter `key` (else null). */
+export function getDoc(key: DocKey): DocJSON | null {
+  if (!editor || !sameKey(loadedKey, key)) return null;
+  return editor.getJSON() as DocJSON;
 }
 
 export function liveText(): string {

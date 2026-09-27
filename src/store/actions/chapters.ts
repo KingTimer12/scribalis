@@ -2,12 +2,12 @@ import * as bookApi from "../../api/book";
 import * as api from "../../api/chapter";
 import { statsToday } from "../../api/prefs";
 import type { BookMeta, DocJSON } from "../../api/types";
-import { liveText, loadDoc } from "../../editor/bridge";
+import { liveText } from "../../editor/bridge";
 import { STATUS, STATUS_LABEL } from "../../lib/constants";
 import { docWords } from "../../lib/doc";
 import { pad, wc } from "../../lib/format";
 import { focusTarget, type Caret } from "../focus";
-import { cancelChapterSave, flushAll, scheduleChapterPatch, scheduleChapterSave } from "../saving";
+import { cancelChapterSave, flushAll, scheduleChapterPatch, scheduleChapterSave, swapDocument } from "../saving";
 import { currentChapter } from "../selectors/book";
 import { editBook, setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -19,14 +19,26 @@ export async function refreshToday() {
   setState("today", (await statsToday()).today);
 }
 
-/** Applies new book metadata and loads its current chapter into the editor. */
-async function showCurrent(meta: BookMeta, target: Target) {
+/** Replaces the open book's metadata, unless the user has left that book meanwhile. */
+function applyMeta(meta: BookMeta, extra: { liveWords?: number } = {}): boolean {
+  if (state.book?.id !== meta.id) return false;
+  setState({ book: meta, tripleHint: false, ...extra });
+  return true;
+}
+
+/**
+ * Applies new book metadata and loads its current chapter into the editor.
+ * `discard` drops text typed meanwhile into the old chapter (it was deleted).
+ */
+async function showCurrent(meta: BookMeta, target: Target, discard = false): Promise<boolean> {
   const chapter = meta.chapters[meta.cur];
   const doc = await api.loadChapter(meta.id, chapter.id);
-  setState({ book: meta, tripleHint: false, liveWords: docWords(doc) });
-  loadDoc(doc);
+  if (discard) cancelChapterSave();
+  const key = { bookId: meta.id, chapterId: chapter.id };
+  if (!(await swapDocument(doc, key, () => applyMeta(meta, { liveWords: docWords(doc) })))) return false;
   if (target === "title") focusTarget("title", 0);
   else focusTarget("body", target);
+  return true;
 }
 
 async function run(fn: () => Promise<void>) {
@@ -56,8 +68,7 @@ export function insertChapterAt(at: number) {
   if (!b) return;
   return run(async () => {
     await flushAll();
-    await showCurrent(await api.insertChapter(b.id, at), "title");
-    flash("Capítulo " + pad(at + 1) + " criado");
+    if (await showCurrent(await api.insertChapter(b.id, at), "title")) flash("Capítulo " + pad(at + 1) + " criado");
   });
 }
 
@@ -66,12 +77,20 @@ export function splitCurrent(before: DocJSON, after: DocJSON) {
   const b = state.book;
   const c = currentChapter();
   if (!b || !c) return;
+  // The split itself persists both halves of the current text.
   cancelChapterSave();
   return run(async () => {
     await flushAll();
-    const meta = await api.splitChapter(b.id, c.id, before, after);
-    setState({ book: meta, tripleHint: false, liveWords: docWords(after) });
-    loadDoc(after);
+    let meta: BookMeta;
+    try {
+      meta = await api.splitChapter(b.id, c.id, before, after);
+    } catch (e) {
+      // Nothing was split: the editor still holds the whole text, save it as usual.
+      scheduleChapterSave();
+      throw e;
+    }
+    const key = { bookId: meta.id, chapterId: meta.chapters[meta.cur].id };
+    if (!(await swapDocument(after, key, () => applyMeta(meta, { liveWords: docWords(after) })))) return;
     focusTarget("title", 0);
     await refreshToday();
     flash("Capítulo " + pad(meta.cur + 1) + " criado" + (after.content.length ? " — o texto seguinte foi junto" : ""));
@@ -85,7 +104,7 @@ export async function moveChapter(from: number, dir: -1 | 1): Promise<number | n
   if (!b || to < 0 || to >= b.chapters.length) return null;
   try {
     await flushAll();
-    setState("book", await api.moveChapter(b.id, from, to));
+    if (!applyMeta(await api.moveChapter(b.id, from, to))) return null;
     flash("Movido para a posição " + pad(to + 1));
     return to;
   } catch (e) {
@@ -113,8 +132,9 @@ export function deleteCurrentChapter() {
   cancelChapterSave();
   return run(async () => {
     await flushAll();
-    await showCurrent(await api.deleteChapter(b.id, c.id), "end");
+    const shown = await showCurrent(await api.deleteChapter(b.id, c.id), "end", true);
     await refreshToday();
+    if (!shown) return;
     flash("Capítulo " + pad(gone + 1) + " excluído");
   });
 }

@@ -1,8 +1,8 @@
 import * as bookApi from "../api/book";
 import * as chapterApi from "../api/chapter";
 import { statsToday } from "../api/prefs";
-import type { BookPatch, ChapterPatch } from "../api/types";
-import { getDoc } from "../editor/bridge";
+import type { BookPatch, ChapterPatch, DocJSON } from "../api/types";
+import { currentDocKey, getDoc, loadDoc, sameKey, type DocKey } from "../editor/bridge";
 import { editBook, setState, state } from "./state";
 import { flashError } from "./actions/ui";
 
@@ -15,7 +15,7 @@ interface Pending<P> {
   patch?: P;
 }
 
-let docSave: Pending<never> | null = null;
+let docSave: (Pending<never> & { key: DocKey }) | null = null;
 let chapterPatch: Pending<ChapterPatch> | null = null;
 let bookPatch: Pending<BookPatch> | null = null;
 
@@ -25,29 +25,60 @@ function target() {
   return b && c ? { bookId: b.id, chapterId: c.id } : null;
 }
 
-async function saveDocNow(bookId: string, chapterId: string) {
-  const doc = getDoc();
+async function saveDocNow(key: DocKey) {
+  // Null when the editor already holds another chapter: never file its text under `key`.
+  const doc = getDoc(key);
   if (!doc) return;
-  const saved = await chapterApi.saveChapter(bookId, chapterId, doc);
+  const saved = await chapterApi.saveChapter(key.bookId, key.chapterId, doc);
   editBook((b) => {
-    const c = b.id === bookId ? b.chapters.find((x) => x.id === chapterId) : undefined;
+    const c = b.id === key.bookId ? b.chapters.find((x) => x.id === key.chapterId) : undefined;
     if (c) c.words = saved.words;
   });
   setState("today", (await statsToday()).today);
 }
 
-/** Debounced save of the open chapter's text. */
+/** Runs the pending text save now, if any. */
+async function flushDocSave() {
+  const p = docSave;
+  docSave = null;
+  if (!p) return;
+  clearTimeout(p.timer);
+  await p.run();
+}
+
+/** Debounced save of the text of the chapter the editor holds. */
 export function scheduleChapterSave() {
-  const t = target();
-  if (!t) return;
+  const key = currentDocKey();
+  if (!key) return;
+  if (docSave && !sameKey(docSave.key, key)) void flushDocSave();
   if (docSave) clearTimeout(docSave.timer);
-  const run = () => saveDocNow(t.bookId, t.chapterId).catch(flashError);
-  docSave = { timer: setTimeout(() => { docSave = null; run(); }, DOC_DELAY), run };
+  const run = () => saveDocNow(key).catch(flashError);
+  docSave = { timer: setTimeout(() => { docSave = null; run(); }, DOC_DELAY), run, key };
 }
 
 export function cancelChapterSave() {
   if (docSave) clearTimeout(docSave.timer);
   docSave = null;
+}
+
+/** Waits until no text save is pending (text typed meanwhile is saved too). */
+export async function settleChapterSave() {
+  while (docSave) await flushDocSave();
+}
+
+/**
+ * Loads chapter `key` into the editor. Text typed into the old chapter since the
+ * last flush (e.g. during the IPC that fetched `doc`) is saved to the old chapter
+ * first, while the editor still shows it. `apply` runs right before the swap, to
+ * publish the matching store state; returning false aborts the swap.
+ * Resolves to whether the document was loaded.
+ */
+export async function swapDocument(doc: DocJSON, key: DocKey, apply: () => boolean | void): Promise<boolean> {
+  await settleChapterSave();
+  if (apply() === false) return false;
+  cancelChapterSave();
+  loadDoc(doc, key);
+  return true;
 }
 
 /** Debounced title/notes update; successive patches merge. */
