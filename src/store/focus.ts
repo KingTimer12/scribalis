@@ -35,17 +35,30 @@ export function focusTarget(t: FocusTarget, caret: Caret = null) {
   const first = pending === null;
   // the last request wins, as in the prototype
   pending = { t, caret };
-  if (first) queueMicrotask(flush);
+  if (first) queueMicrotask(() => flush());
 }
 
-function flush() {
+/**
+ * A request queued right before the panel/element it targets gets created
+ * (e.g. `openPanel` asks for "palette" before the store update that mounts
+ * it) can run its microtask before Solid has mounted that element. Retry a
+ * few animation frames before giving up, instead of silently dropping it.
+ */
+function flush(retriesLeft = 8) {
   const p = pending;
-  pending = null;
   if (!p) return;
   const handler = handlers[p.t];
-  if (handler) return handler(p.caret);
+  if (handler) {
+    pending = null;
+    return handler(p.caret);
+  }
   const el = refs[p.t];
-  if (!el || !el.isConnected) return;
+  if (!el || !el.isConnected) {
+    if (retriesLeft > 0) requestAnimationFrame(() => flush(retriesLeft - 1));
+    else pending = null;
+    return;
+  }
+  pending = null;
   el.focus({ preventScroll: true });
   if (p.caret == null) return;
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {

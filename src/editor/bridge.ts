@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/core";
+import { Selection, TextSelection } from "@tiptap/pm/state";
 import type { DocJSON } from "../api/types";
 
 /** Holds the mounted editor so store actions can talk to it. */
@@ -40,9 +41,33 @@ export function liveText(): string {
   return doc.textBetween(0, doc.content.size, "\n\n", "\n");
 }
 
+/** Clamps `pos` into the document's addressable range. */
+function clampPos(pos: number, min: number, max: number): number {
+  return Math.min(Math.max(pos, min), max);
+}
+
 export function focusEditor(caret: number | "end" | null) {
   if (!editor) return;
-  editor.commands.focus(caret === 0 ? "start" : caret === "end" ? "end" : caret, { scrollIntoView: caret !== null });
+  const { view } = editor;
+  if (caret != null) {
+    const { doc } = view.state;
+    const atStart = Selection.atStart(doc);
+    const atEnd = Selection.atEnd(doc);
+    const selection =
+      caret === "end"
+        ? atEnd
+        : caret === 0
+          ? atStart
+          : TextSelection.create(doc, clampPos(caret, atStart.from, atEnd.to));
+    if (!view.state.selection.eq(selection)) view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+  }
+  // Focus synchronously via the low-level view API, not `editor.commands.focus()`:
+  // that command always defers the actual DOM focus() to a requestAnimationFrame,
+  // which can fire later and steal focus back into the editor from whatever the
+  // user has since moved to (e.g. opening the command palette right after
+  // switching chapters). `view.focus()` re-asserts the selection into the DOM
+  // and focuses it immediately, with no dangling callback left behind.
+  view.focus();
 }
 
 export function insertSeparator() {
