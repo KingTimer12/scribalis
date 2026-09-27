@@ -1,11 +1,21 @@
+mod commands;
 mod error;
 mod ids;
-mod text;
-mod storage;
-mod model;
 mod markdown;
+mod model;
 mod ops;
 mod samples;
+mod state;
+mod storage;
+mod text;
+
+use std::sync::Mutex;
+
+use tauri::Manager;
+
+use commands::{book, chapter, library, prefs, stats};
+use state::Library;
+use storage::paths::ROOT_NAME;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -13,6 +23,35 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .setup(|app| {
+            let root = app.path().document_dir()?.join(ROOT_NAME);
+            app.manage(Mutex::new(Library::new(root)));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            library::library_list,
+            library::library_create,
+            library::library_rename,
+            library::library_delete,
+            library::library_restore_samples,
+            book::book_open,
+            book::book_update,
+            book::book_pick_image,
+            book::book_clear_image,
+            book::book_insert_image,
+            chapter::chapter_load,
+            chapter::chapter_save,
+            chapter::chapter_update,
+            chapter::chapter_insert,
+            chapter::chapter_split,
+            chapter::chapter_move,
+            chapter::chapter_delete,
+            chapter::chapter_search,
+            chapter::chapter_markdown,
+            prefs::prefs_get,
+            prefs::prefs_set,
+            stats::stats_today,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
