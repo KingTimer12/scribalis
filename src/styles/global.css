@@ -252,6 +252,12 @@
   .ed-body p {
     margin: 0 0 1em;
   }
+  .ed-body strong {
+    font-weight: 700;
+  }
+  .ed-body em {
+    font-style: italic;
+  }
   .ed-body > :last-child {
     margin-bottom: 0;
   }

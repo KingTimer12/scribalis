@@ -3,9 +3,18 @@ export type ImageSlot = "cover" | "header" | "footer" | "separator";
 
 export type Separator = { type: "text"; text: string } | { type: "image"; image: string };
 
-export type InlineJSON = { type: "text"; text: string } | { type: "hardBreak" };
+export type MarkJSON = { type: "bold" | "italic" };
+export type InlineJSON = { type: "text"; text: string; marks?: MarkJSON[] } | { type: "hardBreak" };
+export type Align = "left" | "center" | "right" | "justify";
+export type ParaAttrsJSON = Partial<{
+  textAlign: Align | null;
+  lineHeight: number | null;
+  spaceBefore: number | null;
+  spaceAfter: number | null;
+  indent: number | null;
+}>;
 export type BlockJSON =
-  | { type: "paragraph"; content?: InlineJSON[] }
+  | { type: "paragraph"; attrs?: ParaAttrsJSON; content?: InlineJSON[] }
   | { type: "separator" }
   | { type: "image"; attrs: { src: string } };
 export interface DocJSON {

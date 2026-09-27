@@ -24,6 +24,15 @@ function stateWithCursorIn(blocks: string[], cursorBlock: number) {
   return state.apply(state.tr.setSelection(TextSelection.create(doc, pos + 1)));
 }
 
+const rich = new Schema({
+  nodes: {
+    doc: { content: "block+" },
+    paragraph: { group: "block", content: "inline*", attrs: { textAlign: { default: null } } },
+    text: { group: "inline" },
+  },
+  marks: { bold: {} },
+});
+
 describe("splitAtCursor", () => {
   it("splits on the second empty paragraph and moves the rest", () => {
     const state = stateWithCursorIn(["antes", "", "", "depois"], 2);
@@ -50,5 +59,22 @@ describe("splitAtCursor", () => {
   it("does nothing when the previous paragraph has text", () => {
     expect(splitAtCursor(stateWithCursorIn(["a", ""], 1))).toBeNull();
     expect(splitAtCursor(stateWithCursorIn(["a", "", "b"], 2))).toBeNull();
+  });
+
+  it("keeps marks and paragraph attrs on both halves", () => {
+    const bold = rich.marks.bold.create();
+    const doc = rich.node("doc", null, [
+      rich.node("paragraph", { textAlign: "center" }, [rich.text("antes", [bold])]),
+      rich.node("paragraph"),
+      rich.node("paragraph"),
+      rich.node("paragraph", { textAlign: "right" }, [rich.text("depois", [bold])]),
+    ]);
+    let pos = 0;
+    for (let i = 0; i < 3; i++) pos += doc.child(i).nodeSize;
+    const base = EditorState.create({ doc, schema: rich });
+    const state = base.apply(base.tr.setSelection(TextSelection.create(doc, pos + 1)));
+    const out = splitAtCursor(state)!;
+    expect(out.before.content[0]).toMatchObject({ attrs: { textAlign: "center" }, content: [{ text: "antes", marks: [{ type: "bold" }] }] });
+    expect(out.after.content[0]).toMatchObject({ attrs: { textAlign: "right" }, content: [{ text: "depois", marks: [{ type: "bold" }] }] });
   });
 });
