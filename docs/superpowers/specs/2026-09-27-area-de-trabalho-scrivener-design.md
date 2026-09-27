@@ -106,11 +106,11 @@ Seguindo a regra de um `mod` por assunto:
       `synopsis.txt`, `notes.rtf`;
     - Scrivener 2: `Files/Docs/<ID>.rtf` (ou `<ID>.<ext>`), `<ID>_synopsis.txt`,
       `<ID>_notes.rtf`.
-  - `rtf.rs`: RTF → `Doc` **com formatação**: negrito (``, `0`), itálico (`\i`,
+  - `rtf.rs`: RTF → `Doc` **com formatação**: negrito (`\b`, `\b0`), itálico (`\i`,
     `\i0`), alinhamento (`\ql`, `\qc`, `\qr`, `\qj`), entrelinhas (`\sl` com
     `\slmult1` → `sl/240`; sem `\slmult` → pontos exatos ÷ 12pt, arredondado a 0,05),
     espaço antes/depois (`\sb`, `\sa`: twips ÷ 20 → pt) e recuo da primeira linha
-    (`i`: twips ÷ 567 → cm; negativo vira 0). `\pard` zera os atributos de parágrafo,
+    (`\fi`: twips ÷ 567 → cm; negativo vira 0). `\pard` zera os atributos de parágrafo,
     `\plain` zera as marcas; estado de caractere empilha/desempilha com os grupos
     `{ }`. Valores passam pelos mesmos clamps do modelo. Trata `\par`, `\line`
     (vira `HardBreak`), `\tab`, escapes `\'hh` (cp1252), `\uN` com `\ucN`, e descarta
@@ -202,7 +202,7 @@ projeto inteiro fica em memória ao mesmo tempo.
 
 - Rust (unit, `tempfile`):
   - `rtf.rs`: parágrafos, negrito/itálico aninhados em grupos, `\pard`/`\plain`,
-    alinhamento, `\sl`/`\slmult`, `\sb`/`\sa`, `i`, `\line`, escapes `\'e9` e `\u233?`, destinos ignorados,
+    alinhamento, `\sl`/`\slmult`, `\sb`/`\sa`, `\fi`, `\line`, escapes `\'e9` e `\u233?`, destinos ignorados,
     separadores, RTF malformado sem pânico;
   - `binder.rs`: fixtures mínimas de `.scrivx` do Scrivener 2 e 3;
   - `import.rs`: projeto fixture em disco (2 e 3) → capítulos (pasta = capítulo com
