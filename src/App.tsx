@@ -1,4 +1,6 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
+import { isTauri } from "./api/invoke";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
 import { Editor } from "./components/editor/Editor";
@@ -15,15 +17,29 @@ import { flushAll } from "./store/saving";
 import { state } from "./store/state";
 
 export default function App() {
+  // Browser dev reloads only: Tauri may close the window without this event.
   const onUnload = () => void flushAll();
+  let unlistenClose: (() => void) | undefined;
+  let disposed = false;
 
   onMount(async () => {
     window.addEventListener("keydown", rootKey);
     window.addEventListener("beforeunload", onUnload);
+    if (isTauri) {
+      // The window is destroyed only after this handler resolves, so pending saves land.
+      void getCurrentWindow()
+        .onCloseRequested(async () => {
+          // Never throw here: a rejected handler would keep the window from closing.
+          await flushAll().catch(() => {});
+        })
+        .then((unlisten) => (disposed ? unlisten() : (unlistenClose = unlisten)));
+    }
     await Promise.all([loadPrefs(), refreshLibrary()]);
     focusTarget("lib");
   });
   onCleanup(() => {
+    disposed = true;
+    unlistenClose?.();
     window.removeEventListener("keydown", rootKey);
     window.removeEventListener("beforeunload", onUnload);
   });
