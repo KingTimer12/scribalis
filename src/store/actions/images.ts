@@ -6,7 +6,13 @@ import { refreshLibrary } from "./library";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
 
-const LABEL: Record<ImageSlot, string> = { cover: "Capa", header: "Cabeçalho", footer: "Rodapé", separator: "Separador" };
+/** Toast wording per slot (Portuguese agreement differs per noun). */
+const DONE: Record<ImageSlot, { set: string; cleared: string }> = {
+  cover: { set: "Capa atualizada", cleared: "Capa removida" },
+  header: { set: "Moldura superior atualizada", cleared: "Moldura superior removida" },
+  footer: { set: "Moldura inferior atualizada", cleared: "Moldura inferior removida" },
+  separator: { set: "Separador atualizado", cleared: "Separador removido" },
+};
 
 /** Library: pick a cover for any book (Rust opens the dialog and crops). */
 export async function pickCover(id: string) {
@@ -40,7 +46,7 @@ export async function pickBookImage(slot: ImageSlot) {
     const meta = await api.pickBookImage(id, slot);
     if (meta && state.book?.id === id) {
       setState("book", meta);
-      flash(LABEL[slot] + " atualizado");
+      flash(DONE[slot].set);
     }
   } catch (e) {
     flashError(e);
@@ -55,12 +61,13 @@ export async function clearBookImage(slot: ImageSlot) {
     const meta = await api.clearBookImage(id, slot);
     if (state.book?.id !== id) return;
     setState("book", meta);
-    flash(LABEL[slot] + " removido");
+    flash(DONE[slot].cleared);
   } catch (e) {
     flashError(e);
   }
 }
 
+/** Ctrl I / palette: Rust opens the dialog and copies the image into the book. */
 export async function insertChapterImage() {
   const id = state.book?.id;
   if (!id) return;
@@ -70,5 +77,21 @@ export async function insertChapterImage() {
     if (src && state.book?.id === id) insertImage(src);
   } catch (e) {
     flashError(e);
+  }
+}
+
+/** Files dropped on the window: each is copied into the book and placed at the drop point. */
+export async function dropChapterImages(paths: string[], at: { x: number; y: number }) {
+  const id = state.book?.id;
+  if (!id || state.view !== "editor") return;
+  for (const [i, path] of paths.entries()) {
+    try {
+      const src = await api.importChapterImage(id, path);
+      if (state.book?.id !== id) return;
+      // Later files follow the first one, at the caret it left behind.
+      insertImage(src, i === 0 ? at : undefined);
+    } catch (e) {
+      flashError(e);
+    }
   }
 }

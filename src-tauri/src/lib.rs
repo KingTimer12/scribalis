@@ -39,6 +39,7 @@ pub fn run() {
             book::book_pick_image,
             book::book_clear_image,
             book::book_insert_image,
+            book::book_import_image,
             chapter::chapter_load,
             chapter::chapter_save,
             chapter::chapter_update,

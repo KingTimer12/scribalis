@@ -2,7 +2,7 @@ import { Show } from "solid-js";
 import { bookAsset } from "../../lib/assets";
 import { state } from "../../store/state";
 
-/** Header or footer image of the open book, outside the editable text. */
+/** Top frame (below the chapter title) or bottom frame of the open book, outside the editable text. */
 export function BookImage(props: { slot: "header" | "footer" }) {
   const src = () => {
     const b = state.book;

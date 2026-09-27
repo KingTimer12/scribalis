@@ -229,8 +229,9 @@
     margin: 0 auto;
     object-fit: contain;
   }
+  /* Top frame sits between the chapter title and the text. */
   .book-header {
-    margin-bottom: 8px;
+    margin: 16px auto 0;
   }
   .book-footer {
     margin: 24px auto 0;

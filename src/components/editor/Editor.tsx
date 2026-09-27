@@ -14,8 +14,8 @@ export function Editor() {
       <div class="col flex h-full flex-col gap-3.5 pt-16">
         <ChapterLabel />
         <div class="ed-scroll">
-          <BookImage slot="header" />
           <ChapterTitle />
+          <BookImage slot="header" />
           <div class="h-[22px] shrink-0" />
           <RichEditor />
           <BookImage slot="footer" />

@@ -12,6 +12,7 @@ import { NotesPanel } from "./components/panels/NotesPanel";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
 import { focusTarget } from "./store/focus";
+import { listenImageDrops } from "./store/imageDrops";
 import { rootKey } from "./store/keys/global";
 import { flushAll } from "./store/saving";
 import { state } from "./store/state";
@@ -19,8 +20,9 @@ import { state } from "./store/state";
 export default function App() {
   // Browser dev reloads only: Tauri may close the window without this event.
   const onUnload = () => void flushAll();
-  let unlistenClose: (() => void) | undefined;
+  const unlisteners: (() => void)[] = [];
   let disposed = false;
+  const keep = (unlisten: () => void) => (disposed ? unlisten() : unlisteners.push(unlisten));
 
   onMount(async () => {
     window.addEventListener("keydown", rootKey);
@@ -32,14 +34,15 @@ export default function App() {
           // Never throw here: a rejected handler would keep the window from closing.
           await flushAll().catch(() => {});
         })
-        .then((unlisten) => (disposed ? unlisten() : (unlistenClose = unlisten)));
+        .then(keep);
+      void listenImageDrops().then(keep);
     }
     await Promise.all([loadPrefs(), refreshLibrary()]);
     focusTarget("lib");
   });
   onCleanup(() => {
     disposed = true;
-    unlistenClose?.();
+    unlisteners.forEach((u) => u());
     window.removeEventListener("keydown", rootKey);
     window.removeEventListener("beforeunload", onUnload);
   });

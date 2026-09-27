@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use tauri::{State, WebviewWindow};
 
 use super::dialog::pick_image;
@@ -47,4 +49,11 @@ pub async fn book_insert_image(window: WebviewWindow, state: State<'_, SharedLib
     let Some(src) = pick_image(&window) else { return Ok(None) };
     let dir = lock(&state)?.dir_of(&id)?;
     book::insert_image(&dir, &src).map(Some)
+}
+
+/// Copies an image the user dropped on the window into the book; returns its book-relative path.
+#[tauri::command]
+pub async fn book_import_image(state: State<'_, SharedLibrary>, id: String, path: PathBuf) -> AppResult<String> {
+    let dir = lock(&state)?.dir_of(&id)?;
+    book::insert_image(&dir, &path)
 }

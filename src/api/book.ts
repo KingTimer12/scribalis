@@ -6,3 +6,4 @@ export const updateBook = (id: string, patch: BookPatch) => call<BookMeta>("book
 export const pickBookImage = (id: string, slot: ImageSlot) => call<BookMeta | null>("book_pick_image", { id, slot });
 export const clearBookImage = (id: string, slot: ImageSlot) => call<BookMeta>("book_clear_image", { id, slot });
 export const insertChapterImage = (id: string) => call<string | null>("book_insert_image", { id });
+export const importChapterImage = (id: string, path: string) => call<string>("book_import_image", { id, path });

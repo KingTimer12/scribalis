@@ -1,4 +1,5 @@
 import { cycleStatus, goChapter, moveChapter } from "../actions/chapters";
+import { insertChapterImage } from "../actions/images";
 import { goLibrary } from "../actions/library";
 import { toggleTheme } from "../actions/prefs";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
@@ -23,6 +24,7 @@ export function rootKey(e: KeyboardEvent) {
   else if (ed && mod && (k === "e" || code === "KeyE")) openPanel("index");
   else if (ed && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (ed && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
+  else if (ed && mod && !e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
   else if (ed && e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
     const dir = e.key === "ArrowUp" ? -1 : 1;
     if (e.shiftKey) moveChapter(cur, dir);

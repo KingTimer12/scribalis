@@ -8,6 +8,7 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Novo capítulo (divide no cursor)", keys: ["Enter", "Enter", "Enter"] },
   { label: "Nova linha sem contar", keys: ["Shift", "Enter"] },
   { label: "Inserir separador", keys: ["Ctrl", "Enter"] },
+  { label: "Inserir imagem (ou arraste para a página)", keys: ["Ctrl", "I"] },
   { label: "Comandos e busca", keys: ["Ctrl", "K"] },
   { label: "Voltar às obras", keys: ["Ctrl", "O"] },
   { label: "Índice de capítulos", keys: ["Ctrl", "E"] },

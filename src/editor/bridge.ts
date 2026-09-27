@@ -94,6 +94,11 @@ export function insertSeparator() {
   editor?.chain().focus().insertContent([{ type: "separator" }, { type: "paragraph" }]).run();
 }
 
-export function insertImage(src: string) {
-  editor?.chain().focus().insertContent([{ type: "image", attrs: { src } }, { type: "paragraph" }]).run();
+/** Inserts an image at the caret, or at the text under viewport point `at` when given. */
+export function insertImage(src: string, at?: { x: number; y: number }) {
+  if (!editor) return;
+  const hit = at ? editor.view.posAtCoords({ left: at.x, top: at.y }) : null;
+  const chain = editor.chain().focus();
+  if (hit) chain.setTextSelection(hit.pos);
+  chain.insertContent([{ type: "image", attrs: { src } }, { type: "paragraph" }]).run();
 }

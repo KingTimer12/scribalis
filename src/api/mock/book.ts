@@ -15,6 +15,9 @@ export const book = {
   // No file system in the browser: pickers behave as if cancelled.
   book_pick_image: (_: { id: string; slot: ImageSlot }): BookMeta | null => null,
   book_insert_image: (_: { id: string }): string | null => null,
+  book_import_image: (_: { id: string; path: string }): string => {
+    throw new Error("Arrastar imagens só funciona no app desktop");
+  },
   book_clear_image: ({ id, slot }: { id: string; slot: ImageSlot }): BookMeta => {
     const b = findBook(id);
     if (slot === "header") b.header = null;
