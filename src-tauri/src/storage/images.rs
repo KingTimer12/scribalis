@@ -39,7 +39,8 @@ pub fn import_as(src: &Path, book_dir: &Path, stem: &str) -> AppResult<String> {
     ImageReader::open(src)?.with_guessed_format()?.into_dimensions().map_err(|_| unreadable())?;
     let rel = format!("{IMAGES_DIR}/{stem}.{ext}");
     fs::create_dir_all(book_dir.join(IMAGES_DIR))?;
-    fs::copy(src, book_dir.join(&rel))?;
+    let bytes = fs::read(src)?;
+    write_atomic(&book_dir.join(&rel), &bytes)?;
     Ok(rel)
 }
 
@@ -76,7 +77,9 @@ mod tests {
     fn import_as_keeps_extension() {
         let tmp = tempfile::tempdir().unwrap();
         let src = png(tmp.path(), 10, 10);
-        assert_eq!(import_as(&src, tmp.path(), "cabecalho").unwrap(), "imagens/cabecalho.png");
+        let rel = import_as(&src, tmp.path(), "cabecalho").unwrap();
+        assert_eq!(rel, "imagens/cabecalho.png");
+        assert!(tmp.path().join(&rel).exists());
     }
 
     #[test]
@@ -94,5 +97,16 @@ mod tests {
     fn remove_missing_is_ok() {
         let tmp = tempfile::tempdir().unwrap();
         assert!(remove_image(tmp.path(), "imagens/nada.png").is_ok());
+    }
+
+    #[test]
+    fn remove_image_deletes_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = png(tmp.path(), 10, 10);
+        let rel = import_as(&src, tmp.path(), "x").unwrap();
+        let path = tmp.path().join(&rel);
+        assert!(path.exists());
+        assert!(remove_image(tmp.path(), &rel).is_ok());
+        assert!(!path.exists());
     }
 }
