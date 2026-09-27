@@ -2,6 +2,8 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::storage::paths::safe_join;
+
 use super::metadata::{ChapterEntry, Metadata, Separator, Status};
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -24,7 +26,7 @@ impl BookSummary {
             id: meta.id.clone(),
             title: meta.title.clone(),
             author: meta.author.clone(),
-            cover: meta.cover.as_ref().map(|c| dir.join(c).to_string_lossy().into_owned()),
+            cover: meta.cover.as_ref().and_then(|c| safe_join(dir, c).ok()).map(|p| p.to_string_lossy().into_owned()),
             chapters: meta.chapters.len(),
             words: meta.total_words(),
             ready: meta.chapters.iter().filter(|c| c.status == Status::Pronto).count(),
@@ -95,4 +97,38 @@ pub struct SearchHit {
 pub struct LibraryListing {
     pub books: Vec<BookSummary>,
     pub warnings: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn book_summary_rejects_unsafe_cover_path() {
+        let dir = std::path::PathBuf::from("/books/my-book");
+        let mut meta = Metadata::new("id1".to_string(), "Test", vec![]);
+
+        // Escape attempt
+        meta.cover = Some("../fora.jpg".to_string());
+        let summary = BookSummary::from_meta(&dir, &meta);
+        assert_eq!(summary.cover, None, "Should reject .. in cover path");
+
+        // Absolute path attempt
+        meta.cover = Some("/etc/passwd".to_string());
+        let summary = BookSummary::from_meta(&dir, &meta);
+        assert_eq!(summary.cover, None, "Should reject absolute cover path");
+    }
+
+    #[test]
+    fn book_summary_accepts_safe_cover_path() {
+        let dir = std::path::PathBuf::from("/books/my-book");
+        let mut meta = Metadata::new("id1".to_string(), "Test", vec![]);
+
+        meta.cover = Some("imagens/capa.jpg".to_string());
+        let summary = BookSummary::from_meta(&dir, &meta);
+        assert!(summary.cover.is_some(), "Should accept valid cover path");
+        let cover_path = summary.cover.as_ref().unwrap();
+        assert!(cover_path.contains("my-book") && cover_path.contains("capa.jpg"),
+                "Cover path should contain dir and filename, got: {}", cover_path);
+    }
 }

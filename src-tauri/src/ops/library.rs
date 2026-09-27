@@ -17,6 +17,13 @@ pub struct Scan {
     pub warnings: Vec<String>,
 }
 
+/// Creates the imagens and capitulos directories in a book folder.
+fn init_book_dirs(dir: &Path) -> AppResult<()> {
+    fs::create_dir_all(dir.join(IMAGES_DIR))?;
+    fs::create_dir_all(dir.join(CHAPTERS_DIR))?;
+    Ok(())
+}
+
 /// Reads every `<root>/<folder>/metadata.json`. Unreadable folders become warnings.
 pub fn scan(root: &Path) -> AppResult<Scan> {
     let mut books = Vec::new();
@@ -42,8 +49,7 @@ pub fn scan(root: &Path) -> AppResult<Scan> {
 /// Creates the folder tree, an empty first chapter and the metadata.
 pub fn create_book(root: &Path, title: &str) -> AppResult<(PathBuf, Metadata)> {
     let dir = unique_dir(root, &slugify(title));
-    fs::create_dir_all(dir.join(IMAGES_DIR))?;
-    fs::create_dir_all(dir.join(CHAPTERS_DIR))?;
+    init_book_dirs(&dir)?;
     let chapter = ChapterEntry::new(new_id());
     write_chapter(&dir, &chapter, &Doc::default())?;
     let meta = Metadata::new(new_id(), title, vec![chapter]);
@@ -61,8 +67,7 @@ pub fn delete_book(dir: &Path) -> AppResult<()> {
 pub fn write_samples(root: &Path) -> AppResult<()> {
     for sample in sample_books() {
         let dir = unique_dir(root, &slugify(sample.title));
-        fs::create_dir_all(dir.join(IMAGES_DIR))?;
-        fs::create_dir_all(dir.join(CHAPTERS_DIR))?;
+        init_book_dirs(&dir)?;
         let mut chapters = Vec::new();
         for c in &sample.chapters {
             let mut entry = ChapterEntry::new(new_id());
@@ -118,6 +123,16 @@ mod tests {
         let scan = scan(root.path()).unwrap();
         assert_eq!(scan.books.len(), 1);
         assert_eq!(scan.warnings, vec!["2 pastas ignoradas: metadata ausente ou inválido"]);
+    }
+
+    #[test]
+    fn single_broken_folder_gets_singular_warning() {
+        let root = tempfile::tempdir().unwrap();
+        create_book(root.path(), "Boa").unwrap();
+        fs::create_dir(root.path().join("sem-meta")).unwrap();
+        let scan = scan(root.path()).unwrap();
+        assert_eq!(scan.books.len(), 1);
+        assert_eq!(scan.warnings, vec!["1 pasta ignorada: metadata ausente ou inválido"]);
     }
 
     #[test]
