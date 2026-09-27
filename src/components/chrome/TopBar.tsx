@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { isTauri } from "../../api/invoke";
 import { setBookTitle } from "../../store/actions/book";
 import { goLibrary } from "../../store/actions/library";
 import { focusRef } from "../../store/focus";
@@ -6,10 +7,15 @@ import { bookTitleKey } from "../../store/keys/fields";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
+import { WindowControls } from "./WindowControls";
 
+/** Also the window's title bar: empty areas drag the window, double-click maximizes. */
 export function TopBar() {
   return (
-    <header class="chrome absolute inset-x-0 top-0 flex h-16 items-center justify-between px-9">
+    <header
+      class={"chrome absolute inset-x-0 top-0 flex h-16 items-center justify-between pl-9 " + (isTauri ? "pr-3" : "pr-9")}
+      data-tauri-drag-region="deep"
+    >
       <div class="flex items-center gap-2.5">
         <Show when={state.view === "editor"}>
           <button class="ui crumb" onClick={goLibrary}>
@@ -32,6 +38,9 @@ export function TopBar() {
       <div class="flex items-center gap-[18px]">
         <Hint keys="Ctrl K">comandos</Hint>
         <Hint keys="Ctrl /">atalhos</Hint>
+        <Show when={isTauri}>
+          <WindowControls />
+        </Show>
       </div>
     </header>
   );

@@ -125,6 +125,34 @@
   .crumb:hover {
     color: var(--ink);
   }
+  /* custom window controls (the native title bar is off) */
+  .win-btn {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .win-btn svg {
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.1;
+  }
+  .win-btn:hover {
+    background: var(--faint);
+    color: var(--ink);
+  }
+  .win-close:hover {
+    background: #c42b1c;
+    color: #fff;
+  }
   .book {
     border: 0;
     outline: 0;
