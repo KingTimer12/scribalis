@@ -9,6 +9,7 @@ import { ChapterIndex } from "./components/panels/ChapterIndex";
 import { CommandPalette } from "./components/panels/CommandPalette";
 import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
+import { SpacingPanel } from "./components/panels/SpacingPanel";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
 import { checkForUpdate } from "./store/actions/update";
@@ -65,6 +66,9 @@ export default function App() {
         </Match>
         <Match when={state.panel === "index" && editor()}>
           <ChapterIndex />
+        </Match>
+        <Match when={state.panel === "spacing" && editor()}>
+          <SpacingPanel />
         </Match>
         <Match when={state.panel === "palette"}>
           <CommandPalette />
