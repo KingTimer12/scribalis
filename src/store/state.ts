@@ -1,5 +1,8 @@
 import { createStore, produce } from "solid-js/store";
-import type { AreaNode, BookMeta, BookSummary, ImportTarget, Prefs, ScanView, SearchHit, UpdateInfo } from "../api/types";
+import type {
+  AreaNode, BookCloudView, BookMeta, BookSummary, CloudOverview, CloudStatus, ImportTarget, Prefs, ScanView,
+  SearchHit, ShareKind, UpdateInfo,
+} from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import type { Panel, View } from "../lib/types";
 
@@ -16,6 +19,13 @@ export interface ScrivenerImportState {
   chosen: string[];
   target: ImportTarget;
   busy: boolean;
+}
+
+export interface ShareDraft {
+  kind: ShareKind;
+  target: string | null;
+  /** What the form says is being shared ("Capítulo 03", "Área de trabalho", item title). */
+  label: string;
 }
 
 export interface AppState {
@@ -71,6 +81,14 @@ export interface AppState {
   areaConfirm: string | null;
   /** Open Scrivener import dialog, or null. */
   scrivener: ScrivenerImportState | null;
+  // cloud
+  cloud: CloudOverview | null;
+  /** Backup state of the open book. */
+  cloudBook: BookCloudView | null;
+  /** Last status event from the Rust backup (any book). */
+  cloudStatus: CloudStatus | null;
+  /** Link being created from a context menu or command: opens the share form in the cloud panel. */
+  shareDraft: ShareDraft | null;
 }
 
 export const [state, setState] = createStore<AppState>({
@@ -109,6 +127,10 @@ export const [state, setState] = createStore<AppState>({
   areaRenameVal: "",
   areaConfirm: null,
   scrivener: null,
+  cloud: null,
+  cloudBook: null,
+  cloudStatus: null,
+  shareDraft: null,
 });
 
 /** Values outside the store: they never need to re-render anything. */

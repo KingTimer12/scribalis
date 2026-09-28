@@ -1,4 +1,4 @@
-import type { AreaNode, BookMeta, BookSummary, ChapterMeta, DocJSON, Prefs, Separator } from "../types";
+import type { AreaNode, BookMeta, BookSummary, ChapterMeta, DocJSON, Prefs, Separator, Share, Snapshot } from "../types";
 import { docWords } from "../../lib/doc";
 
 export interface MockChapter extends ChapterMeta {
@@ -58,6 +58,22 @@ function samples(): MockBook[] {
 export const db = { books: samples(), prefs: { theme: "light", goal: 2000, width: 1, font: 1 } as Prefs, base: 0 };
 db.base = db.books.reduce((a, b) => a + b.chapters.reduce((x, c) => x + c.words, 0), 0);
 
+export interface MockCloudBook {
+  enabled: boolean;
+  lastBackupAt: number | null;
+  snapshots: Snapshot[];
+}
+
+/** In-memory vault for the browser build. */
+export const cloudDb = {
+  apiUrl: "https://kingtimer12.dev/api/scribalis/v1",
+  connected: false,
+  books: {} as Record<string, MockCloudBook>,
+  shares: [] as Share[],
+  /** Comments waiting on the server, per book: [nodeId, text]. */
+  comments: {} as Record<string, [string, string][]>,
+};
+
 export function findBook(id: string): MockBook {
   const b = db.books.find((x) => x.id === id);
   if (!b) throw "Obra não encontrada";
@@ -83,10 +99,14 @@ export const toMeta = (b: MockBook): BookMeta => ({
   chapters: b.chapters.map(chapterMeta),
 });
 
+/** Alias used by `book_open` and by the cloud mock (`cloud_restore`). */
+export const toBookMeta = toMeta;
+
 export const toSummary = (b: MockBook): BookSummary => ({
   id: b.id, title: b.title, author: b.author, cover: null, chapters: b.chapters.length,
   words: b.chapters.reduce((a, c) => a + c.words, 0),
   ready: b.chapters.filter((c) => c.status === "pronto").length, updatedAt: b.updatedAt,
+  cloud: !!cloudDb.books[b.id]?.lastBackupAt,
 });
 
 export const resetSamples = () => db.books.push(...samples());

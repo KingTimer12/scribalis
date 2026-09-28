@@ -32,6 +32,7 @@ export interface BookSummary {
   words: number;
   ready: number;
   updatedAt: number;
+  cloud: boolean;
 }
 
 export interface ChapterMeta {
@@ -137,4 +138,98 @@ export interface ImportResult {
   items: number;
   /** Items that could not be read (missing media, unreadable files). */
   warnings: number;
+}
+
+export interface CloudOverview {
+  apiUrl: string;
+  defaultApiUrl: string;
+  connected: boolean;
+}
+
+export interface VaultInfo {
+  id: string;
+  keyId: string;
+  createdAt: number;
+  books: number;
+  usage: { bytes: number; quota: number };
+}
+
+export interface KeyInfo {
+  id: string;
+  label: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+  current: boolean;
+}
+
+/** A new device key; `secret` is shown once to be copied to the other computer. */
+export interface NewKey {
+  id: string;
+  label: string;
+  secret: string;
+}
+
+export interface Snapshot {
+  id: string;
+  createdAt: number;
+  note: string | null;
+  fileCount: number;
+  totalSize: number;
+}
+
+export interface RemoteBookView {
+  id: string;
+  title: string;
+  snapshots: number;
+  latestAt: number | null;
+  openComments: number;
+  local: boolean;
+}
+
+export interface BookCloudView {
+  enabled: boolean;
+  lastBackupAt: number | null;
+  paused: string | null;
+}
+
+export type ShareKind = "chapter" | "workspace";
+
+export interface Share {
+  id: string;
+  url: string;
+  bookId: string;
+  kind: ShareKind;
+  target: string | null;
+  snapshotId: string | null;
+  follow: boolean;
+  includeNotes: boolean;
+  allowComments: boolean;
+  createdAt: number;
+  expiresAt: number | null;
+  views: number;
+}
+
+export interface ShareInput {
+  bookId: string;
+  kind: ShareKind;
+  target: string | null;
+  freeze: boolean;
+  includeNotes: boolean;
+  allowComments: boolean;
+  expiresInDays: number | null;
+}
+
+export interface ShareChange {
+  freeze?: boolean;
+  includeNotes?: boolean;
+  allowComments?: boolean;
+  expiresInDays?: number;
+  clearExpiry?: boolean;
+}
+
+export interface CloudStatus {
+  bookId: string;
+  state: "sending" | "ok" | "offline" | "error";
+  lastBackupAt: number | null;
+  message: string | null;
 }
