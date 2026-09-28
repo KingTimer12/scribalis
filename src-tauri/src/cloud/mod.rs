@@ -1,11 +1,13 @@
 //! Scribalis Cloud: vault key, backups, restore, public links and comments.
 pub mod api;
+pub mod backup;
 pub mod client;
 pub mod comments;
 pub mod config;
 pub mod error;
 pub mod keychain;
 pub mod manifest;
+pub mod scheduler;
 pub mod status;
 pub mod swap;
 
