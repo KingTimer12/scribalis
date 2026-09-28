@@ -1,4 +1,5 @@
 mod commands;
+mod cloud;
 mod error;
 mod ids;
 mod markdown;
@@ -28,6 +29,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // reqwest is built without a crypto provider (same as the updater): install ring once.
+            let _ = rustls::crypto::ring::default_provider().install_default();
             let root = app.path().document_dir()?.join(ROOT_NAME);
             app.manage(Mutex::new(Library::new(root)));
             app.manage(update::PendingUpdate::default());
