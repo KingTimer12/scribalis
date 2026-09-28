@@ -11,6 +11,8 @@ pub struct Library {
     open: Option<(PathBuf, Metadata)>,
     totals: HashMap<String, usize>,
     session_base: Option<usize>,
+    /// Words moved out of the chapters this session without being erased; they still count as today's.
+    released: usize,
 }
 
 pub type SharedLibrary = Mutex<Library>;
@@ -21,7 +23,7 @@ pub fn lock(state: &SharedLibrary) -> AppResult<MutexGuard<'_, Library>> {
 
 impl Library {
     pub fn new(root: PathBuf) -> Self {
-        Self { root, dirs: HashMap::new(), open: None, totals: HashMap::new(), session_base: None }
+        Self { root, dirs: HashMap::new(), open: None, totals: HashMap::new(), session_base: None, released: 0 }
     }
 
     /// Records a book seen on disk; the first full scan fixes the daily-goal baseline.
@@ -87,7 +89,7 @@ impl Library {
 
     pub fn today(&self) -> usize {
         let now: usize = self.totals.values().sum();
-        now.saturating_sub(self.session_base.unwrap_or(now))
+        (now + self.released).saturating_sub(self.session_base.unwrap_or(now))
     }
 
     /// Word total of a book as last seen (0 if unknown).
@@ -100,6 +102,14 @@ impl Library {
     pub fn absorb(&mut self, words: usize) {
         if let Some(base) = self.session_base.as_mut() {
             *base += words;
+        }
+    }
+
+    /// Words that left the chapters without being erased (a chapter sent to the
+    /// workspace) keep counting, so today is unchanged.
+    pub fn release(&mut self, words: usize) {
+        if self.session_base.is_some() {
+            self.released += words;
         }
     }
 }
@@ -166,5 +176,29 @@ mod tests {
         .unwrap();
         lib.absorb(lib.total_of(&meta.id) - before);
         assert_eq!(lib.today(), 0);
+    }
+
+    #[test]
+    fn released_words_do_not_lower_today() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "A").unwrap();
+        let mut lib = Library::new(root.path().to_path_buf());
+        lib.register(&dir, &meta);
+        lib.start_session_if_needed();
+        let chapter_id = meta.chapters[0].id.clone();
+        // two words typed today
+        lib.with_book(&meta.id, |d, m| {
+            chapter::save(d, m, &chapter_id, &crate::markdown::parse::parse("um dois")).map(|_| ())
+        })
+        .unwrap();
+        assert_eq!(lib.today(), 2);
+        // then those words leave the chapters (sent to the workspace)
+        let before = lib.total_of(&meta.id);
+        lib.with_book(&meta.id, |d, m| {
+            chapter::save(d, m, &chapter_id, &crate::markdown::parse::parse("")).map(|_| ())
+        })
+        .unwrap();
+        lib.release(before - lib.total_of(&meta.id));
+        assert_eq!(lib.today(), 2);
     }
 }

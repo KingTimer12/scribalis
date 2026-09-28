@@ -71,6 +71,7 @@ pub fn run() {
             workspace::workspace_save_doc,
             workspace::workspace_pick_files,
             workspace::workspace_to_chapter,
+            workspace::workspace_from_chapter,
             workspace::workspace_open_file,
             scrivener_cmd::scrivener_pick,
             scrivener_cmd::scrivener_scan,

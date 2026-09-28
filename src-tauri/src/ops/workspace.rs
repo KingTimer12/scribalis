@@ -1,5 +1,5 @@
 //! Operations on a book's workspace tree: create, rename, move, delete,
-//! text documents, file imports and promoting a text to a chapter.
+//! text documents, file imports, promoting a text to a chapter and back.
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -11,8 +11,9 @@ use crate::model::{
     metadata::{ChapterEntry, Metadata},
     workspace::{find, find_mut, insert, move_node, remove, subtree_files, Node, NodeKind},
 };
+use crate::ops::chapter;
 use crate::storage::{
-    chapter_io::write_chapter,
+    chapter_io::{read_chapter, write_chapter},
     metadata_io::write_metadata,
     workspace_io::{area_path, copy_into_area, read_node_doc, read_workspace, remove_area_file, write_node_doc, write_workspace},
 };
@@ -160,6 +161,29 @@ pub fn to_chapter(dir: &Path, meta: &mut Metadata, id: &str) -> AppResult<Vec<No
     Ok(items)
 }
 
+/// Turns a chapter into a text at the end of the workspace root. Order: text file,
+/// tree, and only then the chapter (metadata, then its file) — a failure midway
+/// duplicates, never loses, the text. Resolves to the new node's id and the tree.
+pub fn from_chapter(dir: &Path, meta: &mut Metadata, chapter_id: &str) -> AppResult<Created> {
+    if meta.chapters.len() == 1 {
+        return Err(AppError::msg("A obra precisa de pelo menos um capítulo"));
+    }
+    let entry = meta.chapters.iter().find(|c| c.id == chapter_id).ok_or_else(|| AppError::msg("Capítulo não encontrado"))?.clone();
+    let doc = read_chapter(dir, &entry)?;
+    let id = new_id();
+    let file = format!("{id}.md");
+    write_node_doc(dir, &file, &doc)?;
+    let title = if entry.title.trim().is_empty() { "Sem título" } else { entry.title.trim() };
+    let mut node = Node::leaf(id.clone(), NodeKind::Text, title, &file);
+    node.notes = entry.notes.clone();
+    let items = edit(dir, |items| {
+        let end = items.len();
+        insert(items, None, end, node)
+    })?;
+    chapter::delete(dir, meta, chapter_id)?;
+    Ok(Created { id, items })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +269,32 @@ mod tests {
         assert!(!dir.join(AREA_DIR).join(format!("{}.md", c.id)).exists());
         let f = create(&dir, None, 0, NodeKind::Folder, "P").unwrap();
         assert!(to_chapter(&dir, &mut meta, &f.id).is_err());
+    }
+
+    #[test]
+    fn from_chapter_moves_text_notes_and_title_to_the_workspace() {
+        let (_r, dir, mut meta) = book();
+        crate::ops::chapter::insert(&dir, &mut meta, 1).unwrap();
+        let ch = meta.chapters[0].id.clone();
+        crate::ops::chapter::save(&dir, &mut meta, &ch, &parse("texto errado")).unwrap();
+        crate::ops::chapter::update(&dir, &mut meta, &ch, crate::model::patches::ChapterPatch {
+            title: Some("Capítulo importado".into()),
+            notes: Some("nota".into()),
+            ..Default::default()
+        }).unwrap();
+        let file = meta.chapters[0].file.clone();
+        let other = meta.chapters[1].id.clone();
+        let created = from_chapter(&dir, &mut meta, &ch).unwrap();
+        assert_eq!(meta.chapters.len(), 1);
+        assert_eq!(meta.chapters[meta.cur].id, other);
+        assert!(!dir.join(&file).exists());
+        let node = created.items.last().unwrap();
+        assert_eq!(node.id, created.id);
+        assert_eq!((node.kind, node.title.as_str(), node.notes.as_str()), (NodeKind::Text, "Capítulo importado", "nota"));
+        assert_eq!(load_doc(&dir, &created.id).unwrap(), parse("texto errado"));
+        // the last chapter stays
+        assert!(from_chapter(&dir, &mut meta, &other).is_err());
+        assert_eq!(meta.chapters.len(), 1);
     }
 
     #[test]

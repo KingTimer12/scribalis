@@ -96,6 +96,28 @@ pub async fn workspace_to_chapter(state: State<'_, SharedLibrary>, book_id: Stri
     Ok(ToChapter { book, items })
 }
 
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FromChapter {
+    pub book: BookMeta,
+    /// Id of the new workspace text.
+    pub id: String,
+    pub items: Vec<Node>,
+}
+
+#[tauri::command]
+pub async fn workspace_from_chapter(state: State<'_, SharedLibrary>, book_id: String, chapter_id: String) -> AppResult<FromChapter> {
+    let mut lib = lock(&state)?;
+    let before = lib.total_of(&book_id);
+    let (book, created) = lib.with_book(&book_id, |dir, meta| {
+        let created = ops::from_chapter(dir, meta, &chapter_id)?;
+        Ok((BookMeta::from_meta(dir, meta), created))
+    })?;
+    let words = before.saturating_sub(lib.total_of(&book_id));
+    lib.release(words);
+    Ok(FromChapter { book, id: created.id, items: created.items })
+}
+
 #[tauri::command]
 pub async fn workspace_open_file(app: AppHandle, state: State<'_, SharedLibrary>, book_id: String, id: String) -> AppResult<()> {
     let path = lock(&state)?.with_book(&book_id, |dir, _meta| ops::file_path(dir, &id))?;

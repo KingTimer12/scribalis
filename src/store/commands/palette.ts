@@ -3,7 +3,7 @@ import { FONT_LABEL, STATUS_LABEL, WIDTH_LABEL } from "../../lib/constants";
 import { fmt, norm, pad } from "../../lib/format";
 import { setBookAuthor, setSeparatorText } from "../actions/book";
 import {
-  copyCurrentChapter, cycleStatus, deleteCurrentChapter, goChapter, insertChapterAt, moveChapter,
+  copyCurrentChapter, cycleStatus, deleteCurrentChapter, goChapter, insertChapterAt, moveChapter, sendChapterToArea,
 } from "../actions/chapters";
 import { clearBookImage, clearCover, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
 import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../actions/library";
@@ -96,6 +96,7 @@ function editorCommands(): Command[] {
     { label: "Mover capítulo para cima", hint: "Alt Shift ↑", act: () => moveChapter(cur, -1) },
     { label: "Mover capítulo para baixo", hint: "Alt Shift ↓", act: () => moveChapter(cur, 1) },
     { label: "Copiar capítulo", hint: "", act: copyCurrentChapter },
+    { label: "Enviar capítulo para a área de trabalho", hint: "", act: () => void sendChapterToArea(c.id) },
     { label: "Meta diária: " + fmt(state.prefs.goal) + " palavras", hint: "", act: cycleGoal },
     { label: "Largura do texto: " + WIDTH_LABEL[state.prefs.width], hint: "", act: cycleWidth },
     { label: "Tamanho da letra: " + FONT_LABEL[state.prefs.font], hint: "", act: cycleFont },

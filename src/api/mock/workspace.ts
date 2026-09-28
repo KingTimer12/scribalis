@@ -1,5 +1,5 @@
-import type { AreaNode, Created, DocJSON, NodeKind, ToChapterResult } from "../types";
-import { chapter as newChapter, findBook, mockId, toMeta, touch } from "./db";
+import type { AreaNode, Created, DocJSON, FromChapterResult, NodeKind, ToChapterResult } from "../types";
+import { chapter as newChapter, db, findBook, findChapter, mockId, toMeta, touch } from "./db";
 
 // Local tree mutations mirroring the Rust `model::workspace` module (src-tauri/src/model/workspace.rs):
 // same messages and move semantics, so the mock behaves like the desktop app in `bun run dev` and tests.
@@ -149,5 +149,21 @@ export const workspace = {
     delete b.areaDocs[id];
     touch(b);
     return { book: toMeta(b), items: structuredClone(b.area) };
+  },
+
+  workspace_from_chapter: ({ bookId, chapterId }: { bookId: string; chapterId: string }): FromChapterResult => {
+    const b = findBook(bookId);
+    if (b.chapters.length === 1) throw "A obra precisa de pelo menos um capítulo";
+    const i = findChapter(b, chapterId);
+    const [c] = b.chapters.splice(i, 1);
+    if (i < b.cur) b.cur -= 1;
+    b.cur = Math.min(b.cur, b.chapters.length - 1);
+    const id = mockId();
+    b.area.push({ id, kind: "text", title: c.title.trim() || "Sem título", notes: c.notes, file: id + ".md" });
+    b.areaDocs[id] = structuredClone(c.doc);
+    // Moved, not erased: today's count stays (same rule as Rust's `Library::release`).
+    db.base -= c.words;
+    touch(b);
+    return { book: toMeta(b), id, items: structuredClone(b.area) };
   },
 };

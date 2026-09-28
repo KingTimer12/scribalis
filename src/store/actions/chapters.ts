@@ -1,7 +1,8 @@
 import * as bookApi from "../../api/book";
 import * as api from "../../api/chapter";
 import { statsToday } from "../../api/prefs";
-import type { BookMeta, DocJSON } from "../../api/types";
+import type { BookMeta, DocJSON, FromChapterResult } from "../../api/types";
+import { areaFromChapter } from "../../api/workspace";
 import { liveText, type DocKey } from "../../editor/bridge";
 import { STATUS, STATUS_LABEL } from "../../lib/constants";
 import { docWords } from "../../lib/doc";
@@ -123,28 +124,56 @@ export function cycleStatus() {
   flash("Status: " + STATUS_LABEL[next]);
 }
 
-/** Deletes chapter `id`; the open one is replaced by its neighbor, any other leaves the editor alone. */
-export function deleteChapter(id: string) {
+/**
+ * Takes chapter `id` out of the book through `op` (delete, or send to the workspace).
+ * The open chapter gives way to its neighbor, dropping text typed after the last save;
+ * any other chapter leaves the editor alone. Resolves to the chapter's old index, or null.
+ */
+async function takeChapterOut(id: string, op: (bookId: string) => Promise<BookMeta>): Promise<number | null> {
   const b = state.book;
-  if (!b) return;
+  if (!b) return null;
   const gone = b.chapters.findIndex((c) => c.id === id);
-  if (gone < 0) return;
-  if (b.chapters.length === 1) return flash("A obra precisa de pelo menos um capítulo");
+  if (gone < 0) return null;
+  if (b.chapters.length === 1) {
+    flash("A obra precisa de pelo menos um capítulo");
+    return null;
+  }
   const open = gone === b.cur;
-  // Text typed into a chapter that is about to be deleted is dropped, not saved.
   if (open) cancelDocSave();
   setState("indexConfirm", null);
-  return run(async () => {
+  try {
     await flushAll();
-    const meta = await api.deleteChapter(b.id, id);
+    const meta = await op(b.id);
     const shown = open ? await showCurrent(meta, "end", true) : applyMeta(meta);
     await refreshToday();
-    if (!shown) return;
+    if (!shown) return null;
     setState("indexSel", Math.min(state.indexSel, meta.chapters.length - 1));
-    // Deleting from the index keeps the index in charge of the keyboard.
+    // From the index, the index keeps the keyboard.
     if (state.panel === "index") focusTarget("index");
-    flash("Capítulo " + pad(gone + 1) + " excluído");
+    return gone;
+  } catch (e) {
+    flashError(e);
+    return null;
+  }
+}
+
+/** Deletes chapter `id` for good. */
+export async function deleteChapter(id: string) {
+  const gone = await takeChapterOut(id, (bookId) => api.deleteChapter(bookId, id));
+  if (gone != null) flash("Capítulo " + pad(gone + 1) + " excluído");
+}
+
+/** Moves chapter `id` into the workspace as a text (with its title and notes), instead of deleting it. */
+export async function sendChapterToArea(id: string) {
+  const title = state.book?.chapters.find((c) => c.id === id)?.title.trim() || "Sem título";
+  const out: { r?: FromChapterResult } = {};
+  const gone = await takeChapterOut(id, async (bookId) => {
+    out.r = await areaFromChapter(bookId, id);
+    return out.r.book;
   });
+  if (gone == null || !out.r) return;
+  setState({ area: out.r.items, areaSel: out.r.id });
+  flash("«" + title + "» foi para a área de trabalho");
 }
 
 export function deleteCurrentChapter() {

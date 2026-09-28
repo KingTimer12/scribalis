@@ -85,6 +85,13 @@ export interface ToChapterResult {
   items: AreaNode[];
 }
 
+/** A chapter turned into a workspace text: the book without it, the new node's id and the tree. */
+export interface FromChapterResult {
+  book: BookMeta;
+  id: string;
+  items: AreaNode[];
+}
+
 export interface LibraryListing {
   books: BookSummary[];
   warnings: string[];

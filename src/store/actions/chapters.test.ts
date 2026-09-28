@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mockInvoke } from "../../api/mock";
 import type { BookMeta, BookSummary } from "../../api/types";
 import { setState, state } from "../state";
-import { deleteChapter, requestChapterDelete } from "./chapters";
+import { deleteChapter, requestChapterDelete, sendChapterToArea } from "./chapters";
 
 /** A fresh book with three chapters, the last one open. */
 async function bookWithThree(): Promise<BookMeta> {
@@ -31,6 +31,20 @@ describe("chapter deletion", () => {
     await requestChapterDelete(1);
     expect(state.indexConfirm).toBeNull();
     expect(state.book!.chapters.map((c) => c.id)).toEqual([meta.chapters[0].id, meta.chapters[2].id]);
+  });
+
+  it("sending a chapter to the workspace keeps its text, title and notes", async () => {
+    const meta = await bookWithThree();
+    const first = meta.chapters[0];
+    const firstDoc = await mockInvoke("chapter_load", { bookId: meta.id, chapterId: first.id });
+    await sendChapterToArea(first.id);
+    expect(state.book!.chapters.map((c) => c.id)).not.toContain(first.id);
+    expect(state.book!.chapters[state.book!.cur].id).toBe(meta.chapters[2].id);
+    const node = state.area.find((n) => n.id === state.areaSel)!;
+    expect(node.kind).toBe("text");
+    expect(node.title).toBe(first.title.trim() || "Sem título");
+    expect(node.notes).toBe(first.notes);
+    expect(await mockInvoke("workspace_load_doc", { bookId: meta.id, id: node.id })).toEqual(firstDoc);
   });
 
   it("never deletes the last chapter", async () => {

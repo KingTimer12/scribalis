@@ -1,5 +1,5 @@
 import { call } from "./invoke";
-import type { AreaNode, Created, DocJSON, NodeKind, ToChapterResult } from "./types";
+import type { AreaNode, Created, DocJSON, FromChapterResult, NodeKind, ToChapterResult } from "./types";
 
 /** Full workspace ("area") tree of a book. */
 export const areaTree = (bookId: string) => call<AreaNode[]>("workspace_tree", { bookId });
@@ -32,6 +32,10 @@ export const areaPickFiles = (bookId: string, parent: string | null) =>
 
 /** Promotes a text node to the last chapter of the book. */
 export const areaToChapter = (bookId: string, id: string) => call<ToChapterResult>("workspace_to_chapter", { bookId, id });
+
+/** Turns a chapter into a text at the end of the workspace root (the inverse of `areaToChapter`). */
+export const areaFromChapter = (bookId: string, chapterId: string) =>
+  call<FromChapterResult>("workspace_from_chapter", { bookId, chapterId });
 
 /** Opens an image/attachment node in the OS's default app. */
 export const areaOpenFile = (bookId: string, id: string) => call<void>("workspace_open_file", { bookId, id });

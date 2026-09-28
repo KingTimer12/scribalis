@@ -1,6 +1,6 @@
 import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { fmt, pad } from "../../lib/format";
-import { deleteChapter, openFromIndex, requestChapterDelete } from "../../store/actions/chapters";
+import { deleteChapter, openFromIndex, requestChapterDelete, sendChapterToArea } from "../../store/actions/chapters";
 import { focusRef, focusTarget } from "../../store/focus";
 import { indexKey } from "../../store/keys/index";
 import { bookLabel } from "../../store/selectors/book";
@@ -26,6 +26,7 @@ export function ChapterIndex() {
       y,
       items: [
         { label: "Abrir", act: () => void openFromIndex(i) },
+        { label: "Enviar para a área de trabalho", act: () => void sendChapterToArea(id) },
         armed
           ? { label: "Confirmar: excluir o capítulo " + pad(i + 1), danger: true, act: () => void deleteChapter(id) }
           : { label: "Excluir capítulo", danger: true, act: () => void requestChapterDelete(i) },
