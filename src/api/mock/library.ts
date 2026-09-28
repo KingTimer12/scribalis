@@ -8,6 +8,7 @@ export const library = {
       id: mockId(), title, author: "", cur: 0, updatedAt: Date.now(),
       separator: { type: "text" as const, text: "* * *" }, header: null, footer: null,
       chapters: [chapter("", "rascunho", { type: "doc", content: [] })],
+      area: [], areaDocs: {},
     };
     db.books.unshift(b);
     return toSummary(b);

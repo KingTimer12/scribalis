@@ -62,6 +62,29 @@ export interface SearchHit {
   chapterId: string;
 }
 
+export type NodeKind = "folder" | "text" | "image" | "file";
+
+/** A node of a book's workspace ("area") tree: folders, texts, images and attachments. */
+export interface AreaNode {
+  id: string;
+  kind: NodeKind;
+  title: string;
+  notes: string;
+  /** Path relative to the book's `area/` folder; only non-folders have one. */
+  file?: string;
+  children?: AreaNode[];
+}
+
+export interface Created {
+  id: string;
+  items: AreaNode[];
+}
+
+export interface ToChapterResult {
+  book: BookMeta;
+  items: AreaNode[];
+}
+
 export interface LibraryListing {
   books: BookSummary[];
   warnings: string[];

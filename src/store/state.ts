@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store";
-import type { BookMeta, BookSummary, Prefs, SearchHit, UpdateInfo } from "../api/types";
+import type { AreaNode, BookMeta, BookSummary, Prefs, SearchHit, UpdateInfo } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import type { Panel, View } from "../lib/types";
 
@@ -47,6 +47,17 @@ export interface AppState {
   update: UpdateInfo | null;
   /** True while the update downloads and installs. */
   updating: boolean;
+  // workspace ("area")
+  area: AreaNode[];
+  areaSel: string | null;
+  /** Node currently shown in the reading pane: a text in the editor, or an image/attachment preview. */
+  areaOpen: string | null;
+  /** Ids of expanded folders. */
+  areaExpanded: string[];
+  areaRenaming: string | null;
+  areaRenameVal: string;
+  /** Id armed for deletion; a second call to `deleteNode` with the same id confirms it. */
+  areaConfirm: string | null;
 }
 
 export const [state, setState] = createStore<AppState>({
@@ -76,6 +87,13 @@ export const [state, setState] = createStore<AppState>({
   libConfirm: null,
   update: null,
   updating: false,
+  area: [],
+  areaSel: null,
+  areaOpen: null,
+  areaExpanded: [],
+  areaRenaming: null,
+  areaRenameVal: "",
+  areaConfirm: null,
 });
 
 /** Values outside the store: they never need to re-render anything. */
