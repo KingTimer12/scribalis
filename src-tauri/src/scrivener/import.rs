@@ -10,7 +10,7 @@ use crate::model::{
     metadata::{ChapterEntry, Metadata},
     workspace::{Node, NodeKind},
 };
-use crate::ops::library::create_book;
+use crate::ops::library::{create_book, delete_book};
 use crate::storage::{
     chapter_io::{delete_chapter_file, write_chapter},
     metadata_io::write_metadata,
@@ -36,9 +36,14 @@ struct Ctx<'a> {
     warnings: usize,
 }
 
-fn title_of(item: &BinderItem) -> String {
-    let t = item.title.trim();
+/// Trims a title, falling back to "Sem título" when it's blank.
+fn normalize_title(t: &str) -> String {
+    let t = t.trim();
     if t.is_empty() { "Sem título".to_string() } else { t.to_string() }
+}
+
+fn title_of(item: &BinderItem) -> String {
+    normalize_title(&item.title)
 }
 
 fn has_text(doc: &Doc) -> bool {
@@ -81,6 +86,16 @@ impl Ctx<'_> {
         Ok(Some(node))
     }
 
+    /// Appends the workspace nodes of `item`'s children onto `folder`.
+    fn push_children(&mut self, folder: &mut Node, item: &BinderItem) -> AppResult<()> {
+        for child in &item.children {
+            if let Some(n) = self.node(child)? {
+                folder.children.push(n);
+            }
+        }
+        Ok(())
+    }
+
     /// Workspace node for an item outside chapter folders (None = skipped).
     fn node(&mut self, item: &BinderItem) -> AppResult<Option<Node>> {
         if item.kind == ItemKind::Trash {
@@ -91,11 +106,22 @@ impl Ctx<'_> {
             return Ok(None);
         }
         match item.kind {
-            ItemKind::Image | ItemKind::File => self.media_node(item),
+            ItemKind::Image | ItemKind::File if item.children.is_empty() => self.media_node(item),
             ItemKind::Text if item.children.is_empty() => {
                 let doc = self.text(&item.key);
                 let notes = self.project.notes(&item.key);
                 self.text_node(&title_of(item), notes, &doc).map(Some)
+            }
+            ItemKind::Image | ItemKind::File => {
+                // Media with children: a folder titled like the item, holding its own
+                // media node first (when the file exists) and then its children.
+                let mut folder = Node::folder(new_id(), &title_of(item));
+                self.items += 1;
+                if let Some(media) = self.media_node(item)? {
+                    folder.children.push(media);
+                }
+                self.push_children(&mut folder, item)?;
+                Ok(Some(folder))
             }
             _ => {
                 let title = title_of(item);
@@ -108,11 +134,7 @@ impl Ctx<'_> {
                 } else {
                     folder.notes = notes;
                 }
-                for child in &item.children {
-                    if let Some(n) = self.node(child)? {
-                        folder.children.push(n);
-                    }
-                }
+                self.push_children(&mut folder, item)?;
                 Ok(Some(folder))
             }
         }
@@ -126,6 +148,11 @@ impl Ctx<'_> {
         if matches!(item.kind, ItemKind::Image | ItemKind::File) {
             if let Some(n) = self.media_node(item)? {
                 self.attachments.push(n);
+            }
+            // The media itself never contributes chapter text, but its children
+            // (if any) are gathered like any other descendant's.
+            for child in &item.children {
+                self.gather(child, blocks, notes)?;
             }
             return Ok(());
         }
@@ -194,7 +221,7 @@ pub fn import_into(
         let mut ws = read_workspace(dir)?;
         match wrap {
             Some(title) => {
-                let mut folder = Node::folder(new_id(), title);
+                let mut folder = Node::folder(new_id(), &normalize_title(title));
                 folder.children = nodes;
                 ws.items.push(folder);
             }
@@ -209,19 +236,32 @@ pub fn import_into(
     Ok(Outcome { chapters, items: ctx.items, warnings: ctx.warnings })
 }
 
-/// Creates a book named after the project and imports into it.
+/// Creates a book named after the project and imports into it; if anything fails after
+/// the folder is created, it's removed so no half-built ("ghost") book is left under `root`.
 pub fn import_new_book(root: &Path, project: &Project, chapter_folders: &HashSet<String>) -> AppResult<(PathBuf, Metadata, Outcome)> {
     let (dir, mut meta) = create_book(root, &project.title)?;
+    match fill_new_book(project, chapter_folders, &dir, &mut meta) {
+        Ok(outcome) => Ok((dir, meta, outcome)),
+        Err(e) => {
+            if let Err(cleanup_err) = delete_book(&dir) {
+                eprintln!("could not remove failed import's book folder {}: {cleanup_err}", dir.display());
+            }
+            Err(e)
+        }
+    }
+}
+
+fn fill_new_book(project: &Project, chapter_folders: &HashSet<String>, dir: &Path, meta: &mut Metadata) -> AppResult<Outcome> {
     let starter = meta.chapters.remove(0);
-    let outcome = import_into(project, chapter_folders, &dir, &mut meta, None)?;
+    let outcome = import_into(project, chapter_folders, dir, meta, None)?;
     if meta.chapters.is_empty() {
         // Nothing became a chapter: keep the empty starter so the book stays valid.
         meta.chapters.push(starter);
-        write_metadata(&dir, &meta)?;
+        write_metadata(dir, meta)?;
     } else {
-        delete_chapter_file(&dir, &starter)?;
+        delete_chapter_file(dir, &starter)?;
     }
-    Ok((dir, meta, outcome))
+    Ok(outcome)
 }
 
 #[cfg(test)]
@@ -316,6 +356,99 @@ mod tests {
         assert_eq!(ws.items.len(), 1);
         assert_eq!(ws.items[0].title, "Livro");
         assert_eq!(ws.items[0].children[0].title, "Pesquisa");
+    }
+
+    #[test]
+    fn wrap_title_is_trimmed_and_falls_back_when_blank() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
+        import_into(&p, &folders(&["D"]), &dir, &mut meta, Some("  Livro  ")).unwrap();
+        let ws = read_workspace(&dir).unwrap();
+        assert_eq!(ws.items[0].title, "Livro");
+
+        let (dir2, mut meta2) = create_book(tmp.path(), "Outra").unwrap();
+        import_into(&p, &folders(&["D"]), &dir2, &mut meta2, Some("   ")).unwrap();
+        let ws2 = read_workspace(&dir2).unwrap();
+        assert_eq!(ws2.items[0].title, "Sem título");
+    }
+
+    #[test]
+    fn failed_import_leaves_no_ghost_book() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        // Corrupt the binder after `Project::open` already located the scrivx file, so
+        // `create_book` succeeds and only reading the binder inside `import_into` fails.
+        fs::write(&p.scrivx, "<ScrivenerProject><Binder><BinderItem").unwrap();
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        assert!(import_new_book(&root, &p, &folders(&["D"])).is_err());
+        assert!(fs::read_dir(&root).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn media_with_children_becomes_a_folder_with_itself_and_its_children() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("Mapas.scriv");
+        let data = dir.join("Files/Data");
+        fs::create_dir_all(data.join("M")).unwrap();
+        fs::create_dir_all(data.join("T1")).unwrap();
+        fs::write(dir.join("Mapas.scrivx"), r#"<ScrivenerProject><Binder>
+          <BinderItem UUID="R" Type="ResearchFolder"><Title>Pesquisa</Title><Children>
+            <BinderItem UUID="M" Type="Image"><Title>Mapa</Title><Children>
+              <BinderItem UUID="T1" Type="Text"><Title>Nota</Title></BinderItem>
+            </Children></BinderItem>
+          </Children></BinderItem>
+        </Binder></ScrivenerProject>"#).unwrap();
+        fs::write(data.join("M").join("content.png"), b"png").unwrap();
+        fs::write(data.join("T1").join("content.rtf"), br"{\rtf1 Nota do mapa.\par}").unwrap();
+        let p = Project::open(&dir).unwrap();
+
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (book_dir, _meta, _out) = import_new_book(&root, &p, &HashSet::new()).unwrap();
+        let ws = read_workspace(&book_dir).unwrap();
+        let pesquisa = &ws.items[0];
+        assert_eq!(pesquisa.title, "Pesquisa");
+        let mapa = &pesquisa.children[0];
+        assert_eq!((mapa.kind, mapa.title.as_str()), (NodeKind::Folder, "Mapa"));
+        assert_eq!(mapa.children.len(), 2);
+        assert_eq!((mapa.children[0].kind, mapa.children[0].title.as_str()), (NodeKind::Image, "Mapa"));
+        assert_eq!((mapa.children[1].kind, mapa.children[1].title.as_str()), (NodeKind::Text, "Nota"));
+    }
+
+    #[test]
+    fn media_inside_chapter_subtree_still_gathers_its_children_text() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("Foto.scriv");
+        let data = dir.join("Files/Data");
+        for key in ["S1", "IMG2", "S3"] {
+            fs::create_dir_all(data.join(key)).unwrap();
+        }
+        fs::write(dir.join("Foto.scrivx"), r#"<ScrivenerProject><Binder>
+          <BinderItem UUID="D" Type="DraftFolder"><Title>Manuscrito</Title><Children>
+            <BinderItem UUID="C1" Type="Folder"><Title>Capítulo 1</Title><Children>
+              <BinderItem UUID="S1" Type="Text"><Title>Cena 1</Title></BinderItem>
+              <BinderItem UUID="IMG2" Type="Image"><Title>Foto</Title><Children>
+                <BinderItem UUID="S3" Type="Text"><Title>Legenda</Title></BinderItem>
+              </Children></BinderItem>
+            </Children></BinderItem>
+          </Children></BinderItem>
+        </Binder></ScrivenerProject>"#).unwrap();
+        fs::write(data.join("S1").join("content.rtf"), br"{\rtf1 Primeira cena.\par}").unwrap();
+        fs::write(data.join("IMG2").join("content.png"), b"png").unwrap();
+        fs::write(data.join("S3").join("content.rtf"), br"{\rtf1 Texto da legenda.\par}").unwrap();
+        let p = Project::open(&dir).unwrap();
+
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (book_dir, meta, out) = import_new_book(&root, &p, &folders(&["D"])).unwrap();
+        assert_eq!(out.chapters, 1);
+        let doc = read_chapter(&book_dir, &meta.chapters[0]).unwrap();
+        assert_eq!(doc_text(&doc), "Primeira cena.\n\nTexto da legenda.");
+        let ws = read_workspace(&book_dir).unwrap();
+        assert_eq!(ws.items[0].title, "Anexos do manuscrito");
+        assert_eq!((ws.items[0].children[0].kind, ws.items[0].children[0].title.as_str()), (NodeKind::Image, "Foto"));
     }
 
     #[test]
