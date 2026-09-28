@@ -23,6 +23,7 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Mudar status", keys: ["Alt", "S"] },
   { label: "Modo foco", keys: ["Ctrl", "."] },
   { label: "Tema claro / escuro", keys: ["Ctrl", "J"] },
+  { label: "Nuvem: backup e links", keys: ["Ctrl", "Shift", "S"] },
   { label: "Do título para o texto", keys: ["Enter"] },
   { label: "Obras: nova obra", keys: ["N"] },
   { label: "Obras: renomear", keys: ["R"] },

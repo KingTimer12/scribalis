@@ -5,6 +5,7 @@ import { setBookAuthor, setSeparatorText } from "../actions/book";
 import {
   copyCurrentChapter, cycleStatus, deleteCurrentChapter, goChapter, insertChapterAt, moveChapter, sendChapterToArea,
 } from "../actions/chapters";
+import { backupNow, fetchComments } from "../actions/cloud";
 import { clearBookImage, clearCover, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
 import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../actions/library";
 import { cycleFont, cycleGoal, cycleWidth, toggleTheme } from "../actions/prefs";
@@ -35,6 +36,7 @@ function commonCommands(): Command[] {
   return [
     { label: state.prefs.theme === "dark" ? "Tema claro" : "Tema escuro", hint: "Ctrl J", act: toggleTheme },
     { label: "Atalhos", hint: "Ctrl /", act: () => openPanel("help") },
+    { label: "Nuvem", hint: "Ctrl Shift S", act: () => openPanel("cloud") },
     ...(state.update ? [{ label: "Instalar versão " + state.update.version + " (reinicia)", hint: "", act: () => void installUpdate() }] : []),
   ];
 }
@@ -96,6 +98,13 @@ function editorCommands(): Command[] {
     { label: "Mover capítulo para cima", hint: "Alt Shift ↑", act: () => moveChapter(cur, -1) },
     { label: "Mover capítulo para baixo", hint: "Alt Shift ↓", act: () => moveChapter(cur, 1) },
     { label: "Copiar capítulo", hint: "", act: copyCurrentChapter },
+    { label: "Compartilhar capítulo", hint: "", act: () => { setState("shareDraft", { kind: "chapter", target: c.id, label: "Capítulo " + pad(cur + 1) }); openPanel("cloud"); } },
+    ...(state.cloudBook?.enabled
+      ? [
+          { label: "Fazer backup agora", hint: "", act: () => void backupNow() },
+          { label: "Buscar comentários", hint: "", act: () => void fetchComments(false) },
+        ]
+      : []),
     { label: "Enviar capítulo para a área de trabalho", hint: "", act: () => void sendChapterToArea(c.id) },
     { label: "Meta diária: " + fmt(state.prefs.goal) + " palavras", hint: "", act: cycleGoal },
     { label: "Largura do texto: " + WIDTH_LABEL[state.prefs.width], hint: "", act: cycleWidth },

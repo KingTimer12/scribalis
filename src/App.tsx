@@ -3,6 +3,7 @@ import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { isTauri } from "./api/invoke";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
+import { CloudPanel } from "./components/cloud/CloudPanel";
 import { Editor } from "./components/editor/Editor";
 import { Library } from "./components/library/Library";
 import { ChapterIndex } from "./components/panels/ChapterIndex";
@@ -86,6 +87,9 @@ export default function App() {
         </Match>
         <Match when={state.panel === "help"}>
           <HelpPanel />
+        </Match>
+        <Match when={state.panel === "cloud"}>
+          <CloudPanel />
         </Match>
       </Switch>
       <Show when={state.scrivener}>

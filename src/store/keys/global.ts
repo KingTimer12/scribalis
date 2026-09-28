@@ -28,6 +28,7 @@ export function rootKey(e: KeyboardEvent) {
   else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
   else if (tabKey && code === "Digit1") void goChapters();
   else if (tabKey && code === "Digit2") void goWorkspace();
+  else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openPanel("cloud");
   else if (ed && mod && !e.shiftKey && (k === "e" || code === "KeyE")) openPanel("index");
   else if (ed && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (ed && mod && (k === ";" || code === "Semicolon")) openPanel("notes");

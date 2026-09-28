@@ -1,7 +1,9 @@
 import type { AreaNode } from "../../api/types";
+import { openPanel } from "../../store/actions/ui";
 import {
   addFiles, createNode, openFile, openNode, requestDelete, selectNode, sendToChapter, startNodeRename,
 } from "../../store/actions/workspace";
+import { setState } from "../../store/state";
 import type { MenuItem } from "../ui/ContextMenu";
 
 /** New items land in the selected folder (or at the root with nothing selected). */
@@ -20,10 +22,17 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
   const rename: MenuItem = { label: "Renomear", act: () => startNodeRename(id) };
   const del: MenuItem = { label: "Excluir", danger: true, act: () => void requestDelete(id) };
   const open: MenuItem = { label: "Abrir", act: () => void openNode(id) };
-  if (node.kind === "folder") return [...creators(), rename, del];
-  if (node.kind === "text") return [open, rename, { label: "Enviar para capítulos", act: () => void sendToChapter(id) }, del];
-  if (node.kind === "file") return [open, { label: "Abrir no app padrão", act: () => void openFile(id) }, rename, del];
-  return [open, rename, del];
+  const share: MenuItem = {
+    label: "Compartilhar…",
+    act: () => {
+      setState("shareDraft", { kind: "workspace", target: id, label: node.title || "Item da área" });
+      openPanel("cloud");
+    },
+  };
+  if (node.kind === "folder") return [...creators(), rename, share, del];
+  if (node.kind === "text") return [open, rename, { label: "Enviar para capítulos", act: () => void sendToChapter(id) }, share, del];
+  if (node.kind === "file") return [open, { label: "Abrir no app padrão", act: () => void openFile(id) }, rename, share, del];
+  return [open, rename, share, del];
 }
 
 /** Right click targets: selecting first makes "new item" land inside that folder. */
