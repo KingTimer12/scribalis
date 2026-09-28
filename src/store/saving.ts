@@ -2,6 +2,7 @@ import * as bookApi from "../api/book";
 import * as chapterApi from "../api/chapter";
 import { statsToday } from "../api/prefs";
 import type { BookPatch, ChapterPatch, DocJSON } from "../api/types";
+import { saveAreaDoc } from "../api/workspace";
 import { currentDocKey, getDoc, loadDoc, sameKey, type DocKey } from "../editor/bridge";
 import { editBook, setState, state } from "./state";
 import { flashError } from "./actions/ui";
@@ -26,12 +27,16 @@ function target() {
 }
 
 async function saveDocNow(key: DocKey) {
-  // Null when the editor already holds another chapter: never file its text under `key`.
+  // Null when the editor already holds another document: never file its text under `key`.
   const doc = getDoc(key);
   if (!doc) return;
-  const saved = await chapterApi.saveChapter(key.bookId, key.chapterId, doc);
+  if (key.scope === "area") {
+    await saveAreaDoc(key.bookId, key.docId, doc);
+    return;
+  }
+  const saved = await chapterApi.saveChapter(key.bookId, key.docId, doc);
   editBook((b) => {
-    const c = b.id === key.bookId ? b.chapters.find((x) => x.id === key.chapterId) : undefined;
+    const c = b.id === key.bookId ? b.chapters.find((x) => x.id === key.docId) : undefined;
     if (c) c.words = saved.words;
   });
   setState("today", (await statsToday()).today);
@@ -46,8 +51,8 @@ async function flushDocSave() {
   await p.run();
 }
 
-/** Debounced save of the text of the chapter the editor holds. */
-export function scheduleChapterSave() {
+/** Debounced save of the text of the document the editor holds. */
+export function scheduleDocSave() {
   const key = currentDocKey();
   if (!key) return;
   if (docSave && !sameKey(docSave.key, key)) void flushDocSave();
@@ -56,27 +61,27 @@ export function scheduleChapterSave() {
   docSave = { timer: setTimeout(() => { docSave = null; run(); }, DOC_DELAY), run, key };
 }
 
-export function cancelChapterSave() {
+export function cancelDocSave() {
   if (docSave) clearTimeout(docSave.timer);
   docSave = null;
 }
 
 /** Waits until no text save is pending (text typed meanwhile is saved too). */
-export async function settleChapterSave() {
+export async function settleDocSave() {
   while (docSave) await flushDocSave();
 }
 
 /**
- * Loads chapter `key` into the editor. Text typed into the old chapter since the
- * last flush (e.g. during the IPC that fetched `doc`) is saved to the old chapter
+ * Loads document `key` into the editor. Text typed into the old document since the
+ * last flush (e.g. during the IPC that fetched `doc`) is saved to the old document
  * first, while the editor still shows it. `apply` runs right before the swap, to
  * publish the matching store state; returning false aborts the swap.
  * Resolves to whether the document was loaded.
  */
 export async function swapDocument(doc: DocJSON, key: DocKey, apply: () => boolean | void): Promise<boolean> {
-  await settleChapterSave();
+  await settleDocSave();
   if (apply() === false) return false;
-  cancelChapterSave();
+  cancelDocSave();
   loadDoc(doc, key);
   return true;
 }

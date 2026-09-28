@@ -2,14 +2,15 @@ import type { Editor } from "@tiptap/core";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import type { DocJSON } from "../api/types";
 
-/** Identifies which chapter the editor holds. */
+/** Identifies which document the editor holds: a chapter, or a workspace ("area") text. */
 export interface DocKey {
   bookId: string;
-  chapterId: string;
+  docId: string;
+  scope: "chapter" | "area";
 }
 
 export const sameKey = (a: DocKey | null, b: DocKey | null): boolean =>
-  !!a && !!b && a.bookId === b.bookId && a.chapterId === b.chapterId;
+  !!a && !!b && a.bookId === b.bookId && a.docId === b.docId && a.scope === b.scope;
 
 /** Holds the mounted editor so store actions can talk to it. */
 let editor: Editor | null = null;
@@ -21,7 +22,7 @@ export const activeEditor = (): Editor | null => editor;
 
 export function setEditor(e: Editor | null) {
   editor = e;
-  // A fresh (or no) editor holds no chapter until a document is loaded into it.
+  // A fresh (or no) editor holds no document until one is loaded into it.
   loadedKey = null;
   if (e && pending) {
     const { doc, key } = pending;
@@ -36,7 +37,7 @@ export function normalizeDoc(doc: DocJSON): DocJSON {
   return doc;
 }
 
-/** Replaces the document without triggering a save or an undo step; `key` names its chapter. */
+/** Replaces the document without triggering a save or an undo step; `key` names it. */
 export function loadDoc(doc: DocJSON, key: DocKey) {
   const normalized = normalizeDoc(doc);
   if (!editor) {
@@ -47,12 +48,12 @@ export function loadDoc(doc: DocJSON, key: DocKey) {
   loadedKey = { ...key };
 }
 
-/** The chapter currently in the editor, or null. */
+/** The key of the document currently in the editor, or null. */
 export function currentDocKey(): DocKey | null {
   return editor && loadedKey ? { ...loadedKey } : null;
 }
 
-/** The editor's document, only if it still holds chapter `key` (else null). */
+/** The editor's document, only if it still holds document `key` (else null). */
 export function getDoc(key: DocKey): DocJSON | null {
   if (!editor || !sameKey(loadedKey, key)) return null;
   return editor.getJSON() as DocJSON;

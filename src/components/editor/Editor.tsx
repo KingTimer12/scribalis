@@ -19,7 +19,7 @@ export function Editor() {
           <ChapterTitle />
           <BookImage slot="header" />
           <div class="h-[22px] shrink-0" />
-          <RichEditor />
+          <RichEditor scope="chapter" />
           <BookImage slot="footer" />
         </div>
       </div>

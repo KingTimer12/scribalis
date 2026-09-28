@@ -2,12 +2,12 @@ import * as bookApi from "../../api/book";
 import * as api from "../../api/chapter";
 import { statsToday } from "../../api/prefs";
 import type { BookMeta, DocJSON } from "../../api/types";
-import { liveText } from "../../editor/bridge";
+import { liveText, type DocKey } from "../../editor/bridge";
 import { STATUS, STATUS_LABEL } from "../../lib/constants";
 import { docWords } from "../../lib/doc";
 import { pad, wc } from "../../lib/format";
 import { focusTarget, type Caret } from "../focus";
-import { cancelChapterSave, flushAll, scheduleChapterPatch, scheduleChapterSave, swapDocument } from "../saving";
+import { cancelDocSave, flushAll, scheduleChapterPatch, scheduleDocSave, swapDocument } from "../saving";
 import { currentChapter } from "../selectors/book";
 import { editBook, setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -33,8 +33,8 @@ function applyMeta(meta: BookMeta, extra: { liveWords?: number } = {}): boolean 
 async function showCurrent(meta: BookMeta, target: Target, discard = false): Promise<boolean> {
   const chapter = meta.chapters[meta.cur];
   const doc = await api.loadChapter(meta.id, chapter.id);
-  if (discard) cancelChapterSave();
-  const key = { bookId: meta.id, chapterId: chapter.id };
+  if (discard) cancelDocSave();
+  const key: DocKey = { bookId: meta.id, docId: chapter.id, scope: "chapter" };
   if (!(await swapDocument(doc, key, () => applyMeta(meta, { liveWords: docWords(doc) })))) return false;
   if (target === "title") focusTarget("title", 0);
   else focusTarget("body", target);
@@ -78,7 +78,7 @@ export function splitCurrent(before: DocJSON, after: DocJSON) {
   const c = currentChapter();
   if (!b || !c) return;
   // The split itself persists both halves of the current text.
-  cancelChapterSave();
+  cancelDocSave();
   return run(async () => {
     await flushAll();
     let meta: BookMeta;
@@ -86,10 +86,10 @@ export function splitCurrent(before: DocJSON, after: DocJSON) {
       meta = await api.splitChapter(b.id, c.id, before, after);
     } catch (e) {
       // Nothing was split: the editor still holds the whole text, save it as usual.
-      scheduleChapterSave();
+      scheduleDocSave();
       throw e;
     }
-    const key = { bookId: meta.id, chapterId: meta.chapters[meta.cur].id };
+    const key: DocKey = { bookId: meta.id, docId: meta.chapters[meta.cur].id, scope: "chapter" };
     if (!(await swapDocument(after, key, () => applyMeta(meta, { liveWords: docWords(after) })))) return;
     focusTarget("title", 0);
     await refreshToday();
@@ -129,7 +129,7 @@ export function deleteCurrentChapter() {
   if (!b || !c) return;
   if (b.chapters.length === 1) return flash("A obra precisa de pelo menos um capítulo");
   const gone = b.cur;
-  cancelChapterSave();
+  cancelDocSave();
   return run(async () => {
     await flushAll();
     const shown = await showCurrent(await api.deleteChapter(b.id, c.id), "end", true);
@@ -170,5 +170,5 @@ export function openFromIndex(i: number) {
 /** Called by the editor on every change: live count + debounced save. */
 export function onEditorChange() {
   setState("liveWords", wc(liveText()));
-  scheduleChapterSave();
+  scheduleDocSave();
 }

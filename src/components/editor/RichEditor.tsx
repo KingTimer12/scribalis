@@ -6,10 +6,16 @@ import type { SeparatorView } from "../../editor/separator";
 import { bookAsset } from "../../lib/assets";
 import { onEditorChange, splitCurrent } from "../../store/actions/chapters";
 import { focusHandler, focusTarget } from "../../store/focus";
+import { scheduleDocSave } from "../../store/saving";
 import { setState, state } from "../../store/state";
 
-/** Chapter text (TipTap). The document lives only here, never in the store. */
-export function RichEditor() {
+export interface RichEditorProps {
+  /** "chapter" keeps the book-writing behavior (Enter x3 split, hint, word counts); "area" is a plain workspace text. */
+  scope: "chapter" | "area";
+}
+
+/** Reusable text editor (TipTap). The document lives only here, never in the store. */
+export function RichEditor(props: RichEditorProps) {
   let host!: HTMLDivElement;
 
   const separator = (): SeparatorView => {
@@ -21,16 +27,31 @@ export function RichEditor() {
   const resolveImage = (src: string) => (state.book ? bookAsset(state.book.dir, src, 0) : null);
 
   onMount(() => {
-    const editor = createWriterEditor({
-      element: host,
-      separator,
-      resolveImage,
-      onChange: onEditorChange,
-      onFormat: (ed) => setFormatState(readFormat(ed)),
-      onSplit: splitCurrent,
-      onHint: (show) => setState("tripleHint", show && !state.toast),
-      onExitTop: () => focusTarget("title", "end"),
-    });
+    const editor =
+      props.scope === "chapter"
+        ? createWriterEditor({
+            element: host,
+            separator,
+            resolveImage,
+            onChange: onEditorChange,
+            onFormat: (ed) => setFormatState(readFormat(ed)),
+            onSplit: splitCurrent,
+            onHint: (show) => setState("tripleHint", show && !state.toast),
+            onExitTop: () => focusTarget("title", "end"),
+            ariaLabel: "Texto do capítulo",
+            placeholder: "Comece a escrever…",
+          })
+        : createWriterEditor({
+            element: host,
+            separator,
+            resolveImage,
+            onChange: scheduleDocSave,
+            onFormat: (ed) => setFormatState(readFormat(ed)),
+            onHint: () => {},
+            onExitTop: () => {},
+            ariaLabel: "Texto do documento",
+            placeholder: "Escreva aqui…",
+          });
     setEditor(editor);
     focusHandler("body", focusEditor);
     onCleanup(() => {
