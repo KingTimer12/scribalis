@@ -1,10 +1,11 @@
-import { createEffect, For, on } from "solid-js";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { fmt, pad } from "../../lib/format";
-import { openFromIndex } from "../../store/actions/chapters";
-import { focusRef } from "../../store/focus";
+import { deleteChapter, openFromIndex, requestChapterDelete, sendChapterToArea } from "../../store/actions/chapters";
+import { focusRef, focusTarget } from "../../store/focus";
 import { indexKey } from "../../store/keys/index";
 import { bookLabel } from "../../store/selectors/book";
-import { state } from "../../store/state";
+import { setState, state } from "../../store/state";
+import { ContextMenu, type MenuItem } from "../ui/ContextMenu";
 import { Hint } from "../ui/Hint";
 import { Scrim } from "../ui/Scrim";
 import { StatusDot } from "../ui/StatusDot";
@@ -12,6 +13,26 @@ import { StatusDot } from "../ui/StatusDot";
 /** Drawer listing the book's chapters (Ctrl E). */
 export function ChapterIndex() {
   let el!: HTMLDivElement;
+  const [menu, setMenu] = createSignal<{ x: number; y: number; items: MenuItem[] } | null>(null);
+
+  const openMenu = (i: number, x: number, y: number) => {
+    const c = state.book?.chapters[i];
+    if (!c) return;
+    const id = c.id;
+    setState("indexSel", i);
+    const armed = state.indexConfirm === id;
+    setMenu({
+      x,
+      y,
+      items: [
+        { label: "Abrir", act: () => void openFromIndex(i) },
+        { label: "Enviar para a área de trabalho", act: () => void sendChapterToArea(id) },
+        armed
+          ? { label: "Confirmar: excluir o capítulo " + pad(i + 1), danger: true, act: () => void deleteChapter(id) }
+          : { label: "Excluir capítulo", danger: true, act: () => void requestChapterDelete(i) },
+      ],
+    });
+  };
 
   createEffect(
     on(
@@ -41,8 +62,12 @@ export function ChapterIndex() {
             {(c, i) => (
               <button
                 class="ix-item"
-                classList={{ sel: i() === state.indexSel, cur: i() === state.book?.cur }}
+                classList={{ sel: i() === state.indexSel, cur: i() === state.book?.cur, confirm: c.id === state.indexConfirm }}
                 onClick={() => openFromIndex(i())}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  openMenu(i(), e.clientX, e.clientY);
+                }}
               >
                 <span class="ui">{pad(i() + 1)}</span>
                 <span class="ix-t">{c.title || "Sem título"}</span>
@@ -56,9 +81,23 @@ export function ChapterIndex() {
           <Hint keys="↑↓">navegar</Hint>
           <Hint keys="Enter">abrir</Hint>
           <Hint keys="Alt ↑↓">mover</Hint>
+          <Hint keys="Del">excluir</Hint>
           <Hint keys="Esc">fechar</Hint>
         </div>
       </div>
+      <Show when={menu()}>
+        {(m) => (
+          <ContextMenu
+            x={m().x}
+            y={m().y}
+            items={m().items}
+            onClose={() => {
+              setMenu(null);
+              focusTarget("index");
+            }}
+          />
+        )}
+      </Show>
     </>
   );
 }

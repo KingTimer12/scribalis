@@ -787,7 +787,7 @@ mod tests {
     #[test]
     fn unicode_escapes_and_fallback_chars() {
         assert_eq!(doc(r"{\rtf1\uc1 caf\u233?\par}"), vec![p(vec![t("café")])]);
-        assert_eq!(doc(r"{\rtf1\uc0 舒 x\par}"), vec![p(vec![t("—x")])]);
+        assert_eq!(doc(r"{\rtf1\uc0 \u8212 x\par}"), vec![p(vec![t("—x")])]);
         assert_eq!(doc(r"{\rtf1 \u-3913?\par}"), vec![p(vec![t("\u{f0b7}")])]);
         assert_eq!(rtf_to_doc("{\\rtf1 ação\\par}".as_bytes()).content, vec![p(vec![t("ação")])]);
         assert_eq!(doc(r"{\rtf1 \emdash\ \ldblquote x\rdblquote\par}"), vec![p(vec![t("— “x”")])]);

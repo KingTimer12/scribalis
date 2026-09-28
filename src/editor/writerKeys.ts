@@ -4,7 +4,8 @@ import type { DocJSON } from "../api/types";
 import { splitAtCursor } from "./split";
 
 export interface WriterKeysOptions {
-  onSplit: (before: DocJSON, after: DocJSON) => void;
+  /** Null disables the Enter x3 split entirely: a third Enter is then a plain Enter. */
+  onSplit: ((before: DocJSON, after: DocJSON) => void) | null;
   onHint: (show: boolean) => void;
   onExitTop: () => void;
 }
@@ -17,7 +18,7 @@ export const WriterKeys = Extension.create<WriterKeysOptions>({
   priority: 1000,
 
   addOptions() {
-    return { onSplit: () => {}, onHint: () => {}, onExitTop: () => {} };
+    return { onSplit: null, onHint: () => {}, onExitTop: () => {} };
   },
 
   addProseMirrorPlugins() {
@@ -41,6 +42,9 @@ export const WriterKeys = Extension.create<WriterKeysOptions>({
               return true;
             }
             if (event.key === "Enter" && !mod && !event.altKey && !event.shiftKey) {
+              // Without a split handler (e.g. the workspace editor), Enter x3 is disabled:
+              // no streak, no hint, the 3rd Enter is a plain Enter.
+              if (!opts.onSplit) return false;
               const cut = streak >= 2 ? splitAtCursor(view.state) : null;
               if (cut) {
                 reset();

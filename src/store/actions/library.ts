@@ -5,7 +5,7 @@ import * as api from "../../api/library";
 import { statsToday } from "../../api/prefs";
 import { docWords } from "../../lib/doc";
 import { focusTarget } from "../focus";
-import { flushAll, settleChapterSave, swapDocument } from "../saving";
+import { flushAll, settleDocSave, swapDocument } from "../saving";
 import { sortedLibrary } from "../selectors/library";
 import { session, setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -28,11 +28,13 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
     const book = await bookApi.openBook(id);
     const chapter = book.chapters[book.cur];
     const doc = await chapterApi.loadChapter(book.id, chapter.id);
-    await swapDocument(doc, { bookId: book.id, chapterId: chapter.id }, () => {
+    await swapDocument(doc, { bookId: book.id, docId: chapter.id, scope: "chapter" }, () => {
       batch(() => {
         setState({
           book, curId: id, view: "editor", panel: null, q: "", tripleHint: false, focus: false,
           libConfirm: null, renaming: null, liveWords: docWords(doc),
+          // the workspace screen state belongs to the previous book
+          area: [], areaSel: null, areaOpen: null, areaRenaming: null, areaRenameVal: "", areaConfirm: null,
         });
       });
     });
@@ -47,7 +49,7 @@ export async function goLibrary() {
   await flushAll();
   await refreshLibrary();
   // Text typed while the library loaded: save it before the editor unmounts.
-  await settleChapterSave();
+  await settleDocSave();
   const idx = Math.max(0, sortedLibrary().findIndex((b) => b.id === state.curId));
   focusTarget("lib");
   setState({

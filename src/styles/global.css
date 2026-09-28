@@ -324,6 +324,249 @@
     opacity: 0.75;
   }
 
+  /* ---------- workspace ---------- */
+  .tabs {
+    display: flex;
+    gap: 16px;
+    margin-left: 6px;
+  }
+  .tab {
+    border-bottom: 1px solid transparent;
+  }
+  .tab[aria-pressed="true"] {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+  .ws-side {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--faint);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .ws-main {
+    position: relative;
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .ws-tree {
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 12px 8px;
+    outline: none;
+  }
+  /* With a row selected, its accent bar already shows the focus. */
+  .ws-tree:focus-visible:not(:has(.ws-row.sel)) {
+    box-shadow: inset 0 0 0 2px var(--accent);
+    border-radius: 8px;
+  }
+  .ws-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding-right: 10px;
+    border-radius: 6px;
+    font-size: 15px;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .ws-row:hover {
+    background: var(--soft);
+  }
+  .ws-tree:focus .ws-row.sel,
+  .ws-row.sel {
+    background: var(--soft);
+    box-shadow: inset 2px 0 0 var(--muted);
+  }
+  .ws-tree:focus .ws-row.sel {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .ws-row.open .ws-t {
+    color: var(--accent);
+  }
+  .ws-row.confirm {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .ws-row.dragging {
+    opacity: 0.45;
+  }
+  .ws-row.drop-inside {
+    background: var(--faint);
+  }
+  .ws-row.drop-before::before,
+  .ws-row.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--accent);
+    pointer-events: none;
+  }
+  .ws-row.drop-before::before {
+    top: -1px;
+  }
+  .ws-row.drop-after::after {
+    bottom: -1px;
+  }
+  .ws-t {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ws-chev {
+    display: grid;
+    place-items: center;
+    width: 12px;
+    flex-shrink: 0;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+  .ws-chev.on {
+    transform: rotate(90deg);
+  }
+  .ws-chev svg {
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.3;
+  }
+  .ws-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.1;
+    stroke-linejoin: round;
+  }
+  .ws-rename {
+    flex-grow: 1;
+    min-width: 0;
+    height: 24px;
+    box-sizing: border-box;
+    padding: 0 6px;
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    outline: none;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 15px;
+  }
+  .ws-tree-empty {
+    margin: 8px;
+    line-height: 1.6;
+  }
+  /* floating context menu */
+  .ctx {
+    position: fixed;
+    z-index: 50;
+    min-width: 200px;
+    padding: 6px;
+    border: 1px solid var(--faint);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    outline: none;
+    animation: fadeIn 0.12s ease-out;
+  }
+  .ctx-item {
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+  }
+  .ctx-item.act {
+    background: var(--soft);
+  }
+  .ctx-item.danger {
+    color: var(--accent);
+  }
+  .ctx-item[aria-disabled] {
+    opacity: 0.45;
+    cursor: default;
+  }
+  /* The workspace column is narrower than the chapter one: the tree takes 280px. */
+  .ws-doc {
+    max-width: calc(100vw - 280px - 72px);
+  }
+  .ws-doc .ed-scroll {
+    padding-bottom: 48px;
+  }
+  .ws-title {
+    font-size: 32px;
+  }
+  .ws-notes {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 12px 0 20px;
+    border-top: 1px solid var(--faint);
+  }
+  .ws-media {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+    height: 100%;
+    padding: 64px 36px 24px;
+    box-sizing: border-box;
+  }
+  .ws-media-title {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 500;
+  }
+  .ws-img {
+    flex-grow: 1;
+    min-height: 0;
+    width: 100%;
+    object-fit: contain;
+    object-position: top center;
+  }
+  .ws-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 460px;
+    padding: 96px 36px 0;
+  }
+  .ws-empty-title {
+    font-size: 32px;
+    font-weight: 500;
+  }
+  .ws-empty-text {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .ws-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ws-help {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding-top: 12px;
+  }
+
   /* ---------- status ---------- */
   .dot {
     width: 8px;
@@ -506,6 +749,9 @@
   }
   .ix-item.sel {
     background: var(--soft);
+  }
+  .ix-item.confirm {
+    box-shadow: inset 0 0 0 1px var(--accent);
   }
   .ix-item.cur .ix-t {
     color: var(--accent);
@@ -782,6 +1028,106 @@
   }
   .sp-input::placeholder {
     color: var(--muted);
+  }
+
+  /* ---------- scrivener import ---------- */
+  .scriv {
+    position: absolute;
+    top: 96px;
+    bottom: 96px;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: 640px;
+    max-width: calc(100% - 48px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 28px 28px 20px;
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    animation: drop 0.18s ease-out;
+  }
+  .scriv-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 500;
+  }
+  .scriv-text {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .scriv-tree {
+    flex-grow: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 0;
+    border-top: 1px solid var(--faint);
+    border-bottom: 1px solid var(--faint);
+  }
+  .scriv-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding-right: 8px;
+    font-size: 15px;
+  }
+  .scriv-row.on .ws-t {
+    color: var(--accent);
+  }
+  .scriv-kids {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    padding: 2px 4px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .scriv-kids:hover {
+    color: var(--ink);
+  }
+  .scriv-kids + .scriv-check {
+    margin-left: 12px;
+  }
+  .scriv-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .scriv-check input {
+    accent-color: var(--accent);
+  }
+  .scriv-check:has(input:disabled) {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .scriv-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sp-btn.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .sp-btn.primary:hover:not(:disabled) {
+    background: var(--accent);
+    opacity: 0.9;
+  }
+  .sp-btn:disabled {
+    opacity: 0.6;
+    cursor: progress;
   }
 
   /* ---------- animations ---------- */

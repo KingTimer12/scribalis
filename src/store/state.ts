@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store";
-import type { BookMeta, BookSummary, Prefs, SearchHit, UpdateInfo } from "../api/types";
+import type { AreaNode, BookMeta, BookSummary, ImportTarget, Prefs, ScanView, SearchHit, UpdateInfo } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import type { Panel, View } from "../lib/types";
 
@@ -7,6 +7,15 @@ export interface PromptState {
   label: string;
   value: string;
   submit: (value: string) => void;
+}
+
+/** Scrivener import dialog: the scanned project and the items marked as chapters. */
+export interface ScrivenerImportState {
+  path: string;
+  view: ScanView;
+  chosen: string[];
+  target: ImportTarget;
+  busy: boolean;
 }
 
 export interface AppState {
@@ -29,6 +38,8 @@ export interface AppState {
   prompt: PromptState | null;
   // index
   indexSel: number;
+  /** Chapter id armed for deletion in the index; a second Delete confirms it. */
+  indexConfirm: string | null;
   // bottom bar
   toast: string;
   toastKey: number;
@@ -47,6 +58,19 @@ export interface AppState {
   update: UpdateInfo | null;
   /** True while the update downloads and installs. */
   updating: boolean;
+  // workspace ("area")
+  area: AreaNode[];
+  areaSel: string | null;
+  /** Node currently shown in the reading pane: a text in the editor, or an image/attachment preview. */
+  areaOpen: string | null;
+  /** Ids of expanded folders. */
+  areaExpanded: string[];
+  areaRenaming: string | null;
+  areaRenameVal: string;
+  /** Id armed for deletion; a second call to `deleteNode` with the same id confirms it. */
+  areaConfirm: string | null;
+  /** Open Scrivener import dialog, or null. */
+  scrivener: ScrivenerImportState | null;
 }
 
 export const [state, setState] = createStore<AppState>({
@@ -64,6 +88,7 @@ export const [state, setState] = createStore<AppState>({
   hits: [],
   prompt: null,
   indexSel: 0,
+  indexConfirm: null,
   toast: "",
   toastKey: 0,
   tripleHint: false,
@@ -76,6 +101,14 @@ export const [state, setState] = createStore<AppState>({
   libConfirm: null,
   update: null,
   updating: false,
+  area: [],
+  areaSel: null,
+  areaOpen: null,
+  areaExpanded: [],
+  areaRenaming: null,
+  areaRenameVal: "",
+  areaConfirm: null,
+  scrivener: null,
 });
 
 /** Values outside the store: they never need to re-render anything. */

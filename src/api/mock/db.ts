@@ -1,4 +1,4 @@
-import type { BookMeta, BookSummary, ChapterMeta, DocJSON, Prefs, Separator } from "../types";
+import type { AreaNode, BookMeta, BookSummary, ChapterMeta, DocJSON, Prefs, Separator } from "../types";
 import { docWords } from "../../lib/doc";
 
 export interface MockChapter extends ChapterMeta {
@@ -14,6 +14,10 @@ export interface MockBook {
   header: string | null;
   footer: string | null;
   chapters: MockChapter[];
+  /** Workspace ("area") tree: folders, texts, images and attachments. */
+  area: AreaNode[];
+  /** Text content of "text" area nodes, keyed by node id. */
+  areaDocs: Record<string, DocJSON>;
 }
 
 let seq = 0;
@@ -33,6 +37,7 @@ function samples(): MockBook[] {
   const book = (title: string, hours: number, cur: number, chapters: MockChapter[]): MockBook => ({
     id: mockId(), title, author: "", cur, updatedAt: now - hours * 3600000,
     separator: { type: "text", text: "* * *" }, header: null, footer: null, chapters,
+    area: [], areaDocs: {},
   });
   return [
     book("A Torre das Mil Luas", 2, 1, [

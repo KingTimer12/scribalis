@@ -14,7 +14,8 @@ export type FocusTarget =
   | "spacing"
   | "lib"
   | "libq"
-  | "rename";
+  | "rename"
+  | "tree";
 
 export type Caret = number | "end" | null;
 

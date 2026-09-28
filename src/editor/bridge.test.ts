@@ -28,20 +28,21 @@ function fakeEditor(): Editor {
 }
 
 const para = (text: string): DocJSON => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
-const A = { bookId: "b1", chapterId: "c1" };
-const B = { bookId: "b1", chapterId: "c2" };
+const A = { bookId: "b1", docId: "c1", scope: "chapter" as const };
+const B = { bookId: "b1", docId: "c2", scope: "chapter" as const };
 
 describe("document key guard", () => {
   afterEach(() => setEditor(null));
 
-  it("compares keys by book and chapter", () => {
+  it("compares keys by book, doc id and scope", () => {
     expect(sameKey(A, { ...A })).toBe(true);
     expect(sameKey(A, B)).toBe(false);
-    expect(sameKey(A, { bookId: "b2", chapterId: "c1" })).toBe(false);
+    expect(sameKey(A, { bookId: "b2", docId: "c1", scope: "chapter" })).toBe(false);
+    expect(sameKey(A, { ...A, scope: "area" })).toBe(false);
     expect(sameKey(null, A)).toBe(false);
   });
 
-  it("only hands the document to a save for the chapter it holds", () => {
+  it("only hands the document to a save for the document it holds", () => {
     setEditor(fakeEditor());
     loadDoc(para("velho"), A);
     expect(getDoc(A)).toEqual(para("velho"));

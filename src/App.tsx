@@ -10,6 +10,8 @@ import { CommandPalette } from "./components/panels/CommandPalette";
 import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
 import { SpacingPanel } from "./components/panels/SpacingPanel";
+import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
+import { Workspace } from "./components/workspace/Workspace";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
 import { checkForUpdate } from "./store/actions/update";
@@ -17,6 +19,7 @@ import { focusTarget } from "./store/focus";
 import { listenImageDrops } from "./store/imageDrops";
 import { rootKey } from "./store/keys/global";
 import { flushAll } from "./store/saving";
+import { openAreaNode } from "./store/selectors/workspace";
 import { state } from "./store/state";
 
 export default function App() {
@@ -51,13 +54,21 @@ export default function App() {
   });
 
   const editor = () => state.view === "editor" && !!state.book;
+  const workspace = () => state.view === "workspace" && !!state.book;
+  /** A text open in the workspace: the formatting panels apply to it too. */
+  const areaText = () => workspace() && openAreaNode()?.kind === "text";
 
   return (
     <div class={`app ${state.prefs.theme} w${state.prefs.width} f${state.prefs.font}` + (state.focus && editor() ? " focus" : "")}>
       <TopBar />
-      <Show when={editor()} fallback={<Library />}>
-        <Editor />
-      </Show>
+      <Switch fallback={<Library />}>
+        <Match when={editor()}>
+          <Editor />
+        </Match>
+        <Match when={workspace()}>
+          <Workspace />
+        </Match>
+      </Switch>
       <BottomBar />
 
       <Switch>
@@ -67,7 +78,7 @@ export default function App() {
         <Match when={state.panel === "index" && editor()}>
           <ChapterIndex />
         </Match>
-        <Match when={state.panel === "spacing" && editor()}>
+        <Match when={state.panel === "spacing" && (editor() || areaText())}>
           <SpacingPanel />
         </Match>
         <Match when={state.panel === "palette"}>
@@ -77,6 +88,9 @@ export default function App() {
           <HelpPanel />
         </Match>
       </Switch>
+      <Show when={state.scrivener}>
+        <ScrivenerImport />
+      </Show>
     </div>
   );
 }

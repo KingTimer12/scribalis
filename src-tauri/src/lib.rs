@@ -5,6 +5,7 @@ mod markdown;
 mod model;
 mod ops;
 mod samples;
+mod scrivener;
 mod state;
 mod storage;
 mod text;
@@ -15,7 +16,7 @@ use std::sync::Mutex;
 
 use tauri::Manager;
 
-use commands::{book, chapter, library, prefs, stats, update as update_cmd};
+use commands::{book, chapter, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace};
 use state::Library;
 use storage::paths::ROOT_NAME;
 
@@ -60,6 +61,21 @@ pub fn run() {
             stats::stats_today,
             update_cmd::update_check,
             update_cmd::update_install,
+            workspace::workspace_tree,
+            workspace::workspace_create,
+            workspace::workspace_rename,
+            workspace::workspace_set_notes,
+            workspace::workspace_move,
+            workspace::workspace_delete,
+            workspace::workspace_load_doc,
+            workspace::workspace_save_doc,
+            workspace::workspace_pick_files,
+            workspace::workspace_to_chapter,
+            workspace::workspace_from_chapter,
+            workspace::workspace_open_file,
+            scrivener_cmd::scrivener_pick,
+            scrivener_cmd::scrivener_scan,
+            scrivener_cmd::scrivener_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

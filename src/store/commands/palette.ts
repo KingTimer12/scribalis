@@ -3,12 +3,14 @@ import { FONT_LABEL, STATUS_LABEL, WIDTH_LABEL } from "../../lib/constants";
 import { fmt, norm, pad } from "../../lib/format";
 import { setBookAuthor, setSeparatorText } from "../actions/book";
 import {
-  copyCurrentChapter, cycleStatus, deleteCurrentChapter, goChapter, insertChapterAt, moveChapter,
+  copyCurrentChapter, cycleStatus, deleteCurrentChapter, goChapter, insertChapterAt, moveChapter, sendChapterToArea,
 } from "../actions/chapters";
 import { clearBookImage, clearCover, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
 import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../actions/library";
 import { cycleFont, cycleGoal, cycleWidth, toggleTheme } from "../actions/prefs";
+import { goWorkspace } from "../actions/tabs";
 import { homeTarget, openPanel } from "../actions/ui";
+import { startScrivenerImport } from "../actions/scrivener";
 import { installUpdate } from "../actions/update";
 import { focusTarget } from "../focus";
 import { currentChapter } from "../selectors/book";
@@ -16,6 +18,7 @@ import { libList, libSelIndex } from "../selectors/library";
 import { setState, state } from "../state";
 import { formatCommands } from "./format";
 import { promptFor } from "./prompt";
+import { workspaceCommands } from "./workspace";
 
 export interface Command {
   /** Short left label (chapter number, "obra"). */
@@ -39,7 +42,10 @@ function commonCommands(): Command[] {
 function libraryCommands(): Command[] {
   const list = libList();
   const cur = list[libSelIndex(list)];
-  const out: Command[] = [{ label: "Nova obra", hint: "N", act: startNew }];
+  const out: Command[] = [
+    { label: "Nova obra", hint: "N", act: startNew },
+    { label: "Importar do Scrivener…", hint: "", act: () => void startScrivenerImport({ type: "new" }) },
+  ];
   if (cur) {
     out.push({ label: 'Renomear "' + cur.title + '"', hint: "R", act: () => startRename(cur.id) });
     out.push({ label: (cur.cover ? 'Trocar capa de "' : 'Escolher capa para "') + cur.title + '"', hint: "C", act: () => pickCover(cur.id) });
@@ -80,6 +86,7 @@ function editorCommands(): Command[] {
   const list: Command[] = [
     { label: "Novo capítulo", hint: "Enter ×3", act: () => insertChapterAt(cur + 1) },
     { label: "Voltar às obras", hint: "Ctrl O", act: goLibrary },
+    { label: "Área de trabalho", hint: "Ctrl 2", act: () => void goWorkspace() },
     { label: "Índice de capítulos", hint: "Ctrl E", act: () => openPanel("index") },
     { label: "Notas do capítulo", hint: "Ctrl ;", act: () => openPanel("notes") },
     { label: state.focus ? "Sair do modo foco" : "Modo foco", hint: "Ctrl .", act: () => setState("focus", !state.focus) },
@@ -89,6 +96,7 @@ function editorCommands(): Command[] {
     { label: "Mover capítulo para cima", hint: "Alt Shift ↑", act: () => moveChapter(cur, -1) },
     { label: "Mover capítulo para baixo", hint: "Alt Shift ↓", act: () => moveChapter(cur, 1) },
     { label: "Copiar capítulo", hint: "", act: copyCurrentChapter },
+    { label: "Enviar capítulo para a área de trabalho", hint: "", act: () => void sendChapterToArea(c.id) },
     { label: "Meta diária: " + fmt(state.prefs.goal) + " palavras", hint: "", act: cycleGoal },
     { label: "Largura do texto: " + WIDTH_LABEL[state.prefs.width], hint: "", act: cycleWidth },
     { label: "Tamanho da letra: " + FONT_LABEL[state.prefs.font], hint: "", act: cycleFont },
@@ -125,7 +133,12 @@ export function paletteItems(): Command[] {
       }
     }
   }
-  const cmds = state.view === "library" ? libraryCommands() : editorCommands();
+  const cmds =
+    state.view === "library"
+      ? libraryCommands()
+      : state.view === "workspace" && book
+        ? [...workspaceCommands(), ...commonCommands()]
+        : editorCommands();
   for (const c of cmds) if (!q || norm(c.label).includes(q)) out.push(c);
   if (q) out = out.slice(0, 9);
   return out;
