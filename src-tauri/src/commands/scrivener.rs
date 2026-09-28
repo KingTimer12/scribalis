@@ -48,11 +48,12 @@ pub async fn scrivener_scan(path: String) -> AppResult<ScanView> {
 pub async fn scrivener_import(
     state: State<'_, SharedLibrary>,
     path: String,
-    chapter_folders: Vec<String>,
+    // Keys of the binder items that each become one chapter.
+    chapter_items: Vec<String>,
     target: ImportTarget,
 ) -> AppResult<ImportResult> {
     let project = Project::open(Path::new(&path))?;
-    let set: HashSet<String> = chapter_folders.into_iter().collect();
+    let set: HashSet<String> = chapter_items.into_iter().collect();
     match target {
         ImportTarget::New => {
             let mut lib = lock(&state)?;

@@ -26,14 +26,14 @@ export function homeTarget(): FocusTarget {
 export function closePanel() {
   focusTarget(homeTarget());
   if (!state.panel) return;
-  setState({ panel: null, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [] });
+  setState({ panel: null, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [], indexConfirm: null });
 }
 
 /** Opens a panel; closes it if already open. */
 export function openPanel(name: Panel) {
   if (state.panel === name) return closePanel();
   focusTarget(name, name === "notes" ? "end" : null);
-  setState({ panel: name, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [], indexSel: state.book?.cur ?? 0 });
+  setState({ panel: name, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [], indexSel: state.book?.cur ?? 0, indexConfirm: null });
 }
 
 export function toggleFocusMode() {

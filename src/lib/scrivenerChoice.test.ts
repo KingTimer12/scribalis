@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ScanItem, ScanView } from "../api/types";
-import { canBeChapters, countChapters, coveredBy, defaultChosen, toggleChosen } from "./scrivenerChoice";
+import {
+  allChildrenChosen, canBeChapter, countChapters, coveredBy, defaultChosen, toggleChildren, toggleChosen,
+} from "./scrivenerChoice";
 
 const it_ = (key: string, kind: ScanItem["kind"], children: ScanItem[] = []): ScanItem => ({ key, kind, title: key, children });
 
@@ -14,35 +16,47 @@ const view: ScanView = {
 };
 
 describe("scrivener chapter choice", () => {
-  it("only folders and texts with children can become chapters", () => {
-    expect(canBeChapters(view.items[0])).toBe(true);
-    expect(canBeChapters(view.items[1])).toBe(true);
-    expect(canBeChapters(view.items[0].children[0])).toBe(true);
-    expect(canBeChapters(view.items[0].children[1])).toBe(false);
-    expect(canBeChapters(view.items[1].children[0])).toBe(false);
-    expect(canBeChapters(view.items[1].children[1])).toBe(true);
+  it("texts and folders can be chapters; media and the top-level roots cannot", () => {
+    expect(canBeChapter(view.items[0])).toBe(false);
+    expect(canBeChapter(view.items[1])).toBe(false);
+    expect(canBeChapter(view.items[0].children[0])).toBe(true);
+    expect(canBeChapter(view.items[0].children[1])).toBe(true);
+    expect(canBeChapter(view.items[0].children[2])).toBe(false);
+    expect(canBeChapter(view.items[1].children[1])).toBe(true);
   });
 
-  it("marks the manuscript by default", () => {
-    expect(defaultChosen(view)).toEqual(["draft"]);
+  it("marks the manuscript's direct children by default", () => {
+    expect(defaultChosen(view)).toEqual(["cap1", "solto"]);
   });
 
-  it("toggles, and marking a folder drops its marked descendants", () => {
-    expect(toggleChosen(view, ["draft"], "draft")).toEqual([]);
-    expect(toggleChosen(view, ["cap1", "ficha"], "draft")).toEqual(["ficha", "draft"]);
-    // a covered item cannot be toggled on its own
-    expect(toggleChosen(view, ["draft"], "cap1")).toEqual(["draft"]);
+  it("toggles one item, and marking an item drops its marked descendants", () => {
+    expect(toggleChosen(view, ["cap1", "solto"], "solto")).toEqual(["cap1"]);
+    expect(toggleChosen(view, ["cena1", "ficha"], "cap1")).toEqual(["ficha", "cap1"]);
+    // covered items and media cannot be toggled
+    expect(toggleChosen(view, ["cap1"], "cena1")).toEqual(["cap1"]);
+    expect(toggleChosen(view, [], "capa")).toEqual([]);
   });
 
-  it("items under a marked folder are covered", () => {
-    expect(coveredBy(view, ["draft"], "cena1")).toBe(true);
-    expect(coveredBy(view, ["draft"], "draft")).toBe(false);
-    expect(coveredBy(view, ["draft"], "ficha")).toBe(false);
+  it("items inside a marked item are covered", () => {
+    expect(coveredBy(view, ["cap1"], "cena1")).toBe(true);
+    expect(coveredBy(view, ["cap1"], "cap1")).toBe(false);
+    expect(coveredBy(view, ["cap1"], "solto")).toBe(false);
   });
 
-  it("counts the direct non-media children of the marked folders", () => {
-    expect(countChapters(view, ["draft"])).toBe(2);
-    expect(countChapters(view, ["draft", "research"])).toBe(3);
+  it("marks or unmarks all the direct children of a folder at once", () => {
+    const scenes = toggleChildren(view, [], "cap1");
+    expect(scenes).toEqual(["cena1", "cena2"]);
+    expect(allChildrenChosen(view, scenes, "cap1")).toBe(true);
+    expect(toggleChildren(view, scenes, "cap1")).toEqual([]);
+    // a marked folder already holds its children
+    expect(toggleChildren(view, ["cap1"], "cap1")).toEqual(["cap1"]);
+    // the manuscript's children, media left out
+    expect(toggleChildren(view, ["cena1"], "draft")).toEqual(["cap1", "solto"]);
+  });
+
+  it("counts one chapter per marked item", () => {
+    expect(countChapters(view, ["cap1", "solto"])).toBe(2);
+    expect(countChapters(view, ["cap1", "ficha", "sumiu"])).toBe(2);
     expect(countChapters(view, [])).toBe(0);
   });
 });

@@ -123,20 +123,42 @@ export function cycleStatus() {
   flash("Status: " + STATUS_LABEL[next]);
 }
 
-export function deleteCurrentChapter() {
+/** Deletes chapter `id`; the open one is replaced by its neighbor, any other leaves the editor alone. */
+export function deleteChapter(id: string) {
   const b = state.book;
-  const c = currentChapter();
-  if (!b || !c) return;
+  if (!b) return;
+  const gone = b.chapters.findIndex((c) => c.id === id);
+  if (gone < 0) return;
   if (b.chapters.length === 1) return flash("A obra precisa de pelo menos um capítulo");
-  const gone = b.cur;
-  cancelDocSave();
+  const open = gone === b.cur;
+  // Text typed into a chapter that is about to be deleted is dropped, not saved.
+  if (open) cancelDocSave();
+  setState("indexConfirm", null);
   return run(async () => {
     await flushAll();
-    const shown = await showCurrent(await api.deleteChapter(b.id, c.id), "end", true);
+    const meta = await api.deleteChapter(b.id, id);
+    const shown = open ? await showCurrent(meta, "end", true) : applyMeta(meta);
     await refreshToday();
     if (!shown) return;
+    setState("indexSel", Math.min(state.indexSel, meta.chapters.length - 1));
+    // Deleting from the index keeps the index in charge of the keyboard.
+    if (state.panel === "index") focusTarget("index");
     flash("Capítulo " + pad(gone + 1) + " excluído");
   });
+}
+
+export function deleteCurrentChapter() {
+  const c = currentChapter();
+  if (c) return deleteChapter(c.id);
+}
+
+/** Delete with confirmation from the index: the first request arms it, the second deletes. */
+export function requestChapterDelete(i: number) {
+  const c = state.book?.chapters[i];
+  if (!c) return;
+  if (state.indexConfirm === c.id) return deleteChapter(c.id);
+  setState("indexConfirm", c.id);
+  flash("Aperte Delete de novo para excluir o capítulo " + pad(i + 1));
 }
 
 export async function copyCurrentChapter() {

@@ -1,12 +1,13 @@
 import type { ScanItem, ScanView } from "../api/types";
 
-/** Which binder items may be marked "virar capítulos": folders, and texts that have children. */
-export function canBeChapters(item: ScanItem): boolean {
-  if (item.kind === "draft" || item.kind === "research" || item.kind === "folder") return true;
-  return item.kind === "text" && item.children.length > 0;
+/**
+ * Which binder items may be marked as a chapter: texts and folders. A marked item becomes
+ * one chapter holding its text and its descendants'. Media carries no text, and the
+ * manuscript/research roots are too broad to be a single chapter.
+ */
+export function canBeChapter(item: ScanItem): boolean {
+  return item.kind === "text" || item.kind === "folder";
 }
-
-const isMedia = (item: ScanItem) => item.kind === "image" || item.kind === "file";
 
 function find(items: ScanItem[], key: string): ScanItem | null {
   for (const item of items) {
@@ -35,12 +36,12 @@ function descendantKeys(item: ScanItem, out = new Set<string>()): Set<string> {
   return out;
 }
 
-/** The manuscript folder(s) start marked. */
+/** Starts with each direct child of the manuscript marked, the usual chapter layout. */
 export function defaultChosen(view: ScanView): string[] {
   const out: string[] = [];
   const walk = (items: ScanItem[]) => {
     for (const item of items) {
-      if (item.kind === "draft") out.push(item.key);
+      if (item.kind === "draft") out.push(...item.children.filter(canBeChapter).map((c) => c.key));
       else walk(item.children);
     }
   };
@@ -48,27 +49,49 @@ export function defaultChosen(view: ScanView): string[] {
   return out;
 }
 
-/** True when an ancestor of `key` is marked: its checkbox shows marked and disabled. */
+/** True when an ancestor of `key` is marked: it goes inside that chapter, so its box shows marked and disabled. */
 export function coveredBy(view: ScanView, chosen: string[], key: string): boolean {
   const path = ancestors(view.items, key) ?? [];
   return path.some((k) => chosen.includes(k));
 }
 
-/** Flips `key`; marking a folder drops its marked descendants (they are covered by it). */
+/** Flips `key`; marking an item drops its marked descendants (they join its chapter). */
 export function toggleChosen(view: ScanView, chosen: string[], key: string): string[] {
   if (chosen.includes(key)) return chosen.filter((k) => k !== key);
   const item = find(view.items, key);
-  if (!item || !canBeChapters(item) || coveredBy(view, chosen, key)) return chosen;
+  if (!item || !canBeChapter(item) || coveredBy(view, chosen, key)) return chosen;
   const inside = descendantKeys(item);
   return [...chosen.filter((k) => !inside.has(k)), key];
 }
 
-/** Chapters the import will create: the direct non-media children of every marked folder. */
-export function countChapters(view: ScanView, chosen: string[]): number {
-  let n = 0;
-  for (const key of chosen) {
-    const item = find(view.items, key);
-    if (item) n += item.children.filter((c) => !isMedia(c)).length;
+/** The direct children of `key` that could be marked as chapters. */
+export function eligibleChildren(view: ScanView, key: string): ScanItem[] {
+  return find(view.items, key)?.children.filter(canBeChapter) ?? [];
+}
+
+/** True when every eligible direct child of `key` is marked. */
+export function allChildrenChosen(view: ScanView, chosen: string[], key: string): boolean {
+  const kids = eligibleChildren(view, key);
+  return kids.length > 0 && kids.every((c) => chosen.includes(c.key));
+}
+
+/** Marks every eligible direct child of `key` as a chapter, or unmarks them all when they already are. */
+export function toggleChildren(view: ScanView, chosen: string[], key: string): string[] {
+  const kids = eligibleChildren(view, key);
+  if (!kids.length || chosen.includes(key) || coveredBy(view, chosen, key)) return chosen;
+  if (allChildrenChosen(view, chosen, key)) {
+    const drop = new Set(kids.map((c) => c.key));
+    return chosen.filter((k) => !drop.has(k));
   }
-  return n;
+  let out = chosen;
+  for (const c of kids) if (!out.includes(c.key)) out = toggleChosen(view, out, c.key);
+  return out;
+}
+
+/** Chapters the import will create: one per marked item. */
+export function countChapters(view: ScanView, chosen: string[]): number {
+  return chosen.filter((k) => {
+    const item = find(view.items, k);
+    return !!item && canBeChapter(item);
+  }).length;
 }

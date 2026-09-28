@@ -1,7 +1,9 @@
 import { For, onMount, Show } from "solid-js";
 import type { NodeKind, ScanItem, ScanKind } from "../../api/types";
-import { canBeChapters, countChapters, coveredBy } from "../../lib/scrivenerChoice";
-import { cancelScrivenerImport, confirmScrivenerImport, toggleScrivenerFolder } from "../../store/actions/scrivener";
+import { allChildrenChosen, canBeChapter, countChapters, coveredBy, eligibleChildren } from "../../lib/scrivenerChoice";
+import {
+  cancelScrivenerImport, confirmScrivenerImport, toggleScrivenerChildren, toggleScrivenerItem,
+} from "../../store/actions/scrivener";
 import { state } from "../../store/state";
 import { NodeIcon } from "../workspace/NodeIcon";
 
@@ -10,24 +12,33 @@ const ICON: Record<ScanKind, NodeKind> = { draft: "folder", research: "folder", 
 
 function BinderRow(props: { item: ScanItem; depth: number }) {
   const s = () => state.scrivener!;
-  const covered = () => coveredBy(s().view, s().chosen, props.item.key);
-  const checked = () => covered() || s().chosen.includes(props.item.key);
-  const boxId = () => "scriv-" + props.item.key;
+  const key = () => props.item.key;
+  const covered = () => coveredBy(s().view, s().chosen, key());
+  const chosen = () => s().chosen.includes(key());
+  const checked = () => covered() || chosen();
+  /** Shortcut on folders: every direct child as its own chapter. */
+  const showChildren = () => !covered() && !chosen() && eligibleChildren(s().view, key()).length > 1;
+  const boxId = () => "scriv-" + key();
   return (
     <>
-      <div class="scriv-row" style={{ "padding-left": 8 + props.depth * 18 + "px" }}>
+      <div class="scriv-row" classList={{ on: checked() }} style={{ "padding-left": 8 + props.depth * 18 + "px" }}>
         <NodeIcon kind={ICON[props.item.kind]} />
         <span class="ws-t">{props.item.title || "Sem título"}</span>
-        <Show when={canBeChapters(props.item)}>
+        <Show when={showChildren()}>
+          <button type="button" class="scriv-kids ui" disabled={s().busy} onClick={() => toggleScrivenerChildren(key())}>
+            {allChildrenChosen(s().view, s().chosen, key()) ? "desmarcar itens" : "marcar itens"}
+          </button>
+        </Show>
+        <Show when={canBeChapter(props.item)}>
           <label class="scriv-check ui" for={boxId()}>
             <input
               id={boxId()}
               type="checkbox"
               checked={checked()}
               disabled={covered() || s().busy}
-              onChange={() => toggleScrivenerFolder(props.item.key)}
+              onChange={() => toggleScrivenerItem(key())}
             />
-            virar capítulos
+            capítulo
           </label>
         </Show>
       </div>
@@ -36,7 +47,7 @@ function BinderRow(props: { item: ScanItem; depth: number }) {
   );
 }
 
-/** Modal to choose which Scrivener folders become chapters before importing. */
+/** Modal to choose which Scrivener items become chapters before importing. */
 export function ScrivenerImport() {
   let importBtn!: HTMLButtonElement;
   const s = () => state.scrivener!;
@@ -59,7 +70,10 @@ export function ScrivenerImport() {
         <h2 id="scriv-title" class="scriv-title">
           Importar «{s().view.title}»
         </h2>
-        <p class="scriv-text">Marque as pastas cujos itens viram capítulos. O resto vai para a área de trabalho.</p>
+        <p class="scriv-text">
+          Marque os itens que viram capítulos; cada um leva junto o que estiver dentro dele. O resto vai para a área
+          de trabalho.
+        </p>
         <div class="scriv-tree">
           <For each={s().view.items}>{(item) => <BinderRow item={item} depth={0} />}</For>
         </div>

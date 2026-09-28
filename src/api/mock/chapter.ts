@@ -56,7 +56,10 @@ export const chapter = {
   chapter_delete: ({ bookId, chapterId }: Ids): BookMeta => {
     const b = findBook(bookId);
     if (b.chapters.length === 1) throw "A obra precisa de pelo menos um capítulo";
-    b.chapters.splice(findChapter(b, chapterId), 1);
+    const i = findChapter(b, chapterId);
+    b.chapters.splice(i, 1);
+    // Same rule as Rust: a deletion before the open chapter keeps that chapter open.
+    if (i < b.cur) b.cur -= 1;
     b.cur = Math.min(b.cur, b.chapters.length - 1);
     touch(b);
     return toMeta(b);

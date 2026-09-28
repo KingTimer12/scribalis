@@ -3,7 +3,7 @@ import { findNode, visibleRows } from "../../lib/tree";
 import { focusRef, focusTarget } from "../../store/focus";
 import { treeKey } from "../../store/keys/workspace";
 import { state } from "../../store/state";
-import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { ContextMenu, type MenuItem } from "../ui/ContextMenu";
 import { rowId, TreeRow } from "./TreeRow";
 import { selectForMenu, treeMenu } from "./treeMenu";
 

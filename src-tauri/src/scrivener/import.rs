@@ -1,5 +1,6 @@
-//! Brings a Scrivener project into a book: chosen folders become chapters,
-//! everything else lands in the workspace. One document in memory at a time.
+//! Brings a Scrivener project into a book: each chosen binder item becomes one chapter
+//! (its text plus its descendants'), everything else lands in the workspace.
+//! One document in memory at a time.
 use std::{collections::HashSet, path::{Path, PathBuf}};
 
 use super::{binder::{BinderItem, ItemKind}, project::Project};
@@ -29,7 +30,8 @@ const ATTACHMENTS_TITLE: &str = "Anexos do manuscrito";
 struct Ctx<'a> {
     project: &'a Project,
     dir: &'a Path,
-    chapter_folders: &'a HashSet<String>,
+    /// Keys of the items that become chapters.
+    chapter_items: &'a HashSet<String>,
     chapters: Vec<ChapterEntry>,
     attachments: Vec<Node>,
     items: usize,
@@ -50,9 +52,9 @@ fn has_text(doc: &Doc) -> bool {
     doc.content.iter().any(|b| !matches!(b, Block::Paragraph { content, .. } if content.is_empty()))
 }
 
-fn is_container(item: &BinderItem) -> bool {
-    matches!(item.kind, ItemKind::Draft | ItemKind::Research | ItemKind::Folder | ItemKind::Trash)
-        || (item.kind == ItemKind::Text && !item.children.is_empty())
+/// Media never becomes a chapter (it carries no text), nor does the trash.
+fn can_be_chapter(item: &BinderItem) -> bool {
+    !matches!(item.kind, ItemKind::Image | ItemKind::File | ItemKind::Trash)
 }
 
 impl Ctx<'_> {
@@ -96,13 +98,13 @@ impl Ctx<'_> {
         Ok(())
     }
 
-    /// Workspace node for an item outside chapter folders (None = skipped).
+    /// Workspace node for an item that is not a chapter (None = skipped or taken as chapter).
     fn node(&mut self, item: &BinderItem) -> AppResult<Option<Node>> {
         if item.kind == ItemKind::Trash {
             return Ok(None);
         }
-        if self.chapter_folders.contains(&item.key) && is_container(item) {
-            self.emit_chapters(item)?;
+        if self.chapter_items.contains(&item.key) && can_be_chapter(item) {
+            self.emit_chapter(item)?;
             return Ok(None);
         }
         match item.kind {
@@ -129,12 +131,18 @@ impl Ctx<'_> {
                 self.items += 1;
                 let doc = self.text(&item.key);
                 let notes = self.project.notes(&item.key);
-                if has_text(&doc) || item.kind == ItemKind::Text {
+                let own_text = has_text(&doc) || item.kind == ItemKind::Text;
+                if own_text {
                     folder.children.push(self.text_node(&title, notes, &doc)?);
                 } else {
                     folder.notes = notes;
                 }
                 self.push_children(&mut folder, item)?;
+                if !own_text && folder.children.is_empty() && !item.children.is_empty() && folder.notes.is_empty() {
+                    // Every child became a chapter (e.g. the manuscript): an empty shell is just noise.
+                    self.items -= 1;
+                    return Ok(None);
+                }
                 Ok(Some(folder))
             }
         }
@@ -173,23 +181,17 @@ impl Ctx<'_> {
         Ok(())
     }
 
-    fn emit_chapters(&mut self, folder: &BinderItem) -> AppResult<()> {
-        for child in &folder.children {
-            if matches!(child.kind, ItemKind::Image | ItemKind::File | ItemKind::Trash) {
-                let (mut b, mut n) = (Vec::new(), Vec::new());
-                self.gather(child, &mut b, &mut n)?;
-                continue;
-            }
-            let (mut blocks, mut notes) = (Vec::new(), Vec::new());
-            self.gather(child, &mut blocks, &mut notes)?;
-            let doc = Doc::new(blocks);
-            let mut entry = ChapterEntry::new(new_id());
-            entry.title = title_of(child);
-            entry.notes = notes.join("\n\n");
-            entry.words = doc_words(&doc);
-            write_chapter(self.dir, &entry, &doc)?;
-            self.chapters.push(entry);
-        }
+    /// One chapter from `item`: its text and every descendant's, in binder order.
+    fn emit_chapter(&mut self, item: &BinderItem) -> AppResult<()> {
+        let (mut blocks, mut notes) = (Vec::new(), Vec::new());
+        self.gather(item, &mut blocks, &mut notes)?;
+        let doc = Doc::new(blocks);
+        let mut entry = ChapterEntry::new(new_id());
+        entry.title = title_of(item);
+        entry.notes = notes.join("\n\n");
+        entry.words = doc_words(&doc);
+        write_chapter(self.dir, &entry, &doc)?;
+        self.chapters.push(entry);
         Ok(())
     }
 }
@@ -198,13 +200,13 @@ impl Ctx<'_> {
 /// items go into a new folder named `wrap` (or the root when `None`).
 pub fn import_into(
     project: &Project,
-    chapter_folders: &HashSet<String>,
+    chapter_items: &HashSet<String>,
     dir: &Path,
     meta: &mut Metadata,
     wrap: Option<&str>,
 ) -> AppResult<Outcome> {
     let binder = project.binder()?;
-    let mut ctx = Ctx { project, dir, chapter_folders, chapters: Vec::new(), attachments: Vec::new(), items: 0, warnings: 0 };
+    let mut ctx = Ctx { project, dir, chapter_items, chapters: Vec::new(), attachments: Vec::new(), items: 0, warnings: 0 };
     let mut nodes = Vec::new();
     for item in &binder {
         if let Some(n) = ctx.node(item)? {
@@ -238,9 +240,9 @@ pub fn import_into(
 
 /// Creates a book named after the project and imports into it; if anything fails after
 /// the folder is created, it's removed so no half-built ("ghost") book is left under `root`.
-pub fn import_new_book(root: &Path, project: &Project, chapter_folders: &HashSet<String>) -> AppResult<(PathBuf, Metadata, Outcome)> {
+pub fn import_new_book(root: &Path, project: &Project, chapter_items: &HashSet<String>) -> AppResult<(PathBuf, Metadata, Outcome)> {
     let (dir, mut meta) = create_book(root, &project.title)?;
-    match fill_new_book(project, chapter_folders, &dir, &mut meta) {
+    match fill_new_book(project, chapter_items, &dir, &mut meta) {
         Ok(outcome) => Ok((dir, meta, outcome)),
         Err(e) => {
             if let Err(cleanup_err) = delete_book(&dir) {
@@ -251,9 +253,9 @@ pub fn import_new_book(root: &Path, project: &Project, chapter_folders: &HashSet
     }
 }
 
-fn fill_new_book(project: &Project, chapter_folders: &HashSet<String>, dir: &Path, meta: &mut Metadata) -> AppResult<Outcome> {
+fn fill_new_book(project: &Project, chapter_items: &HashSet<String>, dir: &Path, meta: &mut Metadata) -> AppResult<Outcome> {
     let starter = meta.chapters.remove(0);
-    let outcome = import_into(project, chapter_folders, dir, meta, None)?;
+    let outcome = import_into(project, chapter_items, dir, meta, None)?;
     if meta.chapters.is_empty() {
         // Nothing became a chapter: keep the empty starter so the book stays valid.
         meta.chapters.push(starter);
@@ -361,7 +363,7 @@ mod tests {
 
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (book, meta, out) = import_new_book(&root, &project, &folders(&["D"])).unwrap();
+        let (book, meta, out) = import_new_book(&root, &project, &folders(&["P1"])).unwrap();
         // "Vazio" has no content.rtf: an empty scene, not a warning.
         assert_eq!((out.chapters, out.warnings), (1, 0));
         assert_eq!(meta.chapters[0].title, "Parte I & II");
@@ -389,7 +391,7 @@ mod tests {
         let p = project(tmp.path());
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (dir, meta, out) = import_new_book(&root, &p, &folders(&["D"])).unwrap();
+        let (dir, meta, out) = import_new_book(&root, &p, &folders(&["C1", "C2"])).unwrap();
         assert_eq!(meta.title, "Livro");
         assert_eq!((out.chapters, out.warnings), (2, 1));
         assert_eq!(meta.chapters.len(), 2);
@@ -416,7 +418,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let p = project(tmp.path());
         let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
-        let out = import_into(&p, &folders(&["D"]), &dir, &mut meta, Some("Livro")).unwrap();
+        let out = import_into(&p, &folders(&["C1", "C2"]), &dir, &mut meta, Some("Livro")).unwrap();
         assert_eq!(out.chapters, 2);
         assert_eq!(meta.chapters.len(), 3);
         let ws = read_workspace(&dir).unwrap();
@@ -430,12 +432,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let p = project(tmp.path());
         let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
-        import_into(&p, &folders(&["D"]), &dir, &mut meta, Some("  Livro  ")).unwrap();
+        import_into(&p, &folders(&["C1", "C2"]), &dir, &mut meta, Some("  Livro  ")).unwrap();
         let ws = read_workspace(&dir).unwrap();
         assert_eq!(ws.items[0].title, "Livro");
 
         let (dir2, mut meta2) = create_book(tmp.path(), "Outra").unwrap();
-        import_into(&p, &folders(&["D"]), &dir2, &mut meta2, Some("   ")).unwrap();
+        import_into(&p, &folders(&["C1", "C2"]), &dir2, &mut meta2, Some("   ")).unwrap();
         let ws2 = read_workspace(&dir2).unwrap();
         assert_eq!(ws2.items[0].title, "Sem título");
     }
@@ -449,7 +451,7 @@ mod tests {
         fs::write(&p.scrivx, "<ScrivenerProject><Binder><BinderItem").unwrap();
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        assert!(import_new_book(&root, &p, &folders(&["D"])).is_err());
+        assert!(import_new_book(&root, &p, &folders(&["C1", "C2"])).is_err());
         assert!(fs::read_dir(&root).unwrap().next().is_none());
     }
 
@@ -509,13 +511,48 @@ mod tests {
 
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (book_dir, meta, out) = import_new_book(&root, &p, &folders(&["D"])).unwrap();
+        let (book_dir, meta, out) = import_new_book(&root, &p, &folders(&["C1"])).unwrap();
         assert_eq!(out.chapters, 1);
         let doc = read_chapter(&book_dir, &meta.chapters[0]).unwrap();
         assert_eq!(doc_text(&doc), "Primeira cena.\n\nTexto da legenda.");
         let ws = read_workspace(&book_dir).unwrap();
         assert_eq!(ws.items[0].title, "Anexos do manuscrito");
         assert_eq!((ws.items[0].children[0].kind, ws.items[0].children[0].title.as_str()), (NodeKind::Image, "Foto"));
+    }
+
+    #[test]
+    fn only_the_chosen_items_become_chapters() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        // One scene alone, and a research text: the rest of the manuscript stays in the workspace.
+        let (dir, meta, out) = import_new_book(&root, &p, &folders(&["S2", "N1"])).unwrap();
+        assert_eq!(out.chapters, 2);
+        let titles: Vec<&str> = meta.chapters.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(titles, vec!["Cena 2", "Ana"]);
+        assert_eq!(meta.chapters[1].notes, "Protagonista");
+        let ws = read_workspace(&dir).unwrap();
+        let manuscript = &ws.items[0];
+        assert_eq!(manuscript.title, "Manuscrito");
+        let chapter1 = &manuscript.children[0];
+        assert_eq!(chapter1.title, "Capítulo 1");
+        let left: Vec<&str> = chapter1.children.iter().map(|n| n.title.as_str()).collect();
+        assert_eq!(left, vec!["Cena 1", "Esboço"]);
+        assert_eq!(manuscript.children[1].title, "Capítulo 2");
+        let research: Vec<&str> = ws.items[1].children.iter().map(|n| n.title.as_str()).collect();
+        assert_eq!(research, vec!["Artigo"]);
+    }
+
+    #[test]
+    fn media_and_trash_are_never_chapters() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (_dir, meta, out) = import_new_book(&root, &p, &folders(&["IMG", "T", "X"])).unwrap();
+        assert_eq!(out.chapters, 0);
+        assert_eq!(meta.chapters.len(), 1); // the empty starter stays
     }
 
     #[test]

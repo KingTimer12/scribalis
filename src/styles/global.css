@@ -750,6 +750,9 @@
   .ix-item.sel {
     background: var(--soft);
   }
+  .ix-item.confirm {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
   .ix-item.cur .ix-t {
     color: var(--accent);
   }
@@ -1073,6 +1076,24 @@
     min-height: 32px;
     padding-right: 8px;
     font-size: 15px;
+  }
+  .scriv-row.on .ws-t {
+    color: var(--accent);
+  }
+  .scriv-kids {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    padding: 2px 4px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .scriv-kids:hover {
+    color: var(--ink);
+  }
+  .scriv-kids + .scriv-check {
+    margin-left: 12px;
   }
   .scriv-check {
     display: flex;

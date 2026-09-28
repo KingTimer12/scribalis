@@ -19,6 +19,7 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Notas do capítulo", keys: ["Ctrl", ";"] },
   { label: "Capítulo anterior / próximo", keys: ["Alt", "↑ ↓"] },
   { label: "Mover capítulo", keys: ["Alt", "Shift", "↑ ↓"] },
+  { label: "Índice: excluir capítulo", keys: ["Del", "Del"] },
   { label: "Mudar status", keys: ["Alt", "S"] },
   { label: "Modo foco", keys: ["Ctrl", "."] },
   { label: "Tema claro / escuro", keys: ["Ctrl", "J"] },

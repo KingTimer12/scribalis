@@ -2,7 +2,7 @@ import * as bookApi from "../../api/book";
 import * as api from "../../api/scrivener";
 import type { ImportResult, ImportTarget } from "../../api/types";
 import { plural } from "../../lib/format";
-import { defaultChosen, toggleChosen } from "../../lib/scrivenerChoice";
+import { defaultChosen, toggleChildren, toggleChosen } from "../../lib/scrivenerChoice";
 import { focusTarget } from "../focus";
 import { flushAll } from "../saving";
 import { setState, state } from "../state";
@@ -29,10 +29,17 @@ export async function startScrivenerImport(target: ImportTarget) {
   }
 }
 
-export function toggleScrivenerFolder(key: string) {
+export function toggleScrivenerItem(key: string) {
   const s = state.scrivener;
   if (!s || s.busy) return;
   setState("scrivener", "chosen", toggleChosen(s.view, s.chosen, key));
+}
+
+/** Marks (or unmarks) every direct child of a folder as its own chapter. */
+export function toggleScrivenerChildren(key: string) {
+  const s = state.scrivener;
+  if (!s || s.busy) return;
+  setState("scrivener", "chosen", toggleChildren(s.view, s.chosen, key));
 }
 
 export function cancelScrivenerImport() {

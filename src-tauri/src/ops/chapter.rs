@@ -99,6 +99,10 @@ pub fn delete(dir: &Path, meta: &mut Metadata, chapter_id: &str) -> AppResult<()
     }
     let i = index_of(meta, chapter_id)?;
     let entry = meta.chapters.remove(i);
+    // Deleting a chapter before the open one shifts it up: keep pointing at the same chapter.
+    if i < meta.cur {
+        meta.cur -= 1;
+    }
     meta.cur = meta.cur.min(meta.chapters.len() - 1);
     // Persist metadata first (it no longer references the removed entry)
     touch_and_write(dir, meta)?;
@@ -220,6 +224,19 @@ mod tests {
         delete(&dir, &mut meta, &second.id).unwrap();
         assert!(!dir.join(&second.file).exists());
         assert_eq!(meta.cur, 0);
+    }
+
+    #[test]
+    fn delete_before_current_keeps_the_same_chapter_open() {
+        let (_r, dir, mut meta) = setup();
+        insert(&dir, &mut meta, 1).unwrap();
+        insert(&dir, &mut meta, 2).unwrap();
+        let open = meta.chapters[2].id.clone();
+        assert_eq!(meta.cur, 2);
+        let first = meta.chapters[0].id.clone();
+        delete(&dir, &mut meta, &first).unwrap();
+        assert_eq!(meta.chapters[meta.cur].id, open);
+        assert_eq!(read_metadata(&dir).unwrap().cur, 1);
     }
 
     #[test]

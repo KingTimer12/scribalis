@@ -9,7 +9,7 @@ export interface PromptState {
   submit: (value: string) => void;
 }
 
-/** Scrivener import dialog: the scanned project and the folders marked "virar capítulos". */
+/** Scrivener import dialog: the scanned project and the items marked as chapters. */
 export interface ScrivenerImportState {
   path: string;
   view: ScanView;
@@ -38,6 +38,8 @@ export interface AppState {
   prompt: PromptState | null;
   // index
   indexSel: number;
+  /** Chapter id armed for deletion in the index; a second Delete confirms it. */
+  indexConfirm: string | null;
   // bottom bar
   toast: string;
   toastKey: number;
@@ -86,6 +88,7 @@ export const [state, setState] = createStore<AppState>({
   hits: [],
   prompt: null,
   indexSel: 0,
+  indexConfirm: null,
   toast: "",
   toastKey: 0,
   tripleHint: false,

@@ -10,7 +10,7 @@ export const scrivener = {
   scrivener_scan: (_: { path: string }): ScanView => {
     throw DESKTOP_ONLY;
   },
-  scrivener_import: (_: { path: string; chapterFolders: string[]; target: unknown }): ImportResult => {
+  scrivener_import: (_: { path: string; chapterItems: string[]; target: unknown }): ImportResult => {
     throw DESKTOP_ONLY;
   },
 };

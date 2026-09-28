@@ -2,7 +2,7 @@ import type { AreaNode } from "../../api/types";
 import {
   addFiles, createNode, openFile, openNode, requestDelete, selectNode, sendToChapter, startNodeRename,
 } from "../../store/actions/workspace";
-import type { MenuItem } from "./ContextMenu";
+import type { MenuItem } from "../ui/ContextMenu";
 
 /** New items land in the selected folder (or at the root with nothing selected). */
 function creators(): MenuItem[] {
