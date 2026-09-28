@@ -1,4 +1,3 @@
-import { produce } from "solid-js/store";
 import * as api from "../../api/workspace";
 import type { AreaNode } from "../../api/types";
 import { currentDocKey, type DocKey } from "../../editor/bridge";
@@ -8,8 +7,6 @@ import { pad } from "../../lib/format";
 import { cancelDocSave, flushAll, swapDocument } from "../saving";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
-
-const NOTES_DELAY = 300;
 
 function expandedKey(bookId: string) {
   return "area-expanded:" + bookId;
@@ -139,23 +136,14 @@ export function commitNodeRename() {
   });
 }
 
-let notesTimer: ReturnType<typeof setTimeout> | undefined;
-
+/** Saves a node's notes; the UI calls this on blur, so no debounce is needed here. */
 export function setNodeNotes(id: string, notes: string) {
   const b = state.book;
-  if (!b) return;
-  setState(
-    "area",
-    produce((items) => {
-      const node = findNode(items, id);
-      if (node) node.notes = notes;
-    }),
-  );
-  clearTimeout(notesTimer);
-  notesTimer = setTimeout(() => {
-    notesTimer = undefined;
-    run(async () => setState("area", await api.areaSetNotes(b.id, id, notes)));
-  }, NOTES_DELAY);
+  const node = findNode(state.area, id);
+  if (!b || !node || node.notes === notes) return;
+  return run(async () => {
+    setState("area", await api.areaSetNotes(b.id, id, notes));
+  });
 }
 
 export function deleteNode(id: string) {

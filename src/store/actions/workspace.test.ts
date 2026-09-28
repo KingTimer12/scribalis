@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { mockInvoke } from "../../api/mock";
-import type { BookMeta, BookSummary } from "../../api/types";
+import type { AreaNode, BookMeta, BookSummary } from "../../api/types";
 import { findNode } from "../../lib/tree";
 import { setState, state } from "../state";
-import { createNode, commitNodeRename, deleteNode, moveNode, sendToChapter } from "./workspace";
+import { createNode, commitNodeRename, deleteNode, moveNode, sendToChapter, setNodeNotes } from "./workspace";
 
 /** A fresh book, isolated from the sample library and from other tests. */
 async function newBook(): Promise<BookMeta> {
@@ -75,6 +75,22 @@ describe("workspace actions (mock)", () => {
     expect(state.areaConfirm).toBeNull();
     expect(state.area).toHaveLength(0);
     expect(state.areaOpen).toBeNull();
+  });
+
+  it("saves node notes immediately (no debounce), skipping the call when unchanged", async () => {
+    resetAreaState(await newBook());
+    await createNode("folder");
+    const id = state.area[0].id;
+
+    await setNodeNotes(id, "notas");
+    expect(findNode(state.area, id)?.notes).toBe("notas");
+    // Persisted on the backend right away, not just in the optimistic local tree.
+    const tree = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: state.book!.id });
+    expect(findNode(tree, id)?.notes).toBe("notas");
+
+    // Same value again: no call needed, and none is made (an id gone from the backend would throw).
+    await setNodeNotes(id, "notas");
+    expect(findNode(state.area, id)?.notes).toBe("notas");
   });
 
   it("sends a text to the chapters, appending it to state.book", async () => {

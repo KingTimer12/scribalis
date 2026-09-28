@@ -60,10 +60,10 @@ function subtreeIds(node: AreaNode): string[] {
   return [node.id, ...(node.children ?? []).flatMap(subtreeIds)];
 }
 
-function textNode(items: AreaNode[], id: string): AreaNode {
+function textNode(items: AreaNode[], id: string, wrongKindMsg = "Este item não é um texto"): AreaNode {
   const node = find(items, id);
   if (!node) notFound();
-  if (node.kind !== "text") throw "Este item não é um texto";
+  if (node.kind !== "text") throw wrongKindMsg;
   return node;
 }
 
@@ -142,7 +142,7 @@ export const workspace = {
 
   workspace_to_chapter: ({ bookId, id }: Ids): ToChapterResult => {
     const b = findBook(bookId);
-    const node = textNode(b.area, id);
+    const node = textNode(b.area, id, "Só textos podem virar capítulos");
     const doc = structuredClone(b.areaDocs[id] ?? { type: "doc", content: [] });
     b.chapters.push(newChapter(node.title, "rascunho", doc, node.notes));
     remove(b.area, id);
