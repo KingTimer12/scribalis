@@ -32,6 +32,26 @@ export function readSpacing(key: SpacingKey, style: { [k: string]: string } | CS
   return Number(m[1]);
 }
 
+/**
+ * Marks a paragraph as carrying spacing we wrote, so pasted HTML from other apps
+ * (e.g. Google Docs' `margin-top`/`line-height` on every `<p>`) is not mistaken for it.
+ */
+export const SPACING_MARKER_ATTR = "data-spacing";
+
+/** HTML attributes for one spacing key: the style plus the marker, or nothing when unset. */
+export function spacingRenderAttrs(key: SpacingKey, value: number | null | undefined): Record<string, string> {
+  const style = spacingStyle(key, value);
+  return style ? { style, [SPACING_MARKER_ATTR]: "" } : {};
+}
+
+/** Reads spacing back from an element only when it carries our own marker. */
+export function readMarkedSpacing(
+  key: SpacingKey,
+  el: { hasAttribute(name: string): boolean; style: { [k: string]: string } | CSSStyleDeclaration },
+): number | null {
+  return el.hasAttribute(SPACING_MARKER_ATTR) ? readSpacing(key, el.style) : null;
+}
+
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     paragraphSpacing: {
@@ -53,11 +73,8 @@ export const ParagraphSpacing = Extension.create({
         key,
         {
           default: null,
-          parseHTML: (el: HTMLElement) => readSpacing(key, el.style),
-          renderHTML: (attrs: Record<string, unknown>) => {
-            const style = spacingStyle(key, attrs[key] as number | null);
-            return style ? { style } : {};
-          },
+          parseHTML: (el: HTMLElement) => readMarkedSpacing(key, el),
+          renderHTML: (attrs: Record<string, unknown>) => spacingRenderAttrs(key, attrs[key] as number | null),
         },
       ]),
     );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readSpacing, spacingStyle } from "./spacing";
+import { readMarkedSpacing, readSpacing, SPACING_MARKER_ATTR, spacingRenderAttrs, spacingStyle } from "./spacing";
 
 describe("paragraph spacing attributes", () => {
   it("renders CSS with the stored units", () => {
@@ -20,5 +20,21 @@ describe("paragraph spacing attributes", () => {
     expect(readSpacing("lineHeight", { lineHeight: "24px" })).toBeNull();
     expect(readSpacing("spaceBefore", { marginTop: "1em" })).toBeNull();
     expect(readSpacing("indent", { textIndent: "" })).toBeNull();
+  });
+});
+
+describe("the paste marker", () => {
+  it("renders the marker attribute alongside the style, only when a value is set", () => {
+    expect(spacingRenderAttrs("spaceAfter", 0)).toEqual({ style: "margin-bottom: 0pt", [SPACING_MARKER_ATTR]: "" });
+    expect(spacingRenderAttrs("indent", null)).toEqual({});
+  });
+
+  it("reads spacing back only from elements carrying the marker", () => {
+    const marked = { hasAttribute: () => true, style: { marginTop: "12pt" } };
+    const unmarked = { hasAttribute: () => false, style: { marginTop: "12pt" } };
+    expect(readMarkedSpacing("spaceBefore", marked)).toBe(12);
+    // Google Docs pastes `<p style="margin-top:0pt;...">` on every paragraph;
+    // without our marker, that must not become spacing.
+    expect(readMarkedSpacing("spaceBefore", unmarked)).toBeNull();
   });
 });
