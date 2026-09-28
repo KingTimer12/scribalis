@@ -87,6 +87,18 @@ personagens, mapas, rascunhos soltos.
 
 - O app avisa quando há versão nova e instala com um clique. Os pacotes são assinados.
 
+### Nuvem (opcional)
+
+- Backup automático das obras que você escolher: ao sair da obra, a cada 10 minutos e ao fechar o app. Só os
+  arquivos que mudaram são enviados.
+- Até 3 backups por obra; restaurar substitui a obra (o estado atual vira um backup antes).
+- Leve o cofre para outro computador com um código; baixe de lá as obras que ainda não estão nele.
+- Links públicos de um capítulo ou da área de trabalho, com comentários. Os comentários chegam nas notas.
+- Sem conta: a chave fica no chaveiro do sistema. `Ctrl Shift S` abre o painel.
+- O endereço da API é configurável. As rotas que um servidor próprio precisa ter estão em
+  `docs/superpowers/specs/2026-09-28-nuvem-backup-links-design.md`.
+- Os arquivos não são criptografados no seu computador: quem administra o servidor consegue lê-los.
+
 ## Diferenças em relação a outras ferramentas
 
 | | Scribalis | Scrivener | Word / Google Docs |
