@@ -18,6 +18,8 @@ pub struct BookSummary {
     pub words: usize,
     pub ready: usize,
     pub updated_at: u64,
+    /// Has a backup on the current cloud server (filled by the library command).
+    pub cloud: bool,
 }
 
 impl BookSummary {
@@ -31,6 +33,7 @@ impl BookSummary {
             words: meta.total_words(),
             ready: meta.chapters.iter().filter(|c| c.status == Status::Pronto).count(),
             updated_at: meta.updated_at,
+            cloud: false,
         }
     }
 }
@@ -130,5 +133,18 @@ mod tests {
         let cover_path = summary.cover.as_ref().unwrap();
         assert!(cover_path.contains("my-book") && cover_path.contains("capa.jpg"),
                 "Cover path should contain dir and filename, got: {}", cover_path);
+    }
+}
+
+#[cfg(test)]
+mod cloud_flag_tests {
+    use super::*;
+
+    #[test]
+    fn summary_starts_outside_the_cloud() {
+        let meta = Metadata::new("id1".into(), "Obra", vec![]);
+        let s = BookSummary::from_meta(std::path::Path::new("/x"), &meta);
+        assert!(!s.cloud);
+        assert!(serde_json::to_string(&s).unwrap().contains("\"cloud\":false"));
     }
 }

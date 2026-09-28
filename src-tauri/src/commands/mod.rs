@@ -1,5 +1,6 @@
 pub mod book;
 pub mod chapter;
+pub mod cloud_vault;
 mod dialog;
 pub mod library;
 pub mod prefs;

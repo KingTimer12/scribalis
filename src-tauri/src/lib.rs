@@ -17,7 +17,8 @@ use std::sync::Mutex;
 
 use tauri::Manager;
 
-use commands::{book, chapter, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace};
+use cloud::{status::CLOUD_FILE, CloudState};
+use commands::{book, chapter, cloud_vault, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace};
 use state::Library;
 use storage::paths::ROOT_NAME;
 
@@ -33,6 +34,8 @@ pub fn run() {
             let _ = rustls::crypto::ring::default_provider().install_default();
             let root = app.path().document_dir()?.join(ROOT_NAME);
             app.manage(Mutex::new(Library::new(root)));
+            let cloud_file = app.path().app_data_dir()?.join(CLOUD_FILE);
+            app.manage(CloudState::load(cloud_file));
             app.manage(update::PendingUpdate::default());
             let theme = prefs::read(app.handle()).map(|p| p.theme).unwrap_or_default();
             window::build_main(app, &theme)?;
@@ -79,6 +82,16 @@ pub fn run() {
             scrivener_cmd::scrivener_pick,
             scrivener_cmd::scrivener_scan,
             scrivener_cmd::scrivener_import,
+            cloud_vault::cloud_overview,
+            cloud_vault::cloud_set_api_url,
+            cloud_vault::cloud_activate,
+            cloud_vault::cloud_connect,
+            cloud_vault::cloud_vault_info,
+            cloud_vault::cloud_keys,
+            cloud_vault::cloud_add_key,
+            cloud_vault::cloud_revoke_key,
+            cloud_vault::cloud_delete_vault,
+            cloud_vault::cloud_remote_books,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
