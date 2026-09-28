@@ -1,6 +1,7 @@
 pub mod book;
 pub mod chapter;
 pub mod cloud_backup;
+pub mod cloud_share;
 pub mod cloud_vault;
 mod dialog;
 pub mod library;

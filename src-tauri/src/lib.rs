@@ -18,7 +18,9 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 use cloud::{status::CLOUD_FILE, CloudState};
-use commands::{book, chapter, cloud_backup, cloud_vault, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace};
+use commands::{
+    book, chapter, cloud_backup, cloud_share, cloud_vault, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace,
+};
 use state::Library;
 use storage::paths::ROOT_NAME;
 
@@ -101,6 +103,11 @@ pub fn run() {
             cloud_backup::cloud_backup_on_close,
             cloud_backup::cloud_restore,
             cloud_backup::cloud_download,
+            cloud_share::cloud_shares,
+            cloud_share::cloud_share_create,
+            cloud_share::cloud_share_change,
+            cloud_share::cloud_share_revoke,
+            cloud_share::cloud_fetch_comments,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

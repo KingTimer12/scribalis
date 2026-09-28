@@ -5,10 +5,12 @@ pub mod client;
 pub mod comments;
 pub mod config;
 pub mod error;
+pub mod inbox;
 pub mod keychain;
 pub mod manifest;
 pub mod restore;
 pub mod scheduler;
+pub mod shares;
 pub mod status;
 pub mod swap;
 
