@@ -107,9 +107,8 @@ Arquivo `cloud.json` na pasta de dados do app (`app_data_dir`), gravado com `wri
       "vaultId": "vlt_…",
       "keyId": "key_…",
       "books": {
-        "x1k2…": { "enabled": true, "lastBackupAt": 1790000000000, "lastSnapshotId": "snp_…" }
-      },
-      "pendingResolve": ["cmt_…"]
+        "x1k2…": { "enabled": true, "lastBackupAt": 1790000000000, "lastSnapshotId": "snp_…", "pendingResolve": ["cmt_…"] }
+      }
     }
   }
 }
@@ -122,8 +121,8 @@ Arquivo `cloud.json` na pasta de dados do app (`app_data_dir`), gravado com `wri
 - Ao abrir a biblioteca com internet, o app chama `GET /books` em segundo plano e atualiza `books`: obras
   apagadas no servidor perdem `lastBackupAt`, e backups feitos em outro computador aparecem. Falha de rede
   aqui é silenciosa.
-- `pendingResolve`: conversas já copiadas para as notas cuja resolução no servidor ainda não foi confirmada
-  (ver "Comentários nas notas").
+- `books[id].pendingResolve`: conversas dessa obra já copiadas para as notas cuja resolução no servidor ainda
+  não foi confirmada. É por obra porque a rota de resolver leva o `bookId`.
 
 ## Chave e endereço
 
