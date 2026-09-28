@@ -4,3 +4,4 @@ pub mod api;
 pub mod error;
 pub mod manifest;
 pub mod status;
+pub mod swap;

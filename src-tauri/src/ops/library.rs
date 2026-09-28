@@ -31,7 +31,9 @@ pub fn scan(root: &Path) -> AppResult<Scan> {
     let mut dirs = Vec::new();
     for entry in fs::read_dir(root)? {
         let path = entry?.path();
-        if path.is_dir() {
+        // Hidden folders are restore staging (or the OS's own): never books.
+        let hidden = path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'));
+        if path.is_dir() && !hidden {
             dirs.push(path);
         }
     }
@@ -178,6 +180,18 @@ mod tests {
         let again = super::scan(root.path()).unwrap();
         let ids: HashSet<_> = again.books.iter().map(|(_, m)| m.id.clone()).collect();
         assert_eq!(ids, HashSet::from([meta.id.clone(), copied.1.id.clone()]));
+    }
+
+    #[test]
+    fn scan_ignores_hidden_folders() {
+        let root = tempfile::tempdir().unwrap();
+        let (_dir, meta) = create_book(root.path(), "A").unwrap();
+        let hidden = root.path().join(format!(".restaurando-{}", meta.id));
+        std::fs::create_dir_all(&hidden).unwrap();
+        crate::storage::metadata_io::write_metadata(&hidden, &meta).unwrap();
+        let scan = scan(root.path()).unwrap();
+        assert_eq!(scan.books.len(), 1);
+        assert!(scan.warnings.is_empty());
     }
 
     #[test]

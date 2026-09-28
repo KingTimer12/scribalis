@@ -61,6 +61,21 @@ impl Library {
         self.dirs.remove(id)
     }
 
+    /// The book's folder was replaced by a restored copy. The word difference joins the baseline,
+    /// so the restore does not count as words written today.
+    pub fn replace(&mut self, dir: &Path, meta: &Metadata) {
+        let old = self.totals.get(&meta.id).copied().unwrap_or(0);
+        let new = meta.total_words();
+        if let Some(base) = self.session_base.as_mut() {
+            *base = (*base + new).saturating_sub(old);
+        }
+        if self.open.as_ref().is_some_and(|(_, m)| m.id == meta.id) {
+            self.open = None;
+        }
+        self.dirs.insert(meta.id.clone(), dir.to_path_buf());
+        self.totals.insert(meta.id.clone(), new);
+    }
+
     pub fn dir_of(&self, id: &str) -> AppResult<PathBuf> {
         self.dirs.get(id).cloned().ok_or_else(|| AppError::msg("Obra não encontrada"))
     }
@@ -153,6 +168,20 @@ mod tests {
         assert_eq!(lib.today(), 2);
         lib.forget(&meta_b.id);
         assert_eq!(lib.today(), 2);
+    }
+
+    #[test]
+    fn replacing_a_book_does_not_move_today() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "A").unwrap();
+        let mut lib = Library::new(root.path().to_path_buf());
+        lib.register(&dir, &meta);
+        lib.start_session_if_needed();
+        let mut restored = meta.clone();
+        restored.chapters[0].words = 500;
+        lib.replace(&dir, &restored);
+        assert_eq!(lib.today(), 0);
+        assert_eq!(lib.total_of(&meta.id), 500);
     }
 
     #[test]
