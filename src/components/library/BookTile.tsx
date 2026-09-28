@@ -20,6 +20,9 @@ export function BookTile(props: { book: BookSummary; selected: boolean }) {
     <div class="tile" classList={{ sel: props.selected, cur: props.book.id === state.curId }}>
       <button class="cover-btn" onClick={() => openBook(props.book.id)} aria-label={"Abrir " + title()}>
         <CoverArt id={props.book.id} title={props.book.title} cover={fileAsset(props.book.cover, props.book.updatedAt)} />
+        <Show when={props.book.cloud}>
+          <span class="cloud-badge" aria-label="Guardada na nuvem">Nuvem</span>
+        </Show>
       </button>
       <Show when={!renaming()} fallback={<RenameInput label="Novo nome da obra" />}>
         <div class="flex flex-col gap-1.5">

@@ -1,6 +1,8 @@
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { isTauri } from "./api/invoke";
+import type { CloudStatus } from "./api/types";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
 import { CloudPanel } from "./components/cloud/CloudPanel";
@@ -13,6 +15,7 @@ import { NotesPanel } from "./components/panels/NotesPanel";
 import { SpacingPanel } from "./components/panels/SpacingPanel";
 import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
 import { Workspace } from "./components/workspace/Workspace";
+import { applyCloudStatus, backupOnClose, loadCloud, syncCloudBadges } from "./store/actions/cloud";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
 import { checkForUpdate } from "./store/actions/update";
@@ -39,11 +42,15 @@ export default function App() {
         .onCloseRequested(async () => {
           // Never throw here: a rejected handler would keep the window from closing.
           await flushAll().catch(() => {});
+          await backupOnClose();
         })
         .then(keep);
       void listenImageDrops().then(keep);
+      void listen<CloudStatus>("cloud://status", (e) => applyCloudStatus(e.payload)).then(keep);
     }
     await Promise.all([loadPrefs(), refreshLibrary()]);
+    await loadCloud();
+    void syncCloudBadges();
     focusTarget("lib");
     if (isTauri) void checkForUpdate();
   });

@@ -5,6 +5,7 @@ import * as api from "../../api/library";
 import { statsToday } from "../../api/prefs";
 import { docWords } from "../../lib/doc";
 import { focusTarget } from "../focus";
+import { backupAuto, fetchComments, loadBookCloud, syncCloudBadges } from "./cloud";
 import { flushAll, settleDocSave, swapDocument } from "../saving";
 import { sortedLibrary } from "../selectors/library";
 import { session, setState, state } from "../state";
@@ -23,6 +24,7 @@ export async function refreshLibrary() {
 }
 
 export async function openBook(id: string, target: "title" | "body" = "body") {
+  const prev = state.book?.id;
   try {
     await flushAll();
     const book = await bookApi.openBook(id);
@@ -38,6 +40,11 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
         });
       });
     });
+    if (prev && prev !== id) backupAuto(prev);
+    setState("cloudBook", null);
+    void loadBookCloud(id).then((view) => {
+      if (view?.enabled) void fetchComments(true);
+    });
     if (target === "title") focusTarget("title", 0);
     else focusTarget("body", "end");
   } catch (e) {
@@ -46,6 +53,7 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
 }
 
 export async function goLibrary() {
+  const prev = state.book?.id;
   await flushAll();
   await refreshLibrary();
   // Text typed while the library loaded: save it before the editor unmounts.
@@ -56,6 +64,9 @@ export async function goLibrary() {
     view: "library", book: null, panel: null, focus: false, libSel: idx, libQ: "",
     libConfirm: null, renaming: null, tripleHint: false,
   });
+  if (prev) backupAuto(prev);
+  setState("cloudBook", null);
+  void syncCloudBadges();
 }
 
 export function startNew() {

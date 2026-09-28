@@ -4,6 +4,7 @@ import { openPanel } from "../../store/actions/ui";
 import { bookLabel } from "../../store/selectors/book";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
+import { CloudIndicator } from "./CloudIndicator";
 import { GoalProgress } from "./GoalProgress";
 import { StatusMessage } from "./StatusMessage";
 
@@ -51,6 +52,7 @@ export function BottomBar() {
             </>
           }
         >
+          <CloudIndicator />
           <GoalProgress />
         </Show>
       </div>

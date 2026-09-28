@@ -667,6 +667,20 @@
     background: currentColor;
     opacity: 0.35;
   }
+  .cloud-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 6px;
+    border: 1px solid var(--faint);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4;
+    pointer-events: none;
+  }
   .cov-0 { background: #dccdb8; }
   .cov-1 { background: #c7d3c3; }
   .cov-2 { background: #c9d1dd; }
