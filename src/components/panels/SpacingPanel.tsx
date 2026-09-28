@@ -16,8 +16,10 @@ const DEFAULT_INDENT = 1.25;
 
 /** Number field bound to one paragraph attribute; empty means the default (null). */
 function SpacingField(props: { id: string; key: SpacingKey; label: string; min: number; max: number; step: number }) {
-  const onInput = (el: HTMLInputElement) => {
-    // mid-typing garbage ("1.", "-"): wait for a valid value instead of clearing
+  // Applied on change (blur / Enter / spinner step), not on every keystroke: a keystroke-level
+  // input handler would push one undo step per digit and could clear the field mid-typing of a
+  // decimal (e.g. "1.") on engines that don't report `validity.badInput` for it.
+  const onChange = (el: HTMLInputElement) => {
     if (el.validity.badInput) return;
     if (el.value.trim() === "") return setSpacing({ [props.key]: null });
     const n = Number(el.value);
@@ -36,7 +38,7 @@ function SpacingField(props: { id: string; key: SpacingKey; label: string; min: 
         step={props.step}
         placeholder="Padrão"
         value={formatState()[props.key] ?? ""}
-        onInput={(e) => onInput(e.currentTarget)}
+        onChange={(e) => onChange(e.currentTarget)}
       />
     </div>
   );
