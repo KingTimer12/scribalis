@@ -324,6 +324,128 @@
     opacity: 0.75;
   }
 
+  /* ---------- workspace ---------- */
+  .tabs {
+    display: flex;
+    gap: 16px;
+    margin-left: 6px;
+  }
+  .tab {
+    border-bottom: 1px solid transparent;
+  }
+  .tab[aria-pressed="true"] {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+  .ws-side {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--faint);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .ws-main {
+    position: relative;
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .ws-tree {
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 12px 8px;
+    outline: none;
+  }
+  .ws-tree:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--accent);
+    border-radius: 8px;
+  }
+  .ws-row {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-right: 12px;
+    border-radius: 6px;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .ws-row.sel {
+    background: var(--soft);
+  }
+  .ws-row.open {
+    color: var(--accent);
+  }
+  /* The workspace column is narrower than the chapter one: the tree takes 280px. */
+  .ws-doc {
+    max-width: calc(100vw - 280px - 72px);
+  }
+  .ws-doc .ed-scroll {
+    padding-bottom: 48px;
+  }
+  .ws-title {
+    font-size: 32px;
+  }
+  .ws-notes {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 12px 0 20px;
+    border-top: 1px solid var(--faint);
+  }
+  .ws-media {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+    height: 100%;
+    padding: 64px 36px 24px;
+    box-sizing: border-box;
+  }
+  .ws-media-title {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 500;
+  }
+  .ws-img {
+    flex-grow: 1;
+    min-height: 0;
+    width: 100%;
+    object-fit: contain;
+    object-position: top center;
+  }
+  .ws-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 460px;
+    padding: 96px 36px 0;
+  }
+  .ws-empty-title {
+    font-size: 32px;
+    font-weight: 500;
+  }
+  .ws-empty-text {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .ws-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ws-help {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding-top: 12px;
+  }
+
   /* ---------- status ---------- */
   .dot {
     width: 8px;

@@ -51,7 +51,7 @@ export function CommandPalette() {
           onInput={(e) => onInput(e.currentTarget.value)}
           onKeyDown={(e) => paletteKey(e, items())}
           ref={focusRef("palette")}
-          placeholder={state.prompt ? state.prompt.label + "…" : state.view === "library" ? "Comando ou obra…" : "Comando, capítulo ou obra…"}
+          placeholder={state.prompt ? state.prompt.label + "…" : state.view !== "editor" ? "Comando ou obra…" : "Comando, capítulo ou obra…"}
           autocomplete="off"
         />
         <Show

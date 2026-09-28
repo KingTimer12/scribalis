@@ -4,7 +4,7 @@ import { currentDocKey, type DocKey } from "../../editor/bridge";
 import { focusTarget } from "../focus";
 import { dropTarget, findNode, locate, type DropPos } from "../../lib/tree";
 import { pad } from "../../lib/format";
-import { cancelDocSave, flushAll, swapDocument } from "../saving";
+import { cancelDocSave, flushAll, settleDocSave, swapDocument } from "../saving";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
 
@@ -80,8 +80,12 @@ export function openNode(id: string) {
   setState("areaSel", id);
   if (node.kind === "folder") return toggleExpanded(id);
   if (node.kind !== "text") {
-    setState("areaOpen", id);
-    return;
+    // The editor unmounts: land any pending text first, or its save would find no editor.
+    return run(async () => {
+      await flushAll();
+      await settleDocSave();
+      setState("areaOpen", id);
+    });
   }
   return run(async () => {
     await flushAll();

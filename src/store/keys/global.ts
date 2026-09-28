@@ -2,6 +2,7 @@ import { cycleStatus, goChapter, moveChapter } from "../actions/chapters";
 import { insertChapterImage } from "../actions/images";
 import { goLibrary } from "../actions/library";
 import { toggleTheme } from "../actions/prefs";
+import { goChapters, goWorkspace } from "../actions/tabs";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
 import { state } from "../state";
 
@@ -14,13 +15,17 @@ export function rootKey(e: KeyboardEvent) {
   const k = (e.key || "").toLowerCase();
   const code = e.code || "";
   const ed = state.view === "editor";
+  const inBook = !!state.book && state.view !== "library";
+  const tabKey = inBook && mod && !e.shiftKey && !e.altKey;
   const cur = state.book?.cur ?? 0;
   let handled = true;
 
   if (mod && (k === "k" || code === "KeyK")) openPanel("palette");
   else if (mod && !e.shiftKey && (k === "j" || code === "KeyJ")) toggleTheme();
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
-  else if (ed && mod && (k === "o" || code === "KeyO")) goLibrary();
+  else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
+  else if (tabKey && code === "Digit1") void goChapters();
+  else if (tabKey && code === "Digit2") void goWorkspace();
   else if (ed && mod && !e.shiftKey && (k === "e" || code === "KeyE")) openPanel("index");
   else if (ed && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (ed && mod && (k === ";" || code === "Semicolon")) openPanel("notes");

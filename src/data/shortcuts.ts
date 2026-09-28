@@ -14,6 +14,7 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Alinhar esquerda / centro / direita / justificado", keys: ["Ctrl", "Shift", "L E R J"] },
   { label: "Comandos e busca", keys: ["Ctrl", "K"] },
   { label: "Voltar às obras", keys: ["Ctrl", "O"] },
+  { label: "Capítulos / Área de trabalho", keys: ["Ctrl", "1 2"] },
   { label: "Índice de capítulos", keys: ["Ctrl", "E"] },
   { label: "Notas do capítulo", keys: ["Ctrl", ";"] },
   { label: "Capítulo anterior / próximo", keys: ["Alt", "↑ ↓"] },

@@ -8,6 +8,7 @@ import {
 import { clearBookImage, clearCover, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
 import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../actions/library";
 import { cycleFont, cycleGoal, cycleWidth, toggleTheme } from "../actions/prefs";
+import { goWorkspace } from "../actions/tabs";
 import { homeTarget, openPanel } from "../actions/ui";
 import { installUpdate } from "../actions/update";
 import { focusTarget } from "../focus";
@@ -16,6 +17,7 @@ import { libList, libSelIndex } from "../selectors/library";
 import { setState, state } from "../state";
 import { formatCommands } from "./format";
 import { promptFor } from "./prompt";
+import { workspaceCommands } from "./workspace";
 
 export interface Command {
   /** Short left label (chapter number, "obra"). */
@@ -80,6 +82,7 @@ function editorCommands(): Command[] {
   const list: Command[] = [
     { label: "Novo capítulo", hint: "Enter ×3", act: () => insertChapterAt(cur + 1) },
     { label: "Voltar às obras", hint: "Ctrl O", act: goLibrary },
+    { label: "Área de trabalho", hint: "Ctrl 2", act: () => void goWorkspace() },
     { label: "Índice de capítulos", hint: "Ctrl E", act: () => openPanel("index") },
     { label: "Notas do capítulo", hint: "Ctrl ;", act: () => openPanel("notes") },
     { label: state.focus ? "Sair do modo foco" : "Modo foco", hint: "Ctrl .", act: () => setState("focus", !state.focus) },
@@ -125,7 +128,12 @@ export function paletteItems(): Command[] {
       }
     }
   }
-  const cmds = state.view === "library" ? libraryCommands() : editorCommands();
+  const cmds =
+    state.view === "library"
+      ? libraryCommands()
+      : state.view === "workspace" && book
+        ? [...workspaceCommands(), ...commonCommands()]
+        : editorCommands();
   for (const c of cmds) if (!q || norm(c.label).includes(q)) out.push(c);
   if (q) out = out.slice(0, 9);
   return out;

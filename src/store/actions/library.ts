@@ -33,6 +33,8 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
         setState({
           book, curId: id, view: "editor", panel: null, q: "", tripleHint: false, focus: false,
           libConfirm: null, renaming: null, liveWords: docWords(doc),
+          // the workspace screen state belongs to the previous book
+          area: [], areaSel: null, areaOpen: null, areaRenaming: null, areaRenameVal: "", areaConfirm: null,
         });
       });
     });

@@ -3,6 +3,7 @@ import { isTauri } from "../../api/invoke";
 import { isMac } from "../../lib/platform";
 import { setBookTitle } from "../../store/actions/book";
 import { goLibrary } from "../../store/actions/library";
+import { goChapters, goWorkspace } from "../../store/actions/tabs";
 import { focusRef } from "../../store/focus";
 import { bookTitleKey } from "../../store/keys/fields";
 import { state } from "../../store/state";
@@ -26,7 +27,7 @@ export function TopBar() {
     >
       <div class="flex items-center gap-2.5">
         <AppBrand />
-        <Show when={state.view === "editor"}>
+        <Show when={state.view !== "library" && !!state.book}>
           <span class="brand-rule" aria-hidden="true" />
           <button class="ui crumb" onClick={goLibrary}>
             Obras
@@ -43,6 +44,24 @@ export function TopBar() {
             placeholder="Nome da obra"
             autocomplete="off"
           />
+          <nav class="tabs" aria-label="Seções da obra">
+            <button
+              class="ui crumb tab"
+              aria-pressed={state.view === "editor"}
+              title="Capítulos (Ctrl 1)"
+              onClick={() => void goChapters()}
+            >
+              Capítulos
+            </button>
+            <button
+              class="ui crumb tab"
+              aria-pressed={state.view === "workspace"}
+              title="Área de trabalho (Ctrl 2)"
+              onClick={() => void goWorkspace()}
+            >
+              Área de trabalho
+            </button>
+          </nav>
         </Show>
       </div>
       <div class="flex items-center gap-[18px]">
