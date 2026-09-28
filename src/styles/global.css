@@ -730,6 +730,20 @@
     outline: none;
     animation: slideL 0.22s ease-out;
   }
+  /* Same drawer, docked on the right (notes, cloud). */
+  .drawer.right {
+    left: auto;
+    right: 0;
+    border-right: 0;
+    border-left: 1px solid var(--faint);
+    animation: slideR 0.22s ease-out;
+  }
+  .drawer-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
   .ix-item {
     display: grid;
     grid-template-columns: 32px minmax(0, 1fr) auto 14px;
@@ -826,22 +840,6 @@
     font-size: 11px;
     color: var(--muted);
     margin-right: 10px;
-  }
-  .notes {
-    position: absolute;
-    top: 72px;
-    bottom: 72px;
-    right: 32px;
-    width: 320px;
-    box-sizing: border-box;
-    padding: 24px;
-    background: var(--panel);
-    border: 1px solid var(--faint);
-    border-radius: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    animation: slideR 0.22s ease-out;
   }
   .notes-ta {
     flex-grow: 1;
