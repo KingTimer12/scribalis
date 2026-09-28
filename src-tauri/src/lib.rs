@@ -16,7 +16,7 @@ use std::sync::Mutex;
 
 use tauri::Manager;
 
-use commands::{book, chapter, library, prefs, stats, update as update_cmd, workspace};
+use commands::{book, chapter, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace};
 use state::Library;
 use storage::paths::ROOT_NAME;
 
@@ -72,6 +72,9 @@ pub fn run() {
             workspace::workspace_pick_files,
             workspace::workspace_to_chapter,
             workspace::workspace_open_file,
+            scrivener_cmd::scrivener_pick,
+            scrivener_cmd::scrivener_scan,
+            scrivener_cmd::scrivener_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

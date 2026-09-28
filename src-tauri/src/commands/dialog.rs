@@ -28,3 +28,14 @@ pub fn pick_files(window: &WebviewWindow) -> Vec<PathBuf> {
         .filter_map(|f| f.into_path().ok())
         .collect()
 }
+
+/// Native "open Scrivener project" dialog. Blocking: call only from async commands.
+pub fn pick_scrivener(window: &WebviewWindow) -> Option<PathBuf> {
+    window
+        .dialog()
+        .file()
+        .set_parent(window)
+        .add_filter("Projeto do Scrivener", &["scrivx", "scriv"])
+        .blocking_pick_file()
+        .and_then(|f| f.into_path().ok())
+}

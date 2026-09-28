@@ -3,6 +3,7 @@ pub mod chapter;
 mod dialog;
 pub mod library;
 pub mod prefs;
+pub mod scrivener;
 pub mod stats;
 pub mod update;
 pub mod workspace;
