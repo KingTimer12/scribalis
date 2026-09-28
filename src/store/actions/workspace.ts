@@ -1,6 +1,6 @@
 import * as api from "../../api/workspace";
 import type { AreaNode } from "../../api/types";
-import { currentDocKey, type DocKey } from "../../editor/bridge";
+import { currentDocKey, sameKey, type DocKey } from "../../editor/bridge";
 import { focusTarget } from "../focus";
 import { dropTarget, findNode, locate, type DropPos } from "../../lib/tree";
 import { pad } from "../../lib/format";
@@ -69,15 +69,21 @@ export async function loadArea() {
   }
 }
 
-export function selectNode(id: string) {
-  setState("areaSel", id);
+/** Selects a node; a deletion armed for another node is dropped. */
+export function selectNode(id: string | null) {
+  setState({ areaSel: id, areaConfirm: state.areaConfirm === id ? id : null });
 }
 
-export function openNode(id: string) {
+/**
+ * Opens a node in the reading pane (a folder toggles instead). `focusBody` moves the
+ * caret into an opened text; mouse clicks in the tree pass false so a double click
+ * can still reach the rename field.
+ */
+export function openNode(id: string, focusBody = true) {
   const b = state.book;
   const node = findNode(state.area, id);
   if (!b || !node) return;
-  setState("areaSel", id);
+  selectNode(id);
   if (node.kind === "folder") return toggleExpanded(id);
   if (node.kind !== "text") {
     // The editor unmounts: land any pending text first, or its save would find no editor.
@@ -87,11 +93,16 @@ export function openNode(id: string) {
       setState("areaOpen", id);
     });
   }
+  const key: DocKey = { bookId: b.id, docId: id, scope: "area" };
+  if (state.areaOpen === id && sameKey(currentDocKey(), key)) {
+    // Already in the editor: reloading would only drop its undo history.
+    if (focusBody) focusTarget("body");
+    return;
+  }
   return run(async () => {
     await flushAll();
     const doc = await api.loadAreaDoc(b.id, id);
-    const key: DocKey = { bookId: b.id, docId: id, scope: "area" };
-    if (await swapDocument(doc, key, () => setState("areaOpen", id))) focusTarget("body", "end");
+    if ((await swapDocument(doc, key, () => setState("areaOpen", id))) && focusBody) focusTarget("body", "end");
   });
 }
 
@@ -113,7 +124,7 @@ export function createNode(kind: "folder" | "text") {
   const title = kind === "folder" ? "Nova pasta" : "Novo documento";
   return run(async () => {
     const { id, items } = await api.areaCreate(b.id, parent, index, kind, title);
-    setState("area", items);
+    setState({ area: items, areaSel: id, areaConfirm: null });
     if (parent && !state.areaExpanded.includes(parent)) setExpanded(b.id, [...state.areaExpanded, parent]);
     startNodeRename(id);
   });
@@ -169,6 +180,15 @@ export function deleteNode(id: string) {
   });
 }
 
+/** Delete with confirmation: the first request arms it and says how to confirm, the second deletes. */
+export function requestDelete(id: string) {
+  const node = findNode(state.area, id);
+  if (!node) return;
+  if (state.areaConfirm === id) return deleteNode(id);
+  void deleteNode(id);
+  flash("Aperte Delete de novo para excluir «" + node.title + "»");
+}
+
 export function moveNode(dragId: string, targetId: string, pos: DropPos) {
   const b = state.book;
   if (!b) return;
@@ -176,6 +196,8 @@ export function moveNode(dragId: string, targetId: string, pos: DropPos) {
   if (!target) return;
   return run(async () => {
     setState("area", await api.areaMove(b.id, dragId, target.parent, target.index));
+    // Show where the item went: a closed destination folder opens.
+    if (target.parent && !state.areaExpanded.includes(target.parent)) setExpanded(b.id, [...state.areaExpanded, target.parent]);
   });
 }
 
