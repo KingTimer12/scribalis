@@ -5,6 +5,7 @@ mod markdown;
 mod model;
 mod ops;
 mod samples;
+mod scrivener;
 mod state;
 mod storage;
 mod text;
