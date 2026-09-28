@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::error::{AppError, AppResult};
 use crate::ids::{new_id, now_ms};
+use crate::markdown::serialize::serialize_without_attrs;
 use crate::model::{
     doc::Doc,
     metadata::{ChapterEntry, Metadata},
@@ -9,7 +10,7 @@ use crate::model::{
     views::SearchHit,
 };
 use crate::storage::{
-    chapter_io::{delete_chapter_file, read_chapter, read_chapter_raw, write_chapter},
+    chapter_io::{delete_chapter_file, read_chapter, write_chapter},
     metadata_io::write_metadata,
 };
 use crate::text::{normalize::fold, words::{doc_text, doc_words}};
@@ -124,12 +125,13 @@ pub fn search(dir: &Path, meta: &Metadata, query: &str) -> AppResult<Vec<SearchH
     Ok(hits)
 }
 
-/// "Capítulo N — título" plus the raw markdown, for the clipboard.
+/// "Capítulo N — título" plus the chapter markdown, for the clipboard.
+/// Attribute lines (`{: …}`) are stripped: they are formatting metadata, not text to copy.
 pub fn markdown(dir: &Path, meta: &Metadata, chapter_id: &str) -> AppResult<String> {
     let i = index_of(meta, chapter_id)?;
     let c = &meta.chapters[i];
     let head = if c.title.is_empty() { format!("Capítulo {}", i + 1) } else { format!("Capítulo {} — {}", i + 1, c.title) };
-    Ok(format!("{head}\n\n{}", read_chapter_raw(dir, c)?))
+    Ok(format!("{head}\n\n{}", serialize_without_attrs(&read_chapter(dir, c)?)))
 }
 
 #[cfg(test)]
@@ -238,6 +240,14 @@ mod tests {
         update(&dir, &mut meta, &id, ChapterPatch { title: Some("Início".into()), ..Default::default() }).unwrap();
         save(&dir, &mut meta, &id, &parse("Texto")).unwrap();
         assert_eq!(markdown(&dir, &meta, &id).unwrap(), "Capítulo 1 — Início\n\nTexto\n");
+    }
+
+    #[test]
+    fn markdown_strips_attribute_lines() {
+        let (_r, dir, mut meta) = setup();
+        let id = meta.chapters[0].id.clone();
+        save(&dir, &mut meta, &id, &parse("Título\n{: align=center}\n\nTexto simples")).unwrap();
+        assert_eq!(markdown(&dir, &meta, &id).unwrap(), "Capítulo 1\n\nTítulo\n\nTexto simples\n");
     }
 
     #[test]
