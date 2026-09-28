@@ -6,9 +6,10 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::cloud::{
     api::{BookDetail, Snapshot},
-    backup, CloudState,
+    backup, restore, CloudState,
 };
 use crate::error::{AppError, AppResult};
+use crate::model::views::{BookMeta, BookSummary};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,4 +89,16 @@ pub async fn cloud_forget_book(cloud: State<'_, CloudState>, book_id: String) ->
 pub async fn cloud_backup_on_close(app: AppHandle) -> AppResult<()> {
     let _ = tokio::time::timeout(Duration::from_secs(10), backup::run_all_changed(&app)).await;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn cloud_restore(app: AppHandle, book_id: String, snapshot_id: String) -> AppResult<BookMeta> {
+    let (dir, meta) = restore::restore(&app, &book_id, &snapshot_id).await?;
+    Ok(BookMeta::from_meta(&dir, &meta))
+}
+
+#[tauri::command]
+pub async fn cloud_download(app: AppHandle, book_id: String) -> AppResult<BookSummary> {
+    let (dir, meta) = restore::download_new(&app, &book_id).await?;
+    Ok(BookSummary { cloud: true, ..BookSummary::from_meta(&dir, &meta) })
 }

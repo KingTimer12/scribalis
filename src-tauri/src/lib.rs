@@ -99,6 +99,8 @@ pub fn run() {
             cloud_backup::cloud_snapshots,
             cloud_backup::cloud_forget_book,
             cloud_backup::cloud_backup_on_close,
+            cloud_backup::cloud_restore,
+            cloud_backup::cloud_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
