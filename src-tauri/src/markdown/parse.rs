@@ -37,9 +37,11 @@ fn flush(lines: &mut Vec<&str>, blocks: &mut Vec<Block>) {
     if lines.is_empty() {
         return;
     }
-    // A trailing `{: …}` line holds the paragraph's formatting.
+    // A trailing `{: …}` line holds the paragraph's formatting, unless the line
+    // before it is hard-break-marked (ends with an odd number of backslashes):
+    // then the last line is regular paragraph text, not an attribute line.
     let mut attrs = ParaAttrs::default();
-    if lines.len() > 1 {
+    if lines.len() > 1 && !ends_with_odd_backslashes(lines[lines.len() - 2]) {
         if let Some(a) = attrs::parse(lines[lines.len() - 1]) {
             attrs = a;
             lines.pop();
@@ -57,4 +59,28 @@ fn flush(lines: &mut Vec<&str>, blocks: &mut Vec<Block>) {
     }
     blocks.push(Block::Paragraph { attrs, content });
     lines.clear();
+}
+
+/// An odd trailing backslash count means the line ends with a hard-break
+/// marker; an even count means those backslashes are escaped literal ones.
+fn ends_with_odd_backslashes(line: &str) -> bool {
+    line.chars().rev().take_while(|&c| c == '\\').count() % 2 == 1
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::doc::Inline;
+
+    #[test]
+    fn legacy_attr_like_line_after_hard_break_is_literal_text() {
+        // Old files predating hard-break-aware attr lines: `a\` then `{: align=center}`
+        // is one paragraph with a hard break and literal text, not an attribute line.
+        let doc = parse("a\\\n{: align=center}");
+        assert_eq!(doc.content, vec![Block::paragraph(vec![
+            Inline::text("a"),
+            Inline::HardBreak,
+            Inline::text("{: align=center}"),
+        ])]);
+    }
 }
