@@ -11,6 +11,8 @@ import { state } from "../state";
  * which can call stopPropagation to keep a key for themselves.
  */
 export function rootKey(e: KeyboardEvent) {
+  // The Scrivener import dialog is modal: it handles its own keys.
+  if (state.scrivener) return;
   const mod = e.ctrlKey || e.metaKey;
   const k = (e.key || "").toLowerCase();
   const code = e.code || "";

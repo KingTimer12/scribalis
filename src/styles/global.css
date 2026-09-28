@@ -1026,6 +1026,88 @@
     color: var(--muted);
   }
 
+  /* ---------- scrivener import ---------- */
+  .scriv {
+    position: absolute;
+    top: 96px;
+    bottom: 96px;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: 640px;
+    max-width: calc(100% - 48px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 28px 28px 20px;
+    box-sizing: border-box;
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    animation: drop 0.18s ease-out;
+  }
+  .scriv-title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 500;
+  }
+  .scriv-text {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .scriv-tree {
+    flex-grow: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 0;
+    border-top: 1px solid var(--faint);
+    border-bottom: 1px solid var(--faint);
+  }
+  .scriv-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding-right: 8px;
+    font-size: 15px;
+  }
+  .scriv-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .scriv-check input {
+    accent-color: var(--accent);
+  }
+  .scriv-check:has(input:disabled) {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .scriv-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .sp-btn.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .sp-btn.primary:hover:not(:disabled) {
+    background: var(--accent);
+    opacity: 0.9;
+  }
+  .sp-btn:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
   /* ---------- animations ---------- */
   .toast {
     animation: toast 1.8s ease-out forwards;

@@ -10,6 +10,7 @@ import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../a
 import { cycleFont, cycleGoal, cycleWidth, toggleTheme } from "../actions/prefs";
 import { goWorkspace } from "../actions/tabs";
 import { homeTarget, openPanel } from "../actions/ui";
+import { startScrivenerImport } from "../actions/scrivener";
 import { installUpdate } from "../actions/update";
 import { focusTarget } from "../focus";
 import { currentChapter } from "../selectors/book";
@@ -41,7 +42,10 @@ function commonCommands(): Command[] {
 function libraryCommands(): Command[] {
   const list = libList();
   const cur = list[libSelIndex(list)];
-  const out: Command[] = [{ label: "Nova obra", hint: "N", act: startNew }];
+  const out: Command[] = [
+    { label: "Nova obra", hint: "N", act: startNew },
+    { label: "Importar do Scrivener…", hint: "", act: () => void startScrivenerImport({ type: "new" }) },
+  ];
   if (cur) {
     out.push({ label: 'Renomear "' + cur.title + '"', hint: "R", act: () => startRename(cur.id) });
     out.push({ label: (cur.cover ? 'Trocar capa de "' : 'Escolher capa para "') + cur.title + '"', hint: "C", act: () => pickCover(cur.id) });

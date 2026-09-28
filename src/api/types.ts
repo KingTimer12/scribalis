@@ -105,3 +105,29 @@ export interface Prefs {
 export type BookPatch = Partial<{ title: string; author: string; cur: number; separatorText: string }>;
 export type ChapterPatch = Partial<{ title: string; notes: string; status: Status }>;
 export type PrefsPatch = Partial<Prefs>;
+
+export type ScanKind = "draft" | "research" | "folder" | "text" | "image" | "file";
+
+/** One binder item of a Scrivener project, as scanned by Rust (no text content). */
+export interface ScanItem {
+  key: string;
+  kind: ScanKind;
+  title: string;
+  children: ScanItem[];
+}
+
+export interface ScanView {
+  title: string;
+  items: ScanItem[];
+}
+
+/** Import into a brand-new book, or into the workspace of an existing one. */
+export type ImportTarget = { type: "new" } | { type: "book"; id: string };
+
+export interface ImportResult {
+  bookId: string;
+  chapters: number;
+  items: number;
+  /** Items that could not be read (missing media, unreadable files). */
+  warnings: number;
+}

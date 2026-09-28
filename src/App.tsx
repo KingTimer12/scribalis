@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Match, onCleanup, onMount, Switch } from "solid-js";
+import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { isTauri } from "./api/invoke";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
@@ -10,6 +10,7 @@ import { CommandPalette } from "./components/panels/CommandPalette";
 import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
 import { SpacingPanel } from "./components/panels/SpacingPanel";
+import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
 import { Workspace } from "./components/workspace/Workspace";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
@@ -87,6 +88,9 @@ export default function App() {
           <HelpPanel />
         </Match>
       </Switch>
+      <Show when={state.scrivener}>
+        <ScrivenerImport />
+      </Show>
     </div>
   );
 }

@@ -1,10 +1,17 @@
 import { goLibrary } from "../actions/library";
+import { startScrivenerImport } from "../actions/scrivener";
 import { goChapters } from "../actions/tabs";
 import { addFiles, createNode, deleteNode, sendToChapter, startNodeRename } from "../actions/workspace";
 import { openAreaNode, selectedAreaNode } from "../selectors/workspace";
 import { state } from "../state";
 import { formatCommands } from "./format";
 import type { Command } from "./palette";
+
+/** Imports a Scrivener project into the open book's workspace. */
+function importIntoBook() {
+  const id = state.book?.id;
+  if (id) void startScrivenerImport({ type: "book", id });
+}
 
 /** Palette items for the "Área de trabalho" tab (the common ones are appended by the palette). */
 export function workspaceCommands(): Command[] {
@@ -14,6 +21,7 @@ export function workspaceCommands(): Command[] {
     { label: "Novo documento", hint: "N", act: () => void createNode("text") },
     { label: "Nova pasta", hint: "Shift N", act: () => void createNode("folder") },
     { label: "Adicionar arquivos…", hint: "", act: () => void addFiles() },
+    { label: "Importar do Scrivener…", hint: "", act: () => importIntoBook() },
   ];
   if (sel) {
     const id = sel.id;

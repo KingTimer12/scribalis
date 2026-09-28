@@ -1,4 +1,5 @@
 import { plural } from "../../lib/format";
+import { startScrivenerImport } from "../../store/actions/scrivener";
 import { focusRef } from "../../store/focus";
 import { libQKey } from "../../store/keys/library";
 import { setState, state } from "../../store/state";
@@ -18,19 +19,24 @@ export function LibraryHeader() {
         <h1 class="m-0 text-[46px] font-medium tracking-[-.015em]">Suas obras</h1>
         <div class="ui">{stats()}</div>
       </div>
-      <div class="flex w-[300px] items-center gap-3 border-b border-faint pb-3">
-        <Kbd>/</Kbd>
-        <SrLabel for="lib-q">Buscar obra</SrLabel>
-        <input
-          id="lib-q"
-          class="lib-q"
-          value={state.libQ}
-          onInput={(e) => setState({ libQ: e.currentTarget.value, libSel: 0, libConfirm: null })}
-          onKeyDown={libQKey}
-          ref={focusRef("libq")}
-          placeholder="Buscar obra"
-          autocomplete="off"
-        />
+      <div class="flex items-end gap-6">
+        <button type="button" class="sp-btn mb-2" onClick={() => void startScrivenerImport({ type: "new" })}>
+          Importar do Scrivener
+        </button>
+        <div class="flex w-[300px] items-center gap-3 border-b border-faint pb-3">
+          <Kbd>/</Kbd>
+          <SrLabel for="lib-q">Buscar obra</SrLabel>
+          <input
+            id="lib-q"
+            class="lib-q"
+            value={state.libQ}
+            onInput={(e) => setState({ libQ: e.currentTarget.value, libSel: 0, libConfirm: null })}
+            onKeyDown={libQKey}
+            ref={focusRef("libq")}
+            placeholder="Buscar obra"
+            autocomplete="off"
+          />
+        </div>
       </div>
     </div>
   );

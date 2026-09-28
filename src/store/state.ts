@@ -1,5 +1,5 @@
 import { createStore, produce } from "solid-js/store";
-import type { AreaNode, BookMeta, BookSummary, Prefs, SearchHit, UpdateInfo } from "../api/types";
+import type { AreaNode, BookMeta, BookSummary, ImportTarget, Prefs, ScanView, SearchHit, UpdateInfo } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import type { Panel, View } from "../lib/types";
 
@@ -7,6 +7,15 @@ export interface PromptState {
   label: string;
   value: string;
   submit: (value: string) => void;
+}
+
+/** Scrivener import dialog: the scanned project and the folders marked "virar capítulos". */
+export interface ScrivenerImportState {
+  path: string;
+  view: ScanView;
+  chosen: string[];
+  target: ImportTarget;
+  busy: boolean;
 }
 
 export interface AppState {
@@ -58,6 +67,8 @@ export interface AppState {
   areaRenameVal: string;
   /** Id armed for deletion; a second call to `deleteNode` with the same id confirms it. */
   areaConfirm: string | null;
+  /** Open Scrivener import dialog, or null. */
+  scrivener: ScrivenerImportState | null;
 }
 
 export const [state, setState] = createStore<AppState>({
@@ -94,6 +105,7 @@ export const [state, setState] = createStore<AppState>({
   areaRenaming: null,
   areaRenameVal: "",
   areaConfirm: null,
+  scrivener: null,
 });
 
 /** Values outside the store: they never need to re-render anything. */
