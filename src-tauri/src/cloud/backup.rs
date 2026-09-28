@@ -36,7 +36,7 @@ pub struct CloudStatus {
 }
 
 pub enum Outcome {
-    Sent(u64),
+    Sent,
     Unchanged,
     /// Automatic backup paused, or another backup of the book already running.
     Skipped,
@@ -166,7 +166,7 @@ async fn run_once(app: &AppHandle, cloud: &CloudState, book_id: &str, manual: bo
         b.last_snapshot_id = Some(snapshot.id.clone());
     })?;
     cloud.lock()?.sent.insert(book_id.to_string(), print);
-    Ok(if created.unchanged { Outcome::Unchanged } else { Outcome::Sent(snapshot.created_at) })
+    Ok(if created.unchanged { Outcome::Unchanged } else { Outcome::Sent })
 }
 
 /// Automatic backup of every enabled book that changed.
@@ -200,5 +200,10 @@ mod tests {
         assert_eq!(policy_for(&e, 1_000), Policy::RetryAt(31_000));
         assert_eq!(policy_for(&CloudError::network(), 0), Policy::Offline);
         assert_eq!(policy_for(&CloudError::new("unexpected", "x"), 0), Policy::Offline);
+    }
+
+    #[test]
+    fn rate_limit_without_a_retry_after_waits_sixty_seconds() {
+        assert_eq!(policy_for(&CloudError::new("rate_limited", "x"), 1_000), Policy::RetryAt(61_000));
     }
 }

@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::cloud::{swap, CloudState};
+use crate::cloud::CloudState;
 use crate::error::AppResult;
 use crate::model::{patches::BookPatch, views::{BookSummary, LibraryListing}};
 use crate::ops::{book, library as ops};
@@ -13,17 +13,19 @@ fn listing(lib: &mut Library, cloud: &CloudState) -> AppResult<LibraryListing> {
         ops::write_samples(&lib.root)?;
     }
     let root = lib.root.clone();
-    swap::recover(&root);
     let scan = ops::scan(&root)?;
-    let file = cloud.lock()?.file.clone();
-    let books = scan
-        .books
-        .iter()
-        .map(|(dir, meta)| {
-            lib.register(dir, meta);
-            BookSummary { cloud: file.in_vault(&meta.id), ..BookSummary::from_meta(dir, meta) }
-        })
-        .collect();
+    let books = {
+        // Only the in-vault flag is needed per book, so read it once under the guard instead of
+        // cloning the whole `CloudFile` (which can hold every enabled book and its snapshot history).
+        let g = cloud.lock()?;
+        scan.books
+            .iter()
+            .map(|(dir, meta)| {
+                lib.register(dir, meta);
+                BookSummary { cloud: g.file.in_vault(&meta.id), ..BookSummary::from_meta(dir, meta) }
+            })
+            .collect()
+    };
     lib.start_session_if_needed();
     Ok(LibraryListing { books, warnings: scan.warnings })
 }

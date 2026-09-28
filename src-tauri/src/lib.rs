@@ -35,6 +35,9 @@ pub fn run() {
             // reqwest is built without a crypto provider (same as the updater): install ring once.
             let _ = rustls::crypto::ring::default_provider().install_default();
             let root = app.path().document_dir()?.join(ROOT_NAME);
+            // Clean up any restore/download left mid-swap by a crash. Once at startup only: doing this
+            // on every library listing could delete a staging folder while a restore is in flight.
+            cloud::swap::recover(&root);
             app.manage(Mutex::new(Library::new(root)));
             let cloud_file = app.path().app_data_dir()?.join(CLOUD_FILE);
             app.manage(CloudState::load(cloud_file));

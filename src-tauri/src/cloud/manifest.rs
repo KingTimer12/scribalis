@@ -4,7 +4,9 @@ use std::{collections::HashMap, fs, io::{self, Read}, path::{Path, PathBuf}, tim
 use sha2::{Digest, Sha256};
 
 use crate::error::{AppError, AppResult};
-use crate::storage::paths::META_FILE;
+use crate::storage::paths::{safe_join, META_FILE};
+
+use super::api::RemoteFile;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
@@ -82,6 +84,20 @@ pub fn fingerprint(entries: &[Entry]) -> Vec<(String, String)> {
     entries.iter().map(|e| (e.path.clone(), e.hash.clone())).collect()
 }
 
+/// Confirms every file the snapshot manifest lists exists in `staging` with a matching SHA-256, right
+/// before a swap. The download already hashed each file as it landed, but the staging folder is not
+/// locked afterward (a crash recovery pass, a concurrent listing), so this re-check catches anything
+/// that happened to it since. On any mismatch the caller should delete staging and stop.
+pub fn verify_staged(staging: &Path, files: &[RemoteFile]) -> AppResult<()> {
+    for file in files {
+        let full = safe_join(staging, &file.path)?;
+        if hash_file(&full)? != file.hash {
+            return Err(AppError::msg(format!("Arquivo ausente ou alterado no backup: {}", file.path)));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,6 +142,41 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.md"), "x").unwrap();
         assert!(build(dir.path(), &mut HashCache::default()).is_err());
+    }
+
+    #[test]
+    fn verify_staged_accepts_matching_files() {
+        let dir = book();
+        let files = build(dir.path(), &mut HashCache::default())
+            .unwrap()
+            .into_iter()
+            .map(|e| RemoteFile { path: e.path, hash: e.hash, size: e.size })
+            .collect::<Vec<_>>();
+        assert!(verify_staged(dir.path(), &files).is_ok());
+    }
+
+    #[test]
+    fn verify_staged_rejects_a_changed_file() {
+        let dir = book();
+        let files = build(dir.path(), &mut HashCache::default())
+            .unwrap()
+            .into_iter()
+            .map(|e| RemoteFile { path: e.path, hash: e.hash, size: e.size })
+            .collect::<Vec<_>>();
+        fs::write(dir.path().join("capitulos").join("c1.md"), "changed after download").unwrap();
+        assert!(verify_staged(dir.path(), &files).is_err());
+    }
+
+    #[test]
+    fn verify_staged_rejects_a_missing_file() {
+        let dir = book();
+        let files = build(dir.path(), &mut HashCache::default())
+            .unwrap()
+            .into_iter()
+            .map(|e| RemoteFile { path: e.path, hash: e.hash, size: e.size })
+            .collect::<Vec<_>>();
+        fs::remove_file(dir.path().join("capitulos").join("c1.md")).unwrap();
+        assert!(verify_staged(dir.path(), &files).is_err());
     }
 
     #[test]
