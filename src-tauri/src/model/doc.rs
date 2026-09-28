@@ -1,7 +1,7 @@
-use std::ops::{BitAnd, BitOr, BitXor};
+use serde::{Deserialize, Serialize};
 
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+pub use crate::model::marks::Marks;
+pub use crate::model::para_attrs::{Align, ParaAttrs};
 
 /// ProseMirror/TipTap document, restricted to the editor schema.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -44,6 +44,7 @@ pub enum Block {
 }
 
 impl Block {
+    #[cfg(test)]
     pub fn paragraph(content: Vec<Inline>) -> Self {
         Block::Paragraph { attrs: ParaAttrs::default(), content }
     }
@@ -67,177 +68,13 @@ pub enum Inline {
 }
 
 impl Inline {
+    #[cfg(test)]
     pub fn text(s: &str) -> Self {
         Inline::Text { text: s.to_string(), marks: Marks::default() }
     }
+    #[cfg(test)]
     pub fn marked(s: &str, marks: Marks) -> Self {
         Inline::Text { text: s.to_string(), marks }
-    }
-}
-
-/// Character marks the editor supports; serialized as TipTap's `[{"type":"bold"}, …]`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Marks {
-    pub bold: bool,
-    pub italic: bool,
-}
-
-impl Marks {
-    pub const BOLD: Marks = Marks { bold: true, italic: false };
-    pub const ITALIC: Marks = Marks { bold: false, italic: true };
-    pub fn is_empty(&self) -> bool {
-        !self.bold && !self.italic
-    }
-}
-
-impl BitXor for Marks {
-    type Output = Marks;
-    fn bitxor(self, o: Marks) -> Marks {
-        Marks { bold: self.bold ^ o.bold, italic: self.italic ^ o.italic }
-    }
-}
-impl BitAnd for Marks {
-    type Output = Marks;
-    fn bitand(self, o: Marks) -> Marks {
-        Marks { bold: self.bold && o.bold, italic: self.italic && o.italic }
-    }
-}
-impl BitOr for Marks {
-    type Output = Marks;
-    fn bitor(self, o: Marks) -> Marks {
-        Marks { bold: self.bold || o.bold, italic: self.italic || o.italic }
-    }
-}
-
-impl Serialize for Marks {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        #[derive(Serialize)]
-        struct Tag {
-            #[serde(rename = "type")]
-            kind: &'static str,
-        }
-        let mut seq = s.serialize_seq(None)?;
-        if self.bold { seq.serialize_element(&Tag { kind: "bold" })?; }
-        if self.italic { seq.serialize_element(&Tag { kind: "italic" })?; }
-        seq.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for Marks {
-    /// Unknown marks (and their attrs) are dropped instead of failing the save.
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let list: Vec<Value> = Deserialize::deserialize(d)?;
-        let mut m = Marks::default();
-        for v in &list {
-            match v.get("type").and_then(Value::as_str) {
-                Some("bold") => m.bold = true,
-                Some("italic") => m.italic = true,
-                _ => {}
-            }
-        }
-        Ok(m)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Align {
-    Center,
-    Right,
-    Justify,
-}
-
-impl Align {
-    /// `left` (the default) and unknown values are `None`.
-    pub fn parse(s: &str) -> Option<Align> {
-        match s {
-            "center" => Some(Align::Center),
-            "right" => Some(Align::Right),
-            "justify" => Some(Align::Justify),
-            _ => None,
-        }
-    }
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Align::Center => "center",
-            Align::Right => "right",
-            Align::Justify => "justify",
-        }
-    }
-}
-
-/// Paragraph formatting; `None` means the app default.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
-#[serde(rename_all = "camelCase", from = "RawParaAttrs")]
-pub struct ParaAttrs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text_align: Option<Align>,
-    /// Line height multiplier.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line_height: Option<f32>,
-    /// Points.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_before: Option<u16>,
-    /// Points.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub space_after: Option<u16>,
-    /// First-line indent in centimeters.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub indent: Option<f32>,
-}
-
-fn round2(v: f64) -> f32 {
-    ((v * 100.0).round() / 100.0) as f32
-}
-
-impl ParaAttrs {
-    pub fn is_empty(&self) -> bool {
-        *self == ParaAttrs::default()
-    }
-    pub fn clamp_line(v: f64) -> Option<f32> {
-        v.is_finite().then(|| round2(v.clamp(1.0, 3.0)))
-    }
-    pub fn clamp_before(v: f64) -> Option<u16> {
-        // 0 is the default top margin.
-        v.is_finite().then(|| v.clamp(0.0, 96.0).round() as u16).filter(|&n| n > 0)
-    }
-    pub fn clamp_after(v: f64) -> Option<u16> {
-        v.is_finite().then(|| v.clamp(0.0, 96.0).round() as u16)
-    }
-    pub fn clamp_indent(v: f64) -> Option<f32> {
-        // No indent is the default.
-        v.is_finite().then(|| round2(v.clamp(0.0, 5.0))).filter(|&n| n > 0.0)
-    }
-}
-
-/// What the webview sends: any field may be null, a string or out of range.
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct RawParaAttrs {
-    text_align: Value,
-    line_height: Value,
-    space_before: Value,
-    space_after: Value,
-    indent: Value,
-}
-
-fn num(v: &Value) -> Option<f64> {
-    match v {
-        Value::Number(n) => n.as_f64(),
-        Value::String(s) => s.trim().parse().ok(),
-        _ => None,
-    }
-}
-
-impl From<RawParaAttrs> for ParaAttrs {
-    fn from(r: RawParaAttrs) -> Self {
-        ParaAttrs {
-            text_align: r.text_align.as_str().and_then(Align::parse),
-            line_height: num(&r.line_height).and_then(ParaAttrs::clamp_line),
-            space_before: num(&r.space_before).and_then(ParaAttrs::clamp_before),
-            space_after: num(&r.space_after).and_then(ParaAttrs::clamp_after),
-            indent: num(&r.indent).and_then(ParaAttrs::clamp_indent),
-        }
     }
 }
 
