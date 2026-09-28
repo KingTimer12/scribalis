@@ -189,4 +189,23 @@ mod tests {
         assert_eq!(parse_line("isso acabou\\"), vec![t("isso acabou\\")]);
         assert_eq!(parse_line("um *dois* três"), vec![t("um "), m("dois", I), t(" três")]);
     }
+
+    #[test]
+    fn legacy_escape_loses_one_backslash_on_load() {
+        // Accepted legacy behavior: a `\` before an escapable character is consumed
+        // by the escape and does not survive the round trip through parse_line.
+        assert_eq!(parse_line("a \\* b"), vec![t("a * b")]);
+    }
+
+    #[test]
+    fn multibyte_char_next_to_delimiters_roundtrips() {
+        assert_eq!(line(&[m("é", B), t("ã")]), "**é**ã");
+        assert_eq!(parse_line("**é**ã"), vec![m("é", B), t("ã")]);
+    }
+
+    #[test]
+    fn whitespace_between_same_marked_runs_merges_on_reparse() {
+        assert_eq!(line(&[m("a", B), t(" "), m("b", B)]), "**a b**");
+        assert_eq!(parse_line("**a b**"), vec![m("a b", B)]);
+    }
 }
