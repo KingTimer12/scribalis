@@ -357,7 +357,8 @@
     padding: 12px 8px;
     outline: none;
   }
-  .ws-tree:focus-visible {
+  /* With a row selected, its accent bar already shows the focus. */
+  .ws-tree:focus-visible:not(:has(.ws-row.sel)) {
     box-shadow: inset 0 0 0 2px var(--accent);
     border-radius: 8px;
   }

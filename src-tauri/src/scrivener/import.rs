@@ -316,6 +316,73 @@ mod tests {
         keys.iter().map(|k| k.to_string()).collect()
     }
 
+    /// Header Scrivener 3 writes on macOS: font, color and style tables before the text.
+    const SCRIV3_HEADER: &str = r"{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Palatino-Roman;\f1\fnil\fcharset0 Palatino-Italic;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;}
+{\stylesheet{\s0\qc\b\f0\fs28 Heading;}{\s1\qj\i Body;}}
+\pard\tx360\tx720\sl264\slmult1\pardirnatural\partightenfactor0
+\f0\fs26 \cf2 ";
+
+    #[test]
+    fn realistic_scrivener3_project_imports_clean_text() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("Saga.scriv");
+        let data = dir.join("Files/Data");
+        let binder = r#"<?xml version="1.0" encoding="UTF-8"?>
+<ScrivenerProject Version="2.0"><Binder>
+  <BinderItem UUID="D" Type="DraftFolder" Created="x"><Title>Manuscrito</Title><Children>
+    <BinderItem UUID="P1" Type="Folder"><Title>Parte I &amp; II</Title><Children>
+      <BinderItem UUID="A" Type="Text"><Title>Chegada</Title><MetaData/></BinderItem>
+      <BinderItem UUID="B" Type="Text"><Title>Vazio</Title></BinderItem>
+    </Children></BinderItem>
+  </Children></BinderItem>
+  <BinderItem UUID="R" Type="ResearchFolder"><Title>Pesquisa</Title><Children>
+    <BinderItem UUID="F" Type="Folder"><Title>Lugares</Title><Children>
+      <BinderItem UUID="L" Type="Text"><Title>Porto de Ilen</Title></BinderItem>
+    </Children></BinderItem>
+  </Children></BinderItem>
+</Binder></ScrivenerProject>"#;
+        fs::create_dir_all(data.join("A")).unwrap();
+        fs::create_dir_all(data.join("L")).unwrap();
+        fs::write(dir.join("Saga.scrivx"), binder).unwrap();
+        // Unicode escapes built from arguments: "\u" plus four digits typed literally gets rewritten by tooling.
+        let a = format!(
+            r"{SCRIV3_HEADER}Ela chegou \'e0 cidade \uc0\u{}  cansada.\
+\
+\f1\i Ningu\'e9m\f0\i0  a esperava.}}",
+            8212
+        );
+        fs::write(data.join("A/content.rtf"), a).unwrap();
+        let l = format!(r"{SCRIV3_HEADER}Cora\uc0\u{} \u{}o do porto \u{}\u{} .}}", 231, 227, 55357, 56832);
+        fs::write(data.join("L/content.rtf"), l).unwrap();
+        let project = Project::open(&dir).unwrap();
+
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (book, meta, out) = import_new_book(&root, &project, &folders(&["D"])).unwrap();
+        // "Vazio" has no content.rtf: an empty scene, not a warning.
+        assert_eq!((out.chapters, out.warnings), (1, 0));
+        assert_eq!(meta.chapters[0].title, "Parte I & II");
+        let doc = read_chapter(&book, &meta.chapters[0]).unwrap();
+        let text = doc_text(&doc);
+        assert!(text.starts_with("Ela chegou à cidade — cansada."), "{text:?}");
+        assert!(text.contains("Ninguém a esperava."), "{text:?}");
+        for word in ["Palatino", "Heading", "Body", "cssrgb"] {
+            assert!(!text.contains(word), "table leaked into text: {text:?}");
+        }
+        // The stylesheet's \qc belongs to a style definition, not to the paragraphs.
+        let Block::Paragraph { attrs, .. } = &doc.content[0] else { panic!("{:?}", doc.content[0]) };
+        assert_eq!(attrs.text_align, None);
+
+        let ws = read_workspace(&book).unwrap();
+        let place = &ws.items[0].children[0].children[0];
+        assert_eq!(place.title, "Porto de Ilen");
+        let place_doc = crate::storage::workspace_io::read_node_doc(&book, place.file.as_deref().unwrap()).unwrap();
+        assert!(doc_text(&place_doc).starts_with("Coração do porto"), "{:?}", doc_text(&place_doc));
+    }
+
     #[test]
     fn new_book_gets_chapters_and_workspace() {
         let tmp = tempfile::tempdir().unwrap();
