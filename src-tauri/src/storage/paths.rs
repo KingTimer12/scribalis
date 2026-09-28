@@ -7,6 +7,9 @@ pub const ROOT_NAME: &str = "Scribalis";
 pub const IMAGES_DIR: &str = "imagens";
 pub const CHAPTERS_DIR: &str = "capitulos";
 pub const META_FILE: &str = "metadata.json";
+pub const AREA_DIR: &str = "area";
+pub const AREA_FILE: &str = "area.json";
+pub const AREA_FILES_DIR: &str = "arquivos";
 
 /// Folder name for a book title: ascii letters/digits joined by dashes.
 pub fn slugify(title: &str) -> String {

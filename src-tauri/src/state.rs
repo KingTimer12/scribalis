@@ -89,6 +89,19 @@ impl Library {
         let now: usize = self.totals.values().sum();
         now.saturating_sub(self.session_base.unwrap_or(now))
     }
+
+    /// Word total of a book as last seen (0 if unknown).
+    pub fn total_of(&self, id: &str) -> usize {
+        self.totals.get(id).copied().unwrap_or(0)
+    }
+
+    /// Words that entered a book without being typed (import, workspace text
+    /// sent to chapters) join the session baseline, so today is unchanged.
+    pub fn absorb(&mut self, words: usize) {
+        if let Some(base) = self.session_base.as_mut() {
+            *base += words;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -136,5 +149,22 @@ mod tests {
     fn unknown_book_is_an_error() {
         let mut lib = Library::new(PathBuf::from("."));
         assert!(lib.with_book("nope", |_, _| Ok(())).is_err());
+    }
+
+    #[test]
+    fn absorbed_words_do_not_count_as_today() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "A").unwrap();
+        let mut lib = Library::new(root.path().to_path_buf());
+        lib.register(&dir, &meta);
+        lib.start_session_if_needed();
+        let chapter_id = meta.chapters[0].id.clone();
+        let before = lib.total_of(&meta.id);
+        lib.with_book(&meta.id, |d, m| {
+            chapter::save(d, m, &chapter_id, &crate::markdown::parse::parse("um dois três")).map(|_| ())
+        })
+        .unwrap();
+        lib.absorb(lib.total_of(&meta.id) - before);
+        assert_eq!(lib.today(), 0);
     }
 }

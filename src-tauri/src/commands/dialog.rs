@@ -15,3 +15,16 @@ pub fn pick_image(window: &WebviewWindow) -> Option<PathBuf> {
         .blocking_pick_file()
         .and_then(|f| f.into_path().ok())
 }
+
+/// Native multi-file picker, any file type. Blocking: call only from async commands.
+pub fn pick_files(window: &WebviewWindow) -> Vec<PathBuf> {
+    window
+        .dialog()
+        .file()
+        .set_parent(window)
+        .blocking_pick_files()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|f| f.into_path().ok())
+        .collect()
+}

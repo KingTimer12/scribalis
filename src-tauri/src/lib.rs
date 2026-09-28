@@ -15,7 +15,7 @@ use std::sync::Mutex;
 
 use tauri::Manager;
 
-use commands::{book, chapter, library, prefs, stats, update as update_cmd};
+use commands::{book, chapter, library, prefs, stats, update as update_cmd, workspace};
 use state::Library;
 use storage::paths::ROOT_NAME;
 
@@ -60,6 +60,17 @@ pub fn run() {
             stats::stats_today,
             update_cmd::update_check,
             update_cmd::update_install,
+            workspace::workspace_tree,
+            workspace::workspace_create,
+            workspace::workspace_rename,
+            workspace::workspace_set_notes,
+            workspace::workspace_move,
+            workspace::workspace_delete,
+            workspace::workspace_load_doc,
+            workspace::workspace_save_doc,
+            workspace::workspace_pick_files,
+            workspace::workspace_to_chapter,
+            workspace::workspace_open_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
