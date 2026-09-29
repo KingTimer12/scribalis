@@ -9,6 +9,7 @@ import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
 import { AppBrand } from "./AppBrand";
+import { ThemeToggle } from "./ThemeToggle";
 import { UpdateBadge } from "./UpdateBadge";
 import { WindowControls } from "./WindowControls";
 
@@ -46,6 +47,7 @@ export function TopBar() {
         </Show>
       </div>
       <div class="flex items-center gap-[18px]">
+        <ThemeToggle />
         <UpdateBadge />
         <Hint keys="Ctrl K">comandos</Hint>
         <Hint keys="Ctrl /">atalhos</Hint>
