@@ -17,15 +17,21 @@ pub struct Metadata {
     pub cover: Option<String>,
     #[serde(default)]
     pub updated_at: u64,
-    #[serde(default)]
+    /// Legacy (tree v1): index of the open chapter. Read only by the migration.
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub cur: usize,
+    /// Id of the last opened node (chapter or not).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open: Option<String>,
     #[serde(default)]
     pub separator: Separator,
     #[serde(default)]
     pub header: Option<String>,
     #[serde(default)]
     pub footer: Option<String>,
-    #[serde(default)]
+    /// Tree v1: the chapter list, read only by the migration. Tree v2: a derived mirror of the
+    /// Manuscrito (`manuscript::mirror`), written for the cloud server and older app versions.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chapters: Vec<ChapterEntry>,
     /// Unknown keys survive a read/write cycle.
     #[serde(flatten)]
@@ -71,6 +77,10 @@ impl Default for Separator {
     }
 }
 
+fn is_zero(n: &usize) -> bool {
+    *n == 0
+}
+
 impl Metadata {
     pub fn new(id: String, title: &str, chapters: Vec<ChapterEntry>) -> Self {
         Self {
@@ -81,6 +91,7 @@ impl Metadata {
             cover: None,
             updated_at: crate::ids::now_ms(),
             cur: 0,
+            open: None,
             separator: Separator::default(),
             header: None,
             footer: None,
@@ -110,6 +121,15 @@ impl ChapterEntry {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn v2_metadata_omits_the_legacy_fields() {
+        let mut meta = Metadata::new("a".into(), "T", vec![]);
+        let v = serde_json::to_value(&meta).unwrap();
+        assert!(v.get("chapters").is_none() && v.get("cur").is_none() && v.get("open").is_none());
+        meta.open = Some("c1".into());
+        assert_eq!(serde_json::to_value(&meta).unwrap()["open"], "c1");
+    }
+
     use super::*;
 
     #[test]

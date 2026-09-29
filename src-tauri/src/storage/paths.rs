@@ -5,6 +5,8 @@ use crate::text::normalize::fold;
 
 pub const ROOT_NAME: &str = "Scribalis";
 pub const IMAGES_DIR: &str = "imagens";
+/// Copy of `metadata.json` taken before the migration to tree version 2.
+pub const BACKUP_META_FILE: &str = "metadata.antes-da-migracao.json";
 pub const CHAPTERS_DIR: &str = "capitulos";
 pub const META_FILE: &str = "metadata.json";
 pub const AREA_DIR: &str = "area";
@@ -46,6 +48,16 @@ pub fn safe_join(base: &Path, rel: &str) -> AppResult<PathBuf> {
         return Err(AppError::msg(format!("Caminho inválido na obra: {rel}")));
     }
     Ok(base.join(rel_path))
+}
+
+/// Book-relative file of chapter `id`.
+pub fn chapter_rel(id: &str) -> String {
+    format!("{CHAPTERS_DIR}/{id}.md")
+}
+
+/// `area/`-relative file of a text that came out of the Manuscrito.
+pub fn area_text_rel(id: &str) -> String {
+    format!("{AREA_FILES_DIR}/{id}.md")
 }
 
 #[cfg(test)]
