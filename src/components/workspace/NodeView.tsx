@@ -1,10 +1,12 @@
 import { Match, Show, Switch } from "solid-js";
 import type { AreaNode } from "../../api/types";
 import { bookAsset } from "../../lib/assets";
+import { isContainer } from "../../lib/tree";
 import { openFile } from "../../store/actions/workspace";
 import { focusTarget } from "../../store/focus";
 import { openAreaNode } from "../../store/selectors/workspace";
 import { state } from "../../store/state";
+import { Corkboard } from "../corkboard/Corkboard";
 import { FormatBar } from "../editor/FormatBar";
 import { RichEditor } from "../editor/RichEditor";
 import { EmptyArea } from "./EmptyArea";
@@ -55,11 +57,15 @@ function FileView(props: { node: AreaNode }) {
   );
 }
 
-/** Right pane of the workspace: whatever node is open, or the empty state. */
+/** Right pane of the workspace: the open node (a folder shows its board), or the empty state. */
 export function NodeView() {
   const of = (kind: AreaNode["kind"]) => () => {
     const n = openAreaNode();
     return n?.kind === kind ? n : null;
+  };
+  const board = () => {
+    const n = openAreaNode();
+    return n && isContainer(n.kind) ? n : null;
   };
   const text = of("text");
   const image = of("image");
@@ -67,6 +73,7 @@ export function NodeView() {
   // Non-keyed matches: moving between two texts keeps the same editor mounted.
   return (
     <Switch fallback={<EmptyArea />}>
+      <Match when={board()}>{(n) => <Corkboard folder={n()} />}</Match>
       <Match when={text()}>{(n) => <TextView node={n()} />}</Match>
       <Match when={image()}>{(n) => <ImageView node={n()} />}</Match>
       <Match when={file()}>{(n) => <FileView node={n()} />}</Match>

@@ -5,7 +5,7 @@ import { addFiles, createNode } from "../../store/actions/workspace";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 
-/** Shown when nothing (or a folder) is open: the ways to start filling the tree. */
+/** Shown when nothing is open: the ways to start filling the tree. */
 export function EmptyArea() {
   return (
     <div class="ws-empty">
