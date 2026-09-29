@@ -7,7 +7,10 @@ const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [solid(),tailwindcss()],
+  // Vitest runs Vite in "serve" mode too, so vite-plugin-solid would otherwise
+  // inject the solid-refresh HMR runtime into .tsx test suites, which fails to
+  // resolve outside a real dev server. Disable HMR only under vitest.
+  plugins: [solid({ hot: !process.env.VITEST }), tailwindcss()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
