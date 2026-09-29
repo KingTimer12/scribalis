@@ -1018,6 +1018,10 @@
     color: var(--ink);
     scrollbar-width: none;
   }
+  .syn-ta {
+    flex: none;
+    height: 96px;
+  }
   .help {
     position: absolute;
     top: 80px;
