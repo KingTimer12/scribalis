@@ -8,18 +8,42 @@ use crate::ids::new_id;
 use crate::model::{
     doc::Doc,
     manuscript::{self, in_manuscript},
-    metadata::Status,
+    metadata::{Metadata, Status},
     workspace::{find, find_mut, insert, locate, move_node, Node, NodeKind},
 };
 use crate::storage::{
-    paths::{area_text_rel, chapter_rel},
+    metadata_io::write_metadata,
+    paths::{area_text_rel, chapter_rel, safe_join},
     workspace_io::{read_doc_at, read_workspace, remove_file_at, write_doc_at, write_workspace},
 };
 use crate::text::words::doc_words;
 
-/// Word total of the book's chapters, from the tree on disk.
-pub fn book_words(dir: &Path) -> AppResult<usize> {
-    Ok(manuscript::total_words(&read_workspace(dir)?.items))
+/// Rewrites `metadata.chapters` as the derived mirror of the Manuscrito when it drifted from the
+/// tree, and returns the book's word total. The app never reads the mirror back; the cloud server,
+/// custom servers and older app versions do. Reads `area.json` once.
+pub fn sync_mirror(dir: &Path, meta: &mut Metadata) -> AppResult<usize> {
+    let ws = read_workspace(dir)?;
+    let words = manuscript::total_words(&ws.items);
+    if manuscript::manuscript(&ws.items).is_none() {
+        return Ok(words);
+    }
+    let mirror = manuscript::mirror(&ws.items);
+    if meta.chapters != mirror {
+        meta.chapters = mirror;
+        write_metadata(dir, meta)?;
+    }
+    Ok(words)
+}
+
+/// Marks chapters whose file is gone (`missing`), for the webview to warn about. Only for trees
+/// sent to the front: the flag is never saved.
+pub fn flag_missing(dir: &Path, items: &mut [Node]) {
+    for n in items {
+        if n.kind == NodeKind::Chapter {
+            n.missing = n.file.as_deref().is_none_or(|f| !safe_join(dir, f).is_ok_and(|p| p.is_file()));
+        }
+        flag_missing(dir, &mut n.children);
+    }
 }
 
 /// Writes `doc` as a new chapter file; returns its node (draft, words counted), not yet in the tree.
@@ -204,7 +228,7 @@ mod tests {
         let (_r, dir) = book();
         let first = chapters(&read_workspace(&dir).unwrap().items)[0].id.clone();
         add_chapter(&dir, "um dois");
-        assert_eq!(book_words(&dir).unwrap(), 2);
+        assert_eq!(manuscript::total_words(&read_workspace(&dir).unwrap().items), 2);
         let mut items = read_workspace(&dir).unwrap().items;
         let n = new_chapter(&dir, "", &parse("três")).unwrap();
         let id = n.id.clone();

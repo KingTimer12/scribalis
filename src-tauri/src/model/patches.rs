@@ -7,7 +7,8 @@ use super::metadata::Status;
 pub struct BookPatch {
     pub title: Option<String>,
     pub author: Option<String>,
-    pub cur: Option<usize>,
+    /// Id of the node just opened.
+    pub open: Option<String>,
     pub separator_text: Option<String>,
 }
 

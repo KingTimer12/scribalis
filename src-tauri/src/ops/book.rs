@@ -13,7 +13,7 @@ fn discard_image(dir: &Path, rel: &str) {
     }
 }
 
-/// Applies a patch. Only a `cur` change leaves `updated_at` alone.
+/// Applies a patch. Only an `open` change leaves `updated_at` alone.
 pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()> {
     let mut touched = false;
     let mut old_separator_image = None;
@@ -32,8 +32,8 @@ pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()
         meta.separator = Separator::Text { text };
         touched = true;
     }
-    if let Some(cur) = patch.cur {
-        meta.cur = cur.min(meta.chapters.len().saturating_sub(1));
+    if let Some(open) = patch.open {
+        meta.open = Some(open);
     }
     if touched {
         meta.updated_at = now_ms();
@@ -145,12 +145,13 @@ mod tests {
     }
 
     #[test]
-    fn cur_is_clamped_and_not_a_touch() {
+    fn open_is_saved_and_not_a_touch() {
         let root = tempfile::tempdir().unwrap();
         let (dir, mut meta) = create_book(root.path(), "Obra").unwrap();
         meta.updated_at = 5;
-        update(&dir, &mut meta, BookPatch { cur: Some(9), ..Default::default() }).unwrap();
-        assert_eq!((meta.cur, meta.updated_at), (0, 5));
+        update(&dir, &mut meta, BookPatch { open: Some("n1".into()), ..Default::default() }).unwrap();
+        assert_eq!((meta.open.as_deref(), meta.updated_at), (Some("n1"), 5));
+        assert_eq!(crate::storage::metadata_io::read_metadata(&dir).unwrap().open.as_deref(), Some("n1"));
     }
 
     #[test]

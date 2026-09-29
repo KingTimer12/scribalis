@@ -70,9 +70,16 @@ fn migrate(dir: &Path, meta: &Metadata, ws: &Workspace) -> AppResult<Metadata> {
 
 /// Reads a book for editing, migrating it on disk first when its tree is still v1.
 pub fn open_book(dir: &Path) -> AppResult<Metadata> {
-    let meta = read_metadata(dir)?;
+    let mut meta = read_metadata(dir)?;
     let ws = read_workspace(dir)?;
     if !needs_upgrade(&ws) {
+        // A stop between the migration's two writes leaves a v2 tree next to metadata that still
+        // has `cur`: the open node is the chapter at that index in the Manuscrito's order.
+        if meta.open.is_none() && meta.cur > 0 {
+            meta.open = manuscript::chapters(&ws.items).get(meta.cur).map(|c| c.id.clone());
+            meta.cur = 0;
+            write_metadata(dir, &meta)?;
+        }
         return Ok(meta);
     }
     migrate(dir, &meta, &ws).map_err(|e| {
@@ -223,6 +230,17 @@ mod tests {
         assert_eq!(open_book(dir).unwrap_err().0, MIGRATION_FAILED);
         assert_eq!(read_metadata(dir).unwrap().chapters.len(), 3);
         assert!(!dir.join(AREA_DIR).join(AREA_FILE).exists());
+    }
+
+    #[test]
+    fn a_stop_between_the_two_writes_keeps_the_open_chapter() {
+        let dir = v1_book(true);
+        // Simulate the crash: the v2 tree is saved, the metadata is still v1 (`cur` = 1).
+        let (_, ws) = upgrade(&v1_meta(), &read_workspace(dir.path()).unwrap(), "m".into());
+        write_workspace(dir.path(), &ws).unwrap();
+        let meta = open_book(dir.path()).unwrap();
+        assert_eq!((meta.open.as_deref(), meta.cur), (Some("c2"), 0));
+        assert_eq!(read_metadata(dir.path()).unwrap().open.as_deref(), Some("c2"));
     }
 
     #[test]

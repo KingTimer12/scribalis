@@ -81,7 +81,8 @@ pub async fn restore(app: &AppHandle, book_id: &str, snapshot_id: &str) -> Cloud
         let mut lib = lock(&libs)?;
         swap::swap_in(&root, book_id, &dir)?;
         let meta = read_metadata(&dir)?;
-        lib.replace(&dir, &meta);
+        let words = crate::ops::library::summarize(&dir, &meta).1;
+        lib.replace(&dir, &meta.id, words);
         meta
     };
     if meta.id != book_id {
@@ -117,7 +118,8 @@ pub async fn download_new(app: &AppHandle, book_id: &str) -> CloudResult<(PathBu
         let target = unique_dir(&root, &slugify(&detail.title));
         swap::place_new(&root, book_id, &target)?;
         let meta = read_metadata(&target)?;
-        lib.register(&target, &meta);
+        let words = crate::ops::library::summarize(&target, &meta).1;
+        lib.register(&target, &meta.id, words);
         (target, meta)
     };
     cloud.edit(|f| {

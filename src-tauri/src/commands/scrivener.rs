@@ -59,7 +59,8 @@ pub async fn scrivener_import(
             let mut lib = lock(&state)?;
             fs::create_dir_all(&lib.root)?;
             let (dir, meta, out) = import_new_book(&lib.root.clone(), &project, &set)?;
-            lib.register(&dir, &meta);
+            let words = crate::ops::library::summarize(&dir, &meta).1;
+            lib.register(&dir, &meta.id, words);
             Ok(ImportResult::new(meta.id, out))
         }
         ImportTarget::Book { id } => {

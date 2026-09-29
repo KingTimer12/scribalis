@@ -68,6 +68,10 @@ pub struct Node {
     pub words: Option<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<Node>,
+    /// View-only flag for the webview: a chapter whose file is gone. Never read from or written
+    /// to disk (`flag_missing` sets it on trees sent to the front, after they are saved).
+    #[serde(default, skip_deserializing, skip_serializing_if = "is_false")]
+    pub missing: bool,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -83,6 +87,7 @@ impl Node {
             status: None,
             words: None,
             children: Vec::new(),
+            missing: false,
             extra: Map::new(),
         }
     }
@@ -96,6 +101,10 @@ impl Node {
     pub fn manuscript(id: String) -> Node {
         Node { kind: NodeKind::Manuscript, ..Node::folder(id, MANUSCRIPT_TITLE) }
     }
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 fn not_found() -> AppError {

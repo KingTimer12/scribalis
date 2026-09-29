@@ -3,11 +3,12 @@ use std::{collections::HashSet, fs, path::{Path, PathBuf}};
 use crate::error::AppResult;
 use crate::ids::{new_id, now_ms};
 use crate::markdown::parse::parse;
-use crate::model::{doc::Doc, metadata::{ChapterEntry, Metadata}};
+use crate::model::{doc::Doc, manuscript, metadata::{ChapterEntry, Metadata}, views::BookSummary};
 use crate::samples::sample_books;
 use crate::storage::{
     chapter_io::write_chapter,
     metadata_io::{read_metadata, write_metadata},
+    migrate::peek_tree,
     paths::{slugify, unique_dir, CHAPTERS_DIR, IMAGES_DIR},
 };
 use crate::text::words::doc_words;
@@ -65,6 +66,16 @@ pub fn scan(root: &Path) -> AppResult<Scan> {
     Ok(Scan { books, warnings })
 }
 
+/// Library card of a book and its word total. A v1 book is read through an in-memory
+/// migration, so listing never writes; an unreadable tree counts as empty.
+pub fn summarize(dir: &Path, meta: &Metadata) -> (BookSummary, usize) {
+    let items = peek_tree(dir, meta).unwrap_or_else(|e| {
+        eprintln!("could not read the tree of {}: {e}", dir.display());
+        Vec::new()
+    });
+    (BookSummary::from_tree(dir, meta, &items), manuscript::total_words(&items))
+}
+
 /// Creates the folder tree, an empty first chapter and the metadata.
 pub fn create_book(root: &Path, title: &str) -> AppResult<(PathBuf, Metadata)> {
     let dir = unique_dir(root, &slugify(title));
@@ -109,6 +120,21 @@ pub fn write_samples(root: &Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listing_a_v1_book_writes_nothing() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("antiga");
+        fs::create_dir_all(&dir).unwrap();
+        let mut entry = ChapterEntry::new("c1".into());
+        entry.words = 42;
+        write_metadata(&dir, &Metadata::new("b1".into(), "Antiga", vec![entry])).unwrap();
+        let meta = read_metadata(&dir).unwrap();
+        let (card, words) = summarize(&dir, &meta);
+        assert_eq!((card.chapters, card.words, words), (1, 42, 42));
+        assert!(!dir.join("area").exists());
+        assert!(!dir.join(crate::storage::paths::BACKUP_META_FILE).exists());
+    }
 
     #[test]
     fn create_then_scan() {

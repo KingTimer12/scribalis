@@ -1,19 +1,11 @@
-use serde::Serialize;
 use tauri::{AppHandle, State, WebviewWindow};
 use tauri_plugin_opener::OpenerExt;
 
 use super::dialog::pick_files;
 use crate::error::{AppError, AppResult};
-use crate::model::{doc::Doc, views::BookMeta, workspace::{Node, NodeKind}};
+use crate::model::{doc::Doc, workspace::{Node, NodeKind}};
 use crate::ops::workspace as ops;
 use crate::state::{lock, SharedLibrary};
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ToChapter {
-    pub book: BookMeta,
-    pub items: Vec<Node>,
-}
 
 #[tauri::command]
 pub async fn workspace_tree(state: State<'_, SharedLibrary>, book_id: String) -> AppResult<Vec<Node>> {
@@ -42,6 +34,9 @@ pub async fn workspace_set_notes(state: State<'_, SharedLibrary>, book_id: Strin
     lock(&state)?.with_book(&book_id, |dir, _meta| ops::set_notes(dir, &id, &notes))
 }
 
+/// Moving across the Manuscrito's edge converts texts ⇄ chapters. Words that enter the
+/// chapters were not typed today, and words that leave them were not erased: the daily
+/// count stays where it was.
 #[tauri::command]
 pub async fn workspace_move(
     state: State<'_, SharedLibrary>,
@@ -50,7 +45,16 @@ pub async fn workspace_move(
     parent: Option<String>,
     index: usize,
 ) -> AppResult<Vec<Node>> {
-    lock(&state)?.with_book(&book_id, |dir, _meta| ops::move_to(dir, &id, parent.as_deref(), index))
+    let mut lib = lock(&state)?;
+    let before = lib.total_of(&book_id);
+    let items = lib.with_book(&book_id, |dir, _meta| ops::move_to(dir, &id, parent.as_deref(), index))?;
+    let after = lib.total_of(&book_id);
+    if after > before {
+        lib.absorb(after - before);
+    } else {
+        lib.release(before - after);
+    }
+    Ok(items)
 }
 
 #[tauri::command]
@@ -81,41 +85,6 @@ pub async fn workspace_pick_files(
         return Ok(None);
     }
     lock(&state)?.with_book(&book_id, |dir, _meta| ops::import_files(dir, parent.as_deref(), &paths)).map(Some)
-}
-
-#[tauri::command]
-pub async fn workspace_to_chapter(state: State<'_, SharedLibrary>, book_id: String, id: String) -> AppResult<ToChapter> {
-    let mut lib = lock(&state)?;
-    let before = lib.total_of(&book_id);
-    let (book, items) = lib.with_book(&book_id, |dir, meta| {
-        let items = ops::to_chapter(dir, meta, &id)?;
-        Ok((BookMeta::from_meta(dir, meta), items))
-    })?;
-    let words = lib.total_of(&book_id).saturating_sub(before);
-    lib.absorb(words);
-    Ok(ToChapter { book, items })
-}
-
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct FromChapter {
-    pub book: BookMeta,
-    /// Id of the new workspace text.
-    pub id: String,
-    pub items: Vec<Node>,
-}
-
-#[tauri::command]
-pub async fn workspace_from_chapter(state: State<'_, SharedLibrary>, book_id: String, chapter_id: String) -> AppResult<FromChapter> {
-    let mut lib = lock(&state)?;
-    let before = lib.total_of(&book_id);
-    let (book, created) = lib.with_book(&book_id, |dir, meta| {
-        let created = ops::from_chapter(dir, meta, &chapter_id)?;
-        Ok((BookMeta::from_meta(dir, meta), created))
-    })?;
-    let words = before.saturating_sub(lib.total_of(&book_id));
-    lib.release(words);
-    Ok(FromChapter { book, id: created.id, items: created.items })
 }
 
 #[tauri::command]

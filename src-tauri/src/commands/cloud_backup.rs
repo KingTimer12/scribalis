@@ -103,5 +103,5 @@ pub async fn cloud_restore(app: AppHandle, book_id: String, snapshot_id: String)
 #[tauri::command]
 pub async fn cloud_download(app: AppHandle, book_id: String) -> AppResult<BookSummary> {
     let (dir, meta) = restore::download_new(&app, &book_id).await?;
-    Ok(BookSummary { cloud: true, ..BookSummary::from_meta(&dir, &meta) })
+    Ok(BookSummary { cloud: true, ..crate::ops::library::summarize(&dir, &meta).0 })
 }

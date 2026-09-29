@@ -1,23 +1,20 @@
-//! Operations on a book's workspace tree: create, rename, move, delete,
-//! text documents, file imports, promoting a text to a chapter and back.
+//! Operations on a book's tree: create, rename, move (converting across the Manuscrito),
+//! delete, text documents and file imports. Chapter text lives in `ops::chapter`.
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::error::{AppError, AppResult};
-use crate::ids::{new_id, now_ms};
+use crate::ids::new_id;
 use crate::model::{
     doc::Doc,
-    metadata::{ChapterEntry, Metadata},
-    workspace::{find, find_mut, insert, move_node, remove, subtree_files, Node, NodeKind},
+    manuscript,
+    workspace::{find, find_mut, insert, remove, subtree_files, Node, NodeKind},
 };
-use crate::ops::chapter;
-use crate::storage::{
-    chapter_io::{read_chapter, write_chapter},
-    metadata_io::write_metadata,
-    workspace_io::{area_path, copy_into_area, read_node_doc, read_workspace, remove_file_at, write_node_doc, write_workspace},
+use crate::ops::manuscript::{flag_missing, move_converting, new_chapter};
+use crate::storage::workspace_io::{
+    area_path, copy_into_area, read_node_doc, read_workspace, remove_file_at, write_node_doc, write_workspace,
 };
-use crate::text::words::doc_words;
 
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +32,7 @@ fn edit(dir: &Path, f: impl FnOnce(&mut Vec<Node>) -> AppResult<()>) -> AppResul
     let mut ws = read_workspace(dir)?;
     f(&mut ws.items)?;
     write_workspace(dir, &ws)?;
+    flag_missing(dir, &mut ws.items);
     Ok(ws.items)
 }
 
@@ -56,28 +54,47 @@ fn text_file(dir: &Path, id: &str) -> AppResult<String> {
     }
 }
 
-pub fn tree(dir: &Path) -> AppResult<Vec<Node>> {
-    Ok(read_workspace(dir)?.items)
+fn parent_exists(items: &[Node], parent: Option<&str>) -> AppResult<()> {
+    match parent {
+        Some(p) if find(items, p).is_none() => Err(not_found()),
+        _ => Ok(()),
+    }
 }
 
-/// New folder or empty text under `parent` (None = root).
+/// The tree for the webview: chapters whose file is gone are flagged `missing`.
+pub fn tree(dir: &Path) -> AppResult<Vec<Node>> {
+    let mut items = read_workspace(dir)?.items;
+    flag_missing(dir, &mut items);
+    Ok(items)
+}
+
+/// New folder, empty text or empty chapter under `parent` (None = root, never before the Manuscrito).
 pub fn create(dir: &Path, parent: Option<&str>, index: usize, kind: NodeKind, title: &str) -> AppResult<Created> {
-    let id = new_id();
-    let node = match kind {
-        NodeKind::Folder => Node::folder(id.clone(), title),
-        NodeKind::Text => {
-            let file = format!("{id}.md");
-            write_node_doc(dir, &file, &Doc::default())?;
-            Node::leaf(id.clone(), NodeKind::Text, title, &file)
-        }
-        _ => return Err(AppError::msg("Use \"Adicionar arquivos\" para imagens e anexos")),
-    };
-    let items = edit(dir, |items| insert(items, parent, index, node))?;
+    let mut id = String::new();
+    let items = edit(dir, |items| {
+        parent_exists(items, parent)?;
+        manuscript::check_create(items, kind, parent)?;
+        let index = manuscript::root_index(items, parent, index);
+        let node = match kind {
+            NodeKind::Folder => Node::folder(new_id(), title),
+            NodeKind::Text => {
+                let nid = new_id();
+                let file = format!("{nid}.md");
+                write_node_doc(dir, &file, &Doc::default())?;
+                Node::leaf(nid, NodeKind::Text, title, &file)
+            }
+            NodeKind::Chapter => new_chapter(dir, title, &Doc::default())?,
+            _ => return Err(AppError::msg("Use \"Adicionar arquivos\" para imagens e anexos")),
+        };
+        id = node.id.clone();
+        insert(items, parent, index, node)
+    })?;
     Ok(Created { id, items })
 }
 
 pub fn rename(dir: &Path, id: &str, title: &str) -> AppResult<Vec<Node>> {
     edit(dir, |items| {
+        manuscript::check_rename(items, id)?;
         find_mut(items, id).ok_or_else(not_found)?.title = title.to_string();
         Ok(())
     })
@@ -90,14 +107,18 @@ pub fn set_notes(dir: &Path, id: &str, notes: &str) -> AppResult<Vec<Node>> {
     })
 }
 
+/// Moves a node; crossing the Manuscrito's edge turns texts into chapters or back.
 pub fn move_to(dir: &Path, id: &str, parent: Option<&str>, index: usize) -> AppResult<Vec<Node>> {
-    edit(dir, |items| move_node(items, id, parent, index))
+    let mut items = move_converting(dir, id, parent, index)?;
+    flag_missing(dir, &mut items);
+    Ok(items)
 }
 
 /// Removes the node and its subtree; files go only after the tree is saved.
 pub fn delete(dir: &Path, id: &str) -> AppResult<Vec<Node>> {
     let mut files = Vec::new();
     let items = edit(dir, |items| {
+        manuscript::check_delete(items, id)?;
         let node = remove(items, id).ok_or_else(not_found)?;
         files = subtree_files(&node);
         Ok(())
@@ -114,8 +135,13 @@ pub fn save_doc(dir: &Path, id: &str, doc: &Doc) -> AppResult<()> {
     write_node_doc(dir, &text_file(dir, id)?, doc)
 }
 
-/// Copies files chosen on disk into the workspace, appended under `parent`.
+/// Copies files chosen on disk into the workspace, appended under `parent` (never the Manuscrito).
 pub fn import_files(dir: &Path, parent: Option<&str>, paths: &[PathBuf]) -> AppResult<Vec<Node>> {
+    let current = read_workspace(dir)?.items;
+    parent_exists(&current, parent)?;
+    if parent.is_some_and(|p| manuscript::in_manuscript(&current, p)) {
+        return Err(AppError::msg(manuscript::NO_MEDIA));
+    }
     let mut nodes = Vec::new();
     for src in paths {
         let id = new_id();
@@ -138,174 +164,150 @@ pub fn file_path(dir: &Path, id: &str) -> AppResult<PathBuf> {
     area_path(dir, node.file.as_deref().ok_or_else(not_found)?)
 }
 
-/// Turns a text into the last chapter. Order: chapter file, metadata, tree,
-/// and only then the old file — a failure midway duplicates, never loses, the text.
-pub fn to_chapter(dir: &Path, meta: &mut Metadata, id: &str) -> AppResult<Vec<Node>> {
-    let ws = read_workspace(dir)?;
-    let node = find(&ws.items, id).ok_or_else(not_found)?.clone();
-    let file = match (node.kind, &node.file) {
-        (NodeKind::Text, Some(f)) => f.clone(),
-        _ => return Err(AppError::msg("Só textos podem virar capítulos")),
-    };
-    let doc = read_node_doc(dir, &file)?;
-    let mut entry = ChapterEntry::new(new_id());
-    entry.title = node.title.clone();
-    entry.notes = node.notes.clone();
-    entry.words = doc_words(&doc);
-    write_chapter(dir, &entry, &doc)?;
-    meta.chapters.push(entry);
-    meta.updated_at = now_ms();
-    write_metadata(dir, meta)?;
-    let items = edit(dir, |items| remove(items, id).map(|_| ()).ok_or_else(not_found))?;
-    discard(dir, &[(NodeKind::Text, file)]);
-    Ok(items)
-}
-
-/// Turns a chapter into a text at the end of the workspace root. Order: text file,
-/// tree, and only then the chapter (metadata, then its file) — a failure midway
-/// duplicates, never loses, the text. Resolves to the new node's id and the tree.
-pub fn from_chapter(dir: &Path, meta: &mut Metadata, chapter_id: &str) -> AppResult<Created> {
-    if meta.chapters.len() == 1 {
-        return Err(AppError::msg("A obra precisa de pelo menos um capítulo"));
-    }
-    let entry = meta.chapters.iter().find(|c| c.id == chapter_id).ok_or_else(|| AppError::msg("Capítulo não encontrado"))?.clone();
-    let doc = read_chapter(dir, &entry)?;
-    let id = new_id();
-    let file = format!("{id}.md");
-    write_node_doc(dir, &file, &doc)?;
-    let title = if entry.title.trim().is_empty() { "Sem título" } else { entry.title.trim() };
-    let mut node = Node::leaf(id.clone(), NodeKind::Text, title, &file);
-    node.notes = entry.notes.clone();
-    let items = edit(dir, |items| {
-        let end = items.len();
-        insert(items, None, end, node)
-    })?;
-    chapter::delete(dir, meta, chapter_id)?;
-    Ok(Created { id, items })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::markdown::parse::parse;
+    use crate::model::manuscript::{chapters, LAST_CHAPTER, NO_MEDIA};
+    use crate::model::metadata::Status;
     use crate::ops::library::create_book;
-    use crate::storage::paths::AREA_DIR;
+    use crate::storage::{migrate::open_book, paths::AREA_DIR};
 
-    fn book() -> (tempfile::TempDir, std::path::PathBuf, Metadata) {
+    fn book() -> (tempfile::TempDir, PathBuf) {
         let root = tempfile::tempdir().unwrap();
-        let (dir, meta) = create_book(root.path(), "Obra").unwrap();
-        (root, dir, meta)
+        let (dir, _meta) = create_book(root.path(), "Obra").unwrap();
+        open_book(&dir).unwrap();
+        (root, dir)
+    }
+
+    fn manuscript_id(dir: &Path) -> String {
+        tree(dir).unwrap()[0].id.clone()
     }
 
     #[test]
-    fn empty_book_has_empty_tree_and_no_area_folder() {
-        let (_r, dir, _m) = book();
-        assert!(tree(&dir).unwrap().is_empty());
-        assert!(!dir.join(AREA_DIR).exists());
+    fn the_manuscript_comes_first_with_one_chapter() {
+        let (_r, dir) = book();
+        let items = tree(&dir).unwrap();
+        assert_eq!(items[0].kind, NodeKind::Manuscript);
+        assert_eq!(chapters(&items).len(), 1);
     }
 
     #[test]
     fn create_text_writes_file_and_saves_tree() {
-        let (_r, dir, _m) = book();
+        let (_r, dir) = book();
+        // Index 0 at the root lands after the Manuscrito.
         let folder = create(&dir, None, 0, NodeKind::Folder, "Pesquisa").unwrap();
+        assert_eq!(folder.items[1].id, folder.id);
         let text = create(&dir, Some(&folder.id), 0, NodeKind::Text, "Ana").unwrap();
         let node = find(&text.items, &text.id).unwrap();
         assert_eq!(node.file.as_deref(), Some(format!("{}.md", text.id).as_str()));
         assert!(dir.join(AREA_DIR).join(node.file.as_ref().unwrap()).exists());
         assert_eq!(tree(&dir).unwrap(), text.items);
-        assert!(create(&dir, None, 0, NodeKind::Image, "x").is_err());
+        assert!(create(&dir, None, 1, NodeKind::Image, "x").is_err());
+    }
+
+    #[test]
+    fn chapters_are_created_only_inside_the_manuscript() {
+        let (_r, dir) = book();
+        let m = manuscript_id(&dir);
+        let c = create(&dir, Some(&m), 1, NodeKind::Chapter, "Dois").unwrap();
+        let node = find(&c.items, &c.id).unwrap();
+        assert_eq!((node.kind, node.status, node.words), (NodeKind::Chapter, Some(Status::Rascunho), Some(0)));
+        assert!(dir.join(format!("capitulos/{}.md", c.id)).is_file());
+        assert_eq!(create(&dir, None, 1, NodeKind::Chapter, "x").unwrap_err().0, "Capítulos ficam dentro do Manuscrito");
+        assert_eq!(create(&dir, Some(&m), 0, NodeKind::Text, "x").unwrap_err().0, "Textos livres ficam fora do Manuscrito");
+        assert_eq!(create(&dir, Some("zz"), 0, NodeKind::Folder, "x").unwrap_err().0, "Item não encontrado");
     }
 
     #[test]
     fn save_and_load_text_roundtrip() {
-        let (_r, dir, _m) = book();
-        let c = create(&dir, None, 0, NodeKind::Text, "Ana").unwrap();
+        let (_r, dir) = book();
+        let c = create(&dir, None, 1, NodeKind::Text, "Ana").unwrap();
         let doc = parse("Ela tinha **olhos** cinzentos.");
         save_doc(&dir, &c.id, &doc).unwrap();
         assert_eq!(load_doc(&dir, &c.id).unwrap(), doc);
-        let f = create(&dir, None, 0, NodeKind::Folder, "P").unwrap();
+        let f = create(&dir, None, 1, NodeKind::Folder, "P").unwrap();
         assert!(load_doc(&dir, &f.id).is_err());
     }
 
     #[test]
     fn delete_folder_removes_subtree_files_after_saving_tree() {
-        let (_r, dir, _m) = book();
-        let f = create(&dir, None, 0, NodeKind::Folder, "P").unwrap();
+        let (_r, dir) = book();
+        let f = create(&dir, None, 1, NodeKind::Folder, "P").unwrap();
         let t = create(&dir, Some(&f.id), 0, NodeKind::Text, "Ana").unwrap();
         let file = dir.join(AREA_DIR).join(format!("{}.md", t.id));
         assert!(file.exists());
         let items = delete(&dir, &f.id).unwrap();
-        assert!(items.is_empty());
-        assert!(tree(&dir).unwrap().is_empty());
+        assert_eq!(items.len(), 1);
+        assert_eq!(tree(&dir).unwrap().len(), 1);
         assert!(!file.exists());
     }
 
     #[test]
+    fn deleting_chapters_removes_their_files_but_never_the_last() {
+        let (_r, dir) = book();
+        let m = manuscript_id(&dir);
+        let only = chapters(&tree(&dir).unwrap())[0].id.clone();
+        assert_eq!(delete(&dir, &only).unwrap_err().0, LAST_CHAPTER);
+        let c = create(&dir, Some(&m), 1, NodeKind::Chapter, "").unwrap().id;
+        let file = dir.join(format!("capitulos/{c}.md"));
+        assert!(file.exists());
+        delete(&dir, &c).unwrap();
+        assert!(!file.exists());
+        assert_eq!(delete(&dir, &m).unwrap_err().0, "O Manuscrito não pode ser excluído");
+        assert_eq!(rename(&dir, &m, "Livro").unwrap_err().0, "O Manuscrito não pode ser renomeado");
+    }
+
+    #[test]
     fn import_files_copies_and_detects_kind() {
-        let (root, dir, _m) = book();
+        let (root, dir) = book();
         let png = root.path().join("mapa.png");
         std::fs::write(&png, b"not really a png").unwrap();
         let pdf = root.path().join("Artigo.PDF");
         std::fs::write(&pdf, b"%PDF").unwrap();
+        assert_eq!(import_files(&dir, Some(&manuscript_id(&dir)), std::slice::from_ref(&png)).unwrap_err().0, NO_MEDIA);
         let items = import_files(&dir, None, &[png, pdf]).unwrap();
-        assert_eq!(items.len(), 2);
-        assert_eq!((items[0].kind, items[0].title.as_str()), (NodeKind::Image, "mapa"));
-        assert_eq!((items[1].kind, items[1].title.as_str()), (NodeKind::File, "Artigo"));
-        assert!(items[1].file.as_ref().unwrap().ends_with(".pdf"));
-        assert!(dir.join(AREA_DIR).join(items[1].file.as_ref().unwrap()).exists());
+        assert_eq!(items.len(), 3);
+        assert_eq!((items[1].kind, items[1].title.as_str()), (NodeKind::Image, "mapa"));
+        assert_eq!((items[2].kind, items[2].title.as_str()), (NodeKind::File, "Artigo"));
+        assert!(items[2].file.as_ref().unwrap().ends_with(".pdf"));
+        assert!(dir.join(AREA_DIR).join(items[2].file.as_ref().unwrap()).exists());
     }
 
     #[test]
-    fn to_chapter_moves_text_to_the_end_of_the_chapters() {
-        let (_r, dir, mut meta) = book();
-        let c = create(&dir, None, 0, NodeKind::Text, "Prólogo").unwrap();
-        set_notes(&dir, &c.id, "cena solta").unwrap();
-        save_doc(&dir, &c.id, &parse("um dois três")).unwrap();
-        let items = to_chapter(&dir, &mut meta, &c.id).unwrap();
-        assert!(items.is_empty());
-        let last = meta.chapters.last().unwrap();
-        assert_eq!((last.title.as_str(), last.notes.as_str(), last.words), ("Prólogo", "cena solta", 3));
-        assert_eq!(crate::storage::chapter_io::read_chapter(&dir, last).unwrap(), parse("um dois três"));
-        assert!(!dir.join(AREA_DIR).join(format!("{}.md", c.id)).exists());
-        let f = create(&dir, None, 0, NodeKind::Folder, "P").unwrap();
-        assert!(to_chapter(&dir, &mut meta, &f.id).is_err());
+    fn a_chapter_without_its_file_is_flagged_in_the_tree() {
+        let (_r, dir) = book();
+        let m = manuscript_id(&dir);
+        let c = create(&dir, Some(&m), 1, NodeKind::Chapter, "Dois").unwrap().id;
+        assert!(chapters(&tree(&dir).unwrap()).iter().all(|n| !n.missing));
+        std::fs::remove_file(dir.join(format!("capitulos/{c}.md"))).unwrap();
+        let items = tree(&dir).unwrap();
+        assert!(find(&items, &c).unwrap().missing);
+        assert_eq!(chapters(&items).iter().filter(|n| n.missing).count(), 1);
+        // Every returned tree carries the flag, but it is never written to disk.
+        assert!(find(&rename(&dir, &c, "Outro").unwrap(), &c).unwrap().missing);
+        let raw = std::fs::read_to_string(dir.join(AREA_DIR).join("area.json")).unwrap();
+        assert!(!raw.contains("missing"));
+        assert!(find(&crate::storage::workspace_io::read_workspace(&dir).unwrap().items, &c).is_some_and(|n| !n.missing));
     }
 
     #[test]
-    fn from_chapter_moves_text_notes_and_title_to_the_workspace() {
-        let (_r, dir, mut meta) = book();
-        crate::ops::chapter::insert(&dir, &mut meta, 1).unwrap();
-        let ch = meta.chapters[0].id.clone();
-        crate::ops::chapter::save(&dir, &mut meta, &ch, &parse("texto errado")).unwrap();
-        crate::ops::chapter::update(&dir, &mut meta, &ch, crate::model::patches::ChapterPatch {
-            title: Some("Capítulo importado".into()),
-            notes: Some("nota".into()),
-            ..Default::default()
-        }).unwrap();
-        let file = meta.chapters[0].file.clone();
-        let other = meta.chapters[1].id.clone();
-        let created = from_chapter(&dir, &mut meta, &ch).unwrap();
-        assert_eq!(meta.chapters.len(), 1);
-        assert_eq!(meta.chapters[meta.cur].id, other);
-        assert!(!dir.join(&file).exists());
-        let node = created.items.last().unwrap();
-        assert_eq!(node.id, created.id);
-        assert_eq!((node.kind, node.title.as_str(), node.notes.as_str()), (NodeKind::Text, "Capítulo importado", "nota"));
-        assert_eq!(load_doc(&dir, &created.id).unwrap(), parse("texto errado"));
-        // the last chapter stays
-        assert!(from_chapter(&dir, &mut meta, &other).is_err());
-        assert_eq!(meta.chapters.len(), 1);
+    fn moving_into_the_manuscript_converts() {
+        let (_r, dir) = book();
+        let t = create(&dir, None, 1, NodeKind::Text, "Prólogo").unwrap().id;
+        let items = move_to(&dir, &t, Some(&manuscript_id(&dir)), 0).unwrap();
+        assert_eq!(find(&items, &t).unwrap().kind, NodeKind::Chapter);
     }
 
     #[test]
     fn rename_move_and_missing_ids() {
-        let (_r, dir, _m) = book();
-        let a = create(&dir, None, 0, NodeKind::Folder, "A").unwrap();
-        let b = create(&dir, None, 1, NodeKind::Text, "B").unwrap();
+        let (_r, dir) = book();
+        let a = create(&dir, None, 1, NodeKind::Folder, "A").unwrap();
+        let b = create(&dir, None, 2, NodeKind::Text, "B").unwrap();
         let items = rename(&dir, &b.id, "Bê").unwrap();
         assert_eq!(find(&items, &b.id).unwrap().title, "Bê");
         let items = move_to(&dir, &b.id, Some(&a.id), 0).unwrap();
-        assert_eq!(items[0].children[0].id, b.id);
+        assert_eq!(find(&items, &a.id).unwrap().children[0].id, b.id);
         assert_eq!(rename(&dir, "zz", "x").unwrap_err().0, "Item não encontrado");
     }
 }

@@ -21,8 +21,9 @@ fn listing(lib: &mut Library, cloud: &CloudState) -> AppResult<LibraryListing> {
         scan.books
             .iter()
             .map(|(dir, meta)| {
-                lib.register(dir, meta);
-                BookSummary { cloud: g.file.in_vault(&meta.id), ..BookSummary::from_meta(dir, meta) }
+                let (card, words) = ops::summarize(dir, meta);
+                lib.register(dir, &meta.id, words);
+                BookSummary { cloud: g.file.in_vault(&meta.id), ..card }
             })
             .collect()
     };
@@ -41,8 +42,9 @@ pub async fn library_create(state: State<'_, SharedLibrary>, title: String) -> A
     let mut lib = lock(&state)?;
     std::fs::create_dir_all(&lib.root)?;
     let (dir, meta) = ops::create_book(&lib.root, &title)?;
-    lib.register(&dir, &meta);
-    Ok(BookSummary::from_meta(&dir, &meta))
+    let (card, words) = ops::summarize(&dir, &meta);
+    lib.register(&dir, &meta.id, words);
+    Ok(card)
 }
 
 #[tauri::command]
@@ -50,7 +52,7 @@ pub async fn library_rename(state: State<'_, SharedLibrary>, id: String, title: 
     let mut lib = lock(&state)?;
     lib.with_book(&id, |dir, meta| {
         book::update(dir, meta, BookPatch { title: Some(title), ..Default::default() })?;
-        Ok(BookSummary::from_meta(dir, meta))
+        Ok(ops::summarize(dir, meta).0)
     })
 }
 

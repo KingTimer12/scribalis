@@ -1,127 +1,122 @@
+//! Chapters, found through the Manuscrito: text, title/notes/status, Enter ×3, reading
+//! order, search and the "copy to publish" markdown.
+
 use std::path::Path;
 
 use crate::error::{AppError, AppResult};
-use crate::ids::{new_id, now_ms};
+use crate::ids::now_ms;
 use crate::markdown::serialize::serialize_without_attrs;
 use crate::model::{
     doc::Doc,
-    metadata::{ChapterEntry, Metadata},
+    manuscript,
+    metadata::Metadata,
     patches::ChapterPatch,
     views::SearchHit,
+    workspace::{find_mut, Node, NodeKind, Workspace},
 };
+use crate::ops::{manuscript::{flag_missing, insert_after, new_chapter}, workspace::Created};
 use crate::storage::{
-    chapter_io::{delete_chapter_file, read_chapter, write_chapter},
+    chapter_io::{read_at, write_at},
     metadata_io::write_metadata,
+    workspace_io::{read_workspace, write_workspace},
 };
 use crate::text::{normalize::fold, words::{doc_text, doc_words}};
 
-fn index_of(meta: &Metadata, chapter_id: &str) -> AppResult<usize> {
-    meta.chapters
-        .iter()
-        .position(|c| c.id == chapter_id)
-        .ok_or_else(|| AppError::msg("Capítulo não encontrado"))
+fn missing() -> AppError {
+    AppError::msg("Capítulo não encontrado")
 }
 
-fn touch_and_write(dir: &Path, meta: &mut Metadata) -> AppResult<()> {
+/// The chapter's book-relative file; any other node is "not found".
+fn file_of(ws: &Workspace, id: &str) -> AppResult<String> {
+    manuscript::chapter(&ws.items, id).and_then(|c| c.file.clone()).ok_or_else(missing)
+}
+
+fn chapter_mut<'a>(ws: &'a mut Workspace, id: &str) -> AppResult<&'a mut Node> {
+    find_mut(&mut ws.items, id).filter(|n| n.kind == NodeKind::Chapter).ok_or_else(missing)
+}
+
+/// Saves the tree, then marks the book as edited. The chapter mirror in `metadata.chapters`
+/// is refreshed from the tree already in hand, so a save reads `area.json` once and writes
+/// the metadata once.
+fn persist(dir: &Path, meta: &mut Metadata, ws: &Workspace) -> AppResult<()> {
+    write_workspace(dir, ws)?;
+    meta.chapters = manuscript::mirror(&ws.items);
     meta.updated_at = now_ms();
     write_metadata(dir, meta)
 }
 
-pub fn load(dir: &Path, meta: &Metadata, chapter_id: &str) -> AppResult<Doc> {
-    read_chapter(dir, &meta.chapters[index_of(meta, chapter_id)?])
+pub fn load(dir: &Path, chapter_id: &str) -> AppResult<Doc> {
+    read_at(dir, &file_of(&read_workspace(dir)?, chapter_id)?)
 }
 
-/// Writes the chapter file and refreshes its word count.
-pub fn save(dir: &Path, meta: &mut Metadata, chapter_id: &str, doc: &Doc) -> AppResult<ChapterEntry> {
-    let i = index_of(meta, chapter_id)?;
-    write_chapter(dir, &meta.chapters[i], doc)?;
-    meta.chapters[i].words = doc_words(doc);
-    touch_and_write(dir, meta)?;
-    Ok(meta.chapters[i].clone())
+/// Writes the chapter file and refreshes its word count in the tree.
+pub fn save(dir: &Path, meta: &mut Metadata, chapter_id: &str, doc: &Doc) -> AppResult<Node> {
+    let mut ws = read_workspace(dir)?;
+    write_at(dir, &file_of(&ws, chapter_id)?, doc)?;
+    let node = chapter_mut(&mut ws, chapter_id)?;
+    node.words = Some(doc_words(doc));
+    let out = node.clone();
+    persist(dir, meta, &ws)?;
+    Ok(out)
 }
 
-pub fn update(dir: &Path, meta: &mut Metadata, chapter_id: &str, patch: ChapterPatch) -> AppResult<ChapterEntry> {
-    let i = index_of(meta, chapter_id)?;
-    let c = &mut meta.chapters[i];
-    if let Some(t) = patch.title { c.title = t; }
-    if let Some(n) = patch.notes { c.notes = n; }
-    if let Some(s) = patch.status { c.status = s; }
-    touch_and_write(dir, meta)?;
-    Ok(meta.chapters[i].clone())
-}
-
-fn insert_entry(dir: &Path, meta: &mut Metadata, at: usize, doc: &Doc) -> AppResult<()> {
-    let mut entry = ChapterEntry::new(new_id());
-    entry.words = doc_words(doc);
-    write_chapter(dir, &entry, doc)?;
-    let at = at.min(meta.chapters.len());
-    meta.chapters.insert(at, entry);
-    meta.cur = at;
-    Ok(())
-}
-
-/// Empty chapter at `at`; it becomes the current one.
-pub fn insert(dir: &Path, meta: &mut Metadata, at: usize) -> AppResult<()> {
-    insert_entry(dir, meta, at, &Doc::default())?;
-    touch_and_write(dir, meta)
-}
-
-/// Enter ×3: `before` stays in the chapter, `after` opens a new one right below.
-/// Order matters: new file, then metadata, and only then the original is cut,
-/// so a failure at any step leaves the text duplicated, never lost.
-pub fn split(dir: &Path, meta: &mut Metadata, chapter_id: &str, before: &Doc, after: &Doc) -> AppResult<()> {
-    let i = index_of(meta, chapter_id)?;
-    insert_entry(dir, meta, i + 1, after)?;
-    // After insert_entry, index i still refers to the original chapter
-    meta.chapters[i].words = doc_words(before);
-    touch_and_write(dir, meta)?;
-    write_chapter(dir, &meta.chapters[i], before)
-}
-
-/// Moves chapter `from` to `to`, keeping `cur` on the same chapter.
-pub fn move_to(dir: &Path, meta: &mut Metadata, from: usize, to: usize) -> AppResult<()> {
-    let n = meta.chapters.len();
-    if from >= n || to >= n {
-        return Err(AppError::msg("Posição inválida"));
+pub fn update(dir: &Path, meta: &mut Metadata, chapter_id: &str, patch: ChapterPatch) -> AppResult<Node> {
+    let mut ws = read_workspace(dir)?;
+    let node = chapter_mut(&mut ws, chapter_id)?;
+    if let Some(t) = patch.title {
+        node.title = t;
     }
-    let current_id = meta.chapters.get(meta.cur).map(|c| c.id.clone());
-    let entry = meta.chapters.remove(from);
-    meta.chapters.insert(to, entry);
-    if let Some(id) = current_id {
-        meta.cur = index_of(meta, &id)?;
+    if let Some(n) = patch.notes {
+        node.notes = n;
     }
-    touch_and_write(dir, meta)
+    if let Some(s) = patch.status {
+        node.status = Some(s);
+    }
+    let out = node.clone();
+    persist(dir, meta, &ws)?;
+    Ok(out)
 }
 
-pub fn delete(dir: &Path, meta: &mut Metadata, chapter_id: &str) -> AppResult<()> {
-    if meta.chapters.len() == 1 {
-        return Err(AppError::msg("A obra precisa de pelo menos um capítulo"));
-    }
-    let i = index_of(meta, chapter_id)?;
-    let entry = meta.chapters.remove(i);
-    // Deleting a chapter before the open one shifts it up: keep pointing at the same chapter.
-    if i < meta.cur {
-        meta.cur -= 1;
-    }
-    meta.cur = meta.cur.min(meta.chapters.len() - 1);
-    // Persist metadata first (it no longer references the removed entry)
-    touch_and_write(dir, meta)?;
-    // Only then delete the file
-    delete_chapter_file(dir, &entry)
+/// Enter ×3: `before` stays in the chapter, `after` opens a new chapter right below it, in
+/// the same folder, and becomes the open node. Order: new file, tree, and only then the
+/// original is cut — a failure at any step leaves the text duplicated, never lost.
+pub fn split(dir: &Path, meta: &mut Metadata, chapter_id: &str, before: &Doc, after: &Doc) -> AppResult<Created> {
+    let mut ws = read_workspace(dir)?;
+    let file = file_of(&ws, chapter_id)?;
+    let node = new_chapter(dir, "", after)?;
+    let id = node.id.clone();
+    insert_after(&mut ws.items, chapter_id, node)?;
+    chapter_mut(&mut ws, chapter_id)?.words = Some(doc_words(before));
+    meta.open = Some(id.clone());
+    persist(dir, meta, &ws)?;
+    write_at(dir, &file, before)?;
+    flag_missing(dir, &mut ws.items);
+    Ok(Created { id, items: ws.items })
 }
 
-/// Accent/case-insensitive search in titles, then bodies, one file at a time.
-pub fn search(dir: &Path, meta: &Metadata, query: &str) -> AppResult<Vec<SearchHit>> {
+/// The chapter `step` places away from `chapter_id` in reading order (None past either end).
+pub fn neighbor(dir: &Path, chapter_id: &str, step: i32) -> AppResult<Option<String>> {
+    let ws = read_workspace(dir)?;
+    manuscript::chapter(&ws.items, chapter_id).ok_or_else(missing)?;
+    Ok(manuscript::neighbor(&ws.items, chapter_id, step))
+}
+
+/// Accent/case-insensitive search in titles, numbers, then bodies, one file at a time.
+pub fn search(dir: &Path, query: &str) -> AppResult<Vec<SearchHit>> {
     let q = fold(query.trim());
     if q.is_empty() {
         return Ok(vec![]);
     }
+    let ws = read_workspace(dir)?;
     let mut hits = Vec::new();
-    for (index, c) in meta.chapters.iter().enumerate() {
+    for (index, c) in manuscript::chapters(&ws.items).into_iter().enumerate() {
         let number = format!("{:02}", index + 1);
         let found = fold(&c.title).contains(&q)
             || number.starts_with(&q)
-            || fold(&doc_text(&read_chapter(dir, c)?)).contains(&q);
+            || match &c.file {
+                Some(f) => fold(&doc_text(&read_at(dir, f)?)).contains(&q),
+                None => false,
+            };
         if found {
             hits.push(SearchHit { index, chapter_id: c.id.clone() });
         }
@@ -129,156 +124,153 @@ pub fn search(dir: &Path, meta: &Metadata, query: &str) -> AppResult<Vec<SearchH
     Ok(hits)
 }
 
-/// "Capítulo N — título" plus the chapter markdown, for the clipboard.
-/// Attribute lines (`{: …}`) are stripped: they are formatting metadata, not text to copy.
-pub fn markdown(dir: &Path, meta: &Metadata, chapter_id: &str) -> AppResult<String> {
-    let i = index_of(meta, chapter_id)?;
-    let c = &meta.chapters[i];
-    let head = if c.title.is_empty() { format!("Capítulo {}", i + 1) } else { format!("Capítulo {} — {}", i + 1, c.title) };
-    Ok(format!("{head}\n\n{}", serialize_without_attrs(&read_chapter(dir, c)?)))
+/// "Capítulo N — título" plus the chapter markdown, for the clipboard. N follows the reading
+/// order. Attribute lines (`{: …}`) are stripped: they are formatting metadata, not text.
+pub fn markdown(dir: &Path, chapter_id: &str) -> AppResult<String> {
+    let ws = read_workspace(dir)?;
+    let file = file_of(&ws, chapter_id)?;
+    let n = manuscript::position(&ws.items, chapter_id).ok_or_else(missing)? + 1;
+    let title = manuscript::chapter(&ws.items, chapter_id).map(|c| c.title.clone()).unwrap_or_default();
+    let head = if title.is_empty() { format!("Capítulo {n}") } else { format!("Capítulo {n} — {title}") };
+    Ok(format!("{head}\n\n{}", serialize_without_attrs(&read_at(dir, &file)?)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::markdown::parse::parse;
-    use crate::ops::library::create_book;
-    use crate::storage::metadata_io::read_metadata;
+    use crate::model::{manuscript::chapters, metadata::Status, workspace::NodeKind};
+    use crate::ops::{library::create_book, workspace};
+    use crate::storage::migrate::open_book;
 
     fn setup() -> (tempfile::TempDir, std::path::PathBuf, Metadata) {
         let root = tempfile::tempdir().unwrap();
-        let (dir, meta) = create_book(root.path(), "Obra").unwrap();
+        let (dir, _) = create_book(root.path(), "Obra").unwrap();
+        let meta = open_book(&dir).unwrap();
         (root, dir, meta)
+    }
+
+    fn order(dir: &Path) -> Vec<String> {
+        chapters(&read_workspace(dir).unwrap().items).iter().map(|c| c.id.clone()).collect()
+    }
+
+    fn manuscript_id(dir: &Path) -> String {
+        read_workspace(dir).unwrap().items[0].id.clone()
     }
 
     #[test]
     fn save_updates_words_and_persists() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
-        save(&dir, &mut meta, &id, &parse("um dois três")).unwrap();
-        assert_eq!(read_metadata(&dir).unwrap().chapters[0].words, 3);
-        assert_eq!(load(&dir, &meta, &id).unwrap(), parse("um dois três"));
+        let id = order(&dir)[0].clone();
+        let node = save(&dir, &mut meta, &id, &parse("um dois três")).unwrap();
+        assert_eq!(node.words, Some(3));
+        assert_eq!(chapters(&read_workspace(&dir).unwrap().items)[0].words, Some(3));
+        assert_eq!(load(&dir, &id).unwrap(), parse("um dois três"));
     }
 
     #[test]
-    fn split_moves_after_text_to_new_chapter() {
+    fn split_opens_the_new_chapter_right_below_in_the_same_folder() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
-        split(&dir, &mut meta, &id, &parse("antes"), &parse("depois do cursor")).unwrap();
-        assert_eq!(meta.chapters.len(), 2);
-        assert_eq!(meta.cur, 1);
-        assert_eq!(load(&dir, &meta, &id).unwrap(), parse("antes"));
-        let new_id = meta.chapters[1].id.clone();
-        assert_eq!(load(&dir, &meta, &new_id).unwrap(), parse("depois do cursor"));
-        assert_eq!(meta.chapters[1].words, 3);
-    }
-
-    #[test]
-    fn split_persists_both_files_and_metadata() {
-        let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
-        split(&dir, &mut meta, &id, &parse("um dois"), &parse("três quatro cinco")).unwrap();
-        let disk = read_metadata(&dir).unwrap();
-        assert_eq!(disk.chapters.len(), 2);
-        assert_eq!(disk.cur, 1);
-        assert_eq!((disk.chapters[0].words, disk.chapters[1].words), (2, 3));
-        assert_eq!(load(&dir, &disk, &id).unwrap(), parse("um dois"));
-        assert_eq!(load(&dir, &disk, &disk.chapters[1].id).unwrap(), parse("três quatro cinco"));
+        let m = manuscript_id(&dir);
+        let first = order(&dir)[0].clone();
+        let part = workspace::create(&dir, Some(&m), 0, NodeKind::Folder, "Parte 1").unwrap().id;
+        workspace::move_to(&dir, &first, Some(&part), 0).unwrap();
+        let later = workspace::create(&dir, Some(&m), 1, NodeKind::Chapter, "Depois").unwrap().id;
+        let created = split(&dir, &mut meta, &first, &parse("antes"), &parse("depois do cursor")).unwrap();
+        assert_eq!(order(&dir), vec![first.clone(), created.id.clone(), later]);
+        let folder = crate::model::workspace::find(&created.items, &part).unwrap();
+        assert_eq!(folder.children[1].id, created.id);
+        assert_eq!(meta.open.as_deref(), Some(created.id.as_str()));
+        assert_eq!(load(&dir, &first).unwrap(), parse("antes"));
+        assert_eq!(load(&dir, &created.id).unwrap(), parse("depois do cursor"));
+        let node = crate::model::workspace::find(&created.items, &created.id).unwrap();
+        assert_eq!((node.words, node.status), (Some(3), Some(Status::Rascunho)));
     }
 
     #[test]
     fn failed_split_duplicates_text_instead_of_losing_it() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
+        let id = order(&dir)[0].clone();
         save(&dir, &mut meta, &id, &parse("antes depois")).unwrap();
         // A directory where the original's temp file goes makes its overwrite fail.
-        let blocker = dir.join(format!("{}.tmp", meta.chapters[0].file));
-        std::fs::create_dir_all(&blocker).unwrap();
+        std::fs::create_dir_all(dir.join(format!("capitulos/{id}.md.tmp"))).unwrap();
         assert!(split(&dir, &mut meta, &id, &parse("antes"), &parse("depois")).is_err());
-        let disk = read_metadata(&dir).unwrap();
-        // The new chapter is already listed with the `after` text...
-        assert_eq!(disk.chapters.len(), 2);
-        assert_eq!(load(&dir, &disk, &disk.chapters[1].id).unwrap(), parse("depois"));
+        let ids = order(&dir);
+        // The new chapter is already in the tree with the `after` text...
+        assert_eq!(ids.len(), 2);
+        assert_eq!(load(&dir, &ids[1]).unwrap(), parse("depois"));
         // ...and the original still holds everything.
-        assert_eq!(load(&dir, &disk, &id).unwrap(), parse("antes depois"));
+        assert_eq!(load(&dir, &id).unwrap(), parse("antes depois"));
     }
 
     #[test]
-    fn move_keeps_cur_on_same_chapter() {
-        let (_r, dir, mut meta) = setup();
-        insert(&dir, &mut meta, 1).unwrap();
-        insert(&dir, &mut meta, 2).unwrap();
-        let current = meta.chapters[2].id.clone();
-        move_to(&dir, &mut meta, 2, 0).unwrap();
-        assert_eq!(meta.chapters[meta.cur].id, current);
-        assert_eq!(meta.cur, 0);
-    }
-
-    #[test]
-    fn delete_refuses_last_and_removes_file() {
-        let (_r, dir, mut meta) = setup();
-        let only = meta.chapters[0].id.clone();
-        assert!(delete(&dir, &mut meta, &only).is_err());
-        insert(&dir, &mut meta, 1).unwrap();
-        let second = meta.chapters[1].clone();
-        delete(&dir, &mut meta, &second.id).unwrap();
-        assert!(!dir.join(&second.file).exists());
-        assert_eq!(meta.cur, 0);
-    }
-
-    #[test]
-    fn delete_before_current_keeps_the_same_chapter_open() {
-        let (_r, dir, mut meta) = setup();
-        insert(&dir, &mut meta, 1).unwrap();
-        insert(&dir, &mut meta, 2).unwrap();
-        let open = meta.chapters[2].id.clone();
-        assert_eq!(meta.cur, 2);
-        let first = meta.chapters[0].id.clone();
-        delete(&dir, &mut meta, &first).unwrap();
-        assert_eq!(meta.chapters[meta.cur].id, open);
-        assert_eq!(read_metadata(&dir).unwrap().cur, 1);
+    fn neighbor_follows_reading_order() {
+        let (_r, dir, _meta) = setup();
+        let m = manuscript_id(&dir);
+        let first = order(&dir)[0].clone();
+        let second = workspace::create(&dir, Some(&m), 1, NodeKind::Chapter, "").unwrap().id;
+        assert_eq!(neighbor(&dir, &first, 1).unwrap().as_deref(), Some(second.as_str()));
+        assert_eq!(neighbor(&dir, &first, -1).unwrap(), None);
+        assert_eq!(neighbor(&dir, &second, 1).unwrap(), None);
+        assert_eq!(neighbor(&dir, "zz", 1).unwrap_err().0, "Capítulo não encontrado");
     }
 
     #[test]
     fn search_ignores_accents_and_matches_numbers() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
+        let id = order(&dir)[0].clone();
         save(&dir, &mut meta, &id, &parse("O coração bate")).unwrap();
-        insert(&dir, &mut meta, 1).unwrap();
-        assert_eq!(search(&dir, &meta, "CORACAO").unwrap().len(), 1);
-        assert_eq!(search(&dir, &meta, "02").unwrap()[0].index, 1);
-        assert!(search(&dir, &meta, "   ").unwrap().is_empty());
+        workspace::create(&dir, Some(&manuscript_id(&dir)), 1, NodeKind::Chapter, "").unwrap();
+        assert_eq!(search(&dir, "CORACAO").unwrap().len(), 1);
+        assert_eq!(search(&dir, "02").unwrap()[0].index, 1);
+        assert!(search(&dir, "   ").unwrap().is_empty());
     }
 
     #[test]
     fn markdown_has_heading() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
+        let id = order(&dir)[0].clone();
         update(&dir, &mut meta, &id, ChapterPatch { title: Some("Início".into()), ..Default::default() }).unwrap();
         save(&dir, &mut meta, &id, &parse("Texto")).unwrap();
-        assert_eq!(markdown(&dir, &meta, &id).unwrap(), "Capítulo 1 — Início\n\nTexto\n");
+        assert_eq!(markdown(&dir, &id).unwrap(), "Capítulo 1 — Início\n\nTexto\n");
     }
 
     #[test]
     fn markdown_strips_attribute_lines() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
+        let id = order(&dir)[0].clone();
         save(&dir, &mut meta, &id, &parse("Título\n{: align=center}\n\nTexto simples")).unwrap();
-        assert_eq!(markdown(&dir, &meta, &id).unwrap(), "Capítulo 1\n\nTítulo\n\nTexto simples\n");
+        assert_eq!(markdown(&dir, &id).unwrap(), "Capítulo 1\n\nTítulo\n\nTexto simples\n");
     }
 
     #[test]
     fn update_persists_notes_and_status() {
         let (_r, dir, mut meta) = setup();
-        let id = meta.chapters[0].id.clone();
-        use crate::model::metadata::Status;
+        let id = order(&dir)[0].clone();
         update(&dir, &mut meta, &id, ChapterPatch {
             notes: Some("Minhas notas".into()),
             status: Some(Status::Revisao),
             ..Default::default()
         }).unwrap();
-        let reread = read_metadata(&dir).unwrap();
-        assert_eq!(reread.chapters[0].notes, "Minhas notas");
-        assert_eq!(reread.chapters[0].status, Status::Revisao);
+        let c = chapters(&read_workspace(&dir).unwrap().items)[0].clone();
+        assert_eq!((c.notes.as_str(), c.status), ("Minhas notas", Some(Status::Revisao)));
+    }
+
+    #[test]
+    fn saving_refreshes_the_metadata_mirror() {
+        let (_r, dir, mut meta) = setup();
+        let id = order(&dir)[0].clone();
+        update(&dir, &mut meta, &id, ChapterPatch { title: Some("Novo".into()), ..Default::default() }).unwrap();
+        save(&dir, &mut meta, &id, &parse("um dois")).unwrap();
+        let mirror = crate::storage::metadata_io::read_metadata(&dir).unwrap().chapters;
+        assert_eq!((mirror[0].title.as_str(), mirror[0].words), ("Novo", 2));
+    }
+
+    #[test]
+    fn other_nodes_are_not_chapters() {
+        let (_r, dir, mut meta) = setup();
+        let t = workspace::create(&dir, None, 1, NodeKind::Text, "Ana").unwrap().id;
+        assert_eq!(load(&dir, &t).unwrap_err().0, "Capítulo não encontrado");
+        assert!(save(&dir, &mut meta, &t, &parse("x")).is_err());
     }
 }
