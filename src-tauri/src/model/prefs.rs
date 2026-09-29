@@ -10,11 +10,21 @@ pub struct Prefs {
     /// Books whose tree sidebar is collapsed (open is the default).
     #[serde(default)]
     pub sidebar_closed: Vec<String>,
+    /// Books whose main pane shows the Quadro tab (Editor is the default).
+    #[serde(default)]
+    pub board_tab: Vec<String>,
+    /// Board card size: 0 small, 1 medium, 2 large.
+    #[serde(default = "medium")]
+    pub card_size: u8,
+}
+
+fn medium() -> u8 {
+    1
 }
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { theme: "light".into(), goal: 2000, width: 1, font: 1, sidebar_closed: Vec::new() }
+        Self { theme: "light".into(), goal: 2000, width: 1, font: 1, sidebar_closed: Vec::new(), board_tab: Vec::new(), card_size: 1 }
     }
 }
 
@@ -26,6 +36,8 @@ pub struct PrefsPatch {
     pub width: Option<u8>,
     pub font: Option<u8>,
     pub sidebar_closed: Option<Vec<String>>,
+    pub board_tab: Option<Vec<String>>,
+    pub card_size: Option<u8>,
 }
 
 impl Prefs {
@@ -35,6 +47,8 @@ impl Prefs {
         if let Some(v) = p.width { self.width = v.min(2); }
         if let Some(v) = p.font { self.font = v.min(2); }
         if let Some(v) = p.sidebar_closed { self.sidebar_closed = v; }
+        if let Some(v) = p.board_tab { self.board_tab = v; }
+        if let Some(v) = p.card_size { self.card_size = v.min(2); }
         self
     }
 }
@@ -56,5 +70,16 @@ mod tests {
     fn patch_merges_and_clamps() {
         let p = Prefs::default().apply(PrefsPatch { width: Some(9), goal: Some(5000), ..Default::default() });
         assert_eq!((p.width, p.goal, p.theme.as_str()), (2, 5000, "light"));
+    }
+
+    #[test]
+    fn board_tab_and_card_size_default_and_clamp() {
+        let p: Prefs = serde_json::from_str(r#"{"theme":"dark","goal":2000,"width":1,"font":1}"#).unwrap();
+        assert!(p.board_tab.is_empty());
+        assert_eq!(p.card_size, 1);
+        let p = p.apply(PrefsPatch { board_tab: Some(vec!["b1".into()]), card_size: Some(7), ..Default::default() });
+        assert_eq!((p.board_tab.clone(), p.card_size), (vec!["b1".to_string()], 2));
+        let v = serde_json::to_value(&p).unwrap();
+        assert_eq!((v["boardTab"][0].clone(), v["cardSize"].clone()), ("b1".into(), 2.into()));
     }
 }
