@@ -1,15 +1,10 @@
 import type { BookSummary, LibraryListing } from "../types";
-import { chapter, db, findBook, mockId, resetSamples, toSummary, touch } from "./db";
+import { chapter, db, findBook, mockBook, resetSamples, toSummary, touch } from "./db";
 
 export const library = {
   library_list: (): LibraryListing => ({ books: db.books.map(toSummary), warnings: [] }),
   library_create: ({ title }: { title: string }): BookSummary => {
-    const b = {
-      id: mockId(), title, author: "", cur: 0, updatedAt: Date.now(),
-      separator: { type: "text" as const, text: "* * *" }, header: null, footer: null,
-      chapters: [chapter("", "rascunho", { type: "doc", content: [] })],
-      area: [], areaDocs: {},
-    };
+    const b = mockBook(title, [chapter("", "rascunho", { type: "doc", content: [] })]);
     db.books.unshift(b);
     return toSummary(b);
   },

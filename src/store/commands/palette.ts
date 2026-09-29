@@ -1,24 +1,17 @@
-import { insertSeparator } from "../../editor/bridge";
-import { FONT_LABEL, STATUS_LABEL, WIDTH_LABEL } from "../../lib/constants";
+import { chapterOrder } from "../../lib/manuscript";
 import { fmt, norm, pad } from "../../lib/format";
-import { setBookAuthor, setSeparatorText } from "../actions/book";
-import {
-  copyCurrentChapter, cycleStatus, deleteCurrentChapter, goChapter, insertChapterAt, moveChapter, sendChapterToArea,
-} from "../actions/chapters";
-import { backupNow, fetchComments } from "../actions/cloud";
-import { clearBookImage, clearCover, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
-import { goLibrary, openBook, restoreSamples, startNew, startRename } from "../actions/library";
-import { cycleFont, cycleGoal, cycleWidth, toggleTheme } from "../actions/prefs";
-import { goWorkspace } from "../actions/tabs";
+import { clearCover, pickCover } from "../actions/images";
+import { openBook, restoreSamples, startNew, startRename } from "../actions/library";
+import { reveal } from "../actions/expanded";
+import { openNode } from "../actions/open";
+import { toggleTheme } from "../actions/prefs";
 import { homeTarget, openPanel } from "../actions/ui";
 import { startScrivenerImport } from "../actions/scrivener";
 import { installUpdate } from "../actions/update";
 import { focusTarget } from "../focus";
-import { currentChapter } from "../selectors/book";
 import { libList, libSelIndex } from "../selectors/library";
 import { setState, state } from "../state";
-import { formatCommands } from "./format";
-import { promptFor } from "./prompt";
+import { chapterCommands } from "./chapter";
 import { workspaceCommands } from "./workspace";
 
 export interface Command {
@@ -60,78 +53,21 @@ function libraryCommands(): Command[] {
   return [...out, ...commonCommands(), { label: "Restaurar obras de exemplo", hint: "", act: restoreSamples }];
 }
 
-function bookSettingsCommands(): Command[] {
-  const b = state.book!;
-  const sep = b.separator;
-  return [
-    { label: "Autor da obra" + (b.author ? ": " + b.author : "…"), hint: "", keep: true, act: () => promptFor("Autor", b.author, setBookAuthor) },
-    {
-      label: "Separador: texto" + (sep.type === "text" ? " (" + sep.text + ")" : "…"), hint: "", keep: true,
-      act: () => promptFor("Separador", sep.type === "text" ? sep.text : "* * *", setSeparatorText),
-    },
-    { label: "Separador: imagem…", hint: "", act: () => pickBookImage("separator") },
-    { label: "Moldura superior: escolher imagem", hint: "", act: () => pickBookImage("header") },
-    ...(b.header ? [{ label: "Moldura superior: remover", hint: "", act: () => clearBookImage("header") }] : []),
-    { label: "Moldura inferior: escolher imagem", hint: "", act: () => pickBookImage("footer") },
-    ...(b.footer ? [{ label: "Moldura inferior: remover", hint: "", act: () => clearBookImage("footer") }] : []),
-    { label: "Inserir imagem no capítulo", hint: "Ctrl Shift I", act: insertChapterImage },
-    { label: "Inserir separador", hint: "Ctrl Enter", act: insertSeparator },
-    { label: "Capa da obra", hint: "", act: () => pickCover(b.id) },
-  ];
-}
-
-function editorCommands(): Command[] {
-  const b = state.book;
-  const c = currentChapter();
-  if (!b || !c) return commonCommands();
-  const cur = b.cur;
-  const list: Command[] = [
-    { label: "Novo capítulo", hint: "Enter ×3", act: () => insertChapterAt(cur + 1) },
-    { label: "Voltar às obras", hint: "Ctrl O", act: goLibrary },
-    { label: "Área de trabalho", hint: "Ctrl 2", act: () => void goWorkspace() },
-    { label: "Índice de capítulos", hint: "Ctrl E", act: () => openPanel("index") },
-    { label: "Notas do capítulo", hint: "Ctrl ;", act: () => openPanel("notes") },
-    { label: state.focus ? "Sair do modo foco" : "Modo foco", hint: "Ctrl .", act: () => setState("focus", !state.focus) },
-    { label: "Mudar status  (" + STATUS_LABEL[c.status] + ")", hint: "Alt S", act: cycleStatus },
-    { label: "Capítulo anterior", hint: "Alt ↑", act: () => goChapter(cur - 1) },
-    { label: "Próximo capítulo", hint: "Alt ↓", act: () => goChapter(cur + 1) },
-    { label: "Mover capítulo para cima", hint: "Alt Shift ↑", act: () => moveChapter(cur, -1) },
-    { label: "Mover capítulo para baixo", hint: "Alt Shift ↓", act: () => moveChapter(cur, 1) },
-    { label: "Copiar capítulo", hint: "", act: copyCurrentChapter },
-    { label: "Compartilhar capítulo", hint: "", act: () => { setState("shareDraft", { kind: "chapter", target: c.id, label: "Capítulo " + pad(cur + 1) }); openPanel("cloud"); } },
-    ...(state.cloudBook?.enabled
-      ? [
-          { label: "Fazer backup agora", hint: "", act: () => void backupNow() },
-          { label: "Buscar comentários", hint: "", act: () => void fetchComments(false) },
-        ]
-      : []),
-    { label: "Enviar capítulo para a área de trabalho", hint: "", act: () => void sendChapterToArea(c.id) },
-    { label: "Meta diária: " + fmt(state.prefs.goal) + " palavras", hint: "", act: cycleGoal },
-    { label: "Largura do texto: " + WIDTH_LABEL[state.prefs.width], hint: "", act: cycleWidth },
-    { label: "Tamanho da letra: " + FONT_LABEL[state.prefs.font], hint: "", act: cycleFont },
-    { label: "Renomear obra", hint: "", act: () => focusTarget("book", "end") },
-    ...formatCommands(),
-    ...bookSettingsCommands(),
-    ...commonCommands(),
-  ];
-  list.push(
-    state.confirmDel
-      ? { label: "Confirmar: excluir o capítulo " + pad(cur + 1) + "?", hint: "Enter", danger: true, act: deleteCurrentChapter }
-      : { label: "Excluir capítulo", hint: "", danger: true, keep: true, act: () => setState("confirmDel", true) },
-  );
-  return list;
-}
-
 /** Palette items: Rust search hits, matching books, then commands. */
 export function paletteItems(): Command[] {
   const q = norm(state.q.trim());
   let out: Command[] = [];
   const book = state.book;
-  if (q && state.view === "editor" && book) {
+  if (q && state.view === "book" && book) {
+    const order = chapterOrder(state.area);
     for (const hit of state.hits) {
-      const c = book.chapters[hit.index];
-      if (!c) continue;
-      out.push({ kind: pad(hit.index + 1), label: c.title || "Sem título", hint: fmt(c.words) + " pal.", act: () => goChapter(hit.index) });
+      const c = order[hit.index];
+      if (!c || c.id !== hit.chapterId) continue;
+      const id = c.id;
+      out.push({
+        kind: pad(hit.index + 1), label: c.title || "Sem título", hint: fmt(c.words ?? 0) + " pal.",
+        act: () => { reveal(id); void openNode(id); },
+      });
     }
   }
   if (q) {
@@ -143,11 +79,9 @@ export function paletteItems(): Command[] {
     }
   }
   const cmds =
-    state.view === "library"
+    state.view === "library" || !book
       ? libraryCommands()
-      : state.view === "workspace" && book
-        ? [...workspaceCommands(), ...commonCommands()]
-        : editorCommands();
+      : [...chapterCommands(), ...workspaceCommands(), ...commonCommands()];
   for (const c of cmds) if (!q || norm(c.label).includes(q)) out.push(c);
   if (q) out = out.slice(0, 9);
   return out;

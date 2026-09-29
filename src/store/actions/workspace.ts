@@ -1,138 +1,75 @@
 import * as api from "../../api/workspace";
 import type { AreaNode } from "../../api/types";
-import { currentDocKey, sameKey, type DocKey } from "../../editor/bridge";
-import { focusTarget } from "../focus";
-import { dropTarget, findNode, locate, type DropPos } from "../../lib/tree";
+import { currentDocKey } from "../../editor/bridge";
 import { pad } from "../../lib/format";
-import { cancelDocSave, flushAll, settleDocSave, swapDocument } from "../saving";
+import { chapterNumber, isContainer } from "../../lib/manuscript";
+import { dropTarget, findNode, locate, type DropPos } from "../../lib/tree";
+import { focusTarget } from "../focus";
+import { cancelDocSave, flushAll, settleDocSave } from "../saving";
 import { setState, state } from "../state";
+import { expand } from "./expanded";
+import { openFirstChapter, openNode } from "./open";
+import { run as runAction } from "./run";
 import { flash, flashError } from "./ui";
 
-function expandedKey(bookId: string) {
-  return "area-expanded:" + bookId;
-}
-
-/** Reads which folders were expanded for this book; never throws (private mode, quota, ...). */
-function loadExpanded(bookId: string): string[] {
-  try {
-    const raw = localStorage.getItem(expandedKey(bookId));
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function setExpanded(bookId: string, expanded: string[]) {
-  setState("areaExpanded", expanded);
-  try {
-    localStorage.setItem(expandedKey(bookId), JSON.stringify(expanded));
-  } catch {
-    // ignore: nothing worth surfacing to the user over a remembered UI preference
-  }
-}
-
-/** Runs a mutating workspace action; a stale id reloads the tree instead of showing an error. */
-async function run(fn: () => Promise<void>) {
-  try {
-    await fn();
-  } catch (e) {
-    if (e === "Item não encontrado") {
-      await loadArea();
-      return;
-    }
-    flashError(e);
-  }
-}
-
-/** The parent under which a new node (created or imported) should land: the selected folder, or the parent of the selected item. */
+/** Where a new node (created or imported) lands: the selected folder, or the parent of the selected item. */
 function parentForNewItem(): string | null {
   const sel = state.areaSel;
   if (!sel) return null;
   const node = findNode(state.area, sel);
-  if (node?.kind === "folder") return sel;
+  if (node && isContainer(node.kind)) return sel;
   return locate(state.area, sel)?.parent ?? null;
 }
 
-/** True when `id` is the deleted/promoted node, or sits inside its subtree. */
+/** True when `target` is `id` or sits inside its subtree. */
 function insideSubtree(root: AreaNode | null, id: string, target: string): boolean {
   return target === id || (!!root && !!findNode(root.children ?? [], target));
 }
+
+/** Runs a mutating tree action; a stale id reloads the tree instead of showing an error. */
+const run = (fn: () => Promise<void>) =>
+  runAction(fn, async (e) => {
+    if (e !== "Item não encontrado") return false;
+    await loadArea();
+    return true;
+  });
 
 export async function loadArea() {
   const b = state.book;
   if (!b) return;
   try {
     const items = await api.areaTree(b.id);
-    setState({ area: items, areaExpanded: loadExpanded(b.id) });
+    if (state.book?.id === b.id) setState("area", items);
   } catch (e) {
     flashError(e);
   }
 }
 
-/** Selects a node; a deletion armed for another node is dropped. */
-export function selectNode(id: string | null) {
-  setState({ areaSel: id, areaConfirm: state.areaConfirm === id ? id : null });
-}
-
 /**
- * Opens a node in the reading pane (a folder toggles instead). `focusBody` moves the
- * caret into an opened text; mouse clicks in the tree pass false so a double click
- * can still reach the rename field.
+ * Creates a node in the selected folder (or at `at`). A chapter opens on its title; a folder
+ * or text enters rename in the tree.
  */
-export function openNode(id: string, focusBody = true) {
-  const b = state.book;
-  const node = findNode(state.area, id);
-  if (!b || !node) return;
-  selectNode(id);
-  if (node.kind === "folder") return toggleExpanded(id);
-  if (node.kind !== "text") {
-    // The editor unmounts: land any pending text first, or its save would find no editor.
-    return run(async () => {
-      await flushAll();
-      await settleDocSave();
-      setState("areaOpen", id);
-    });
-  }
-  const key: DocKey = { bookId: b.id, docId: id, scope: "area" };
-  if (state.areaOpen === id && sameKey(currentDocKey(), key)) {
-    // Already in the editor: reloading would only drop its undo history.
-    if (focusBody) focusTarget("body");
-    return;
-  }
-  return run(async () => {
-    await flushAll();
-    const doc = await api.loadAreaDoc(b.id, id);
-    if ((await swapDocument(doc, key, () => setState("areaOpen", id))) && focusBody) focusTarget("body", "end");
-  });
-}
-
-export function toggleExpanded(id: string) {
+export function createNode(kind: "folder" | "text" | "chapter", at?: { parent: string | null; index: number }) {
   const b = state.book;
   if (!b) return;
-  const set = new Set(state.areaExpanded);
-  if (set.has(id)) set.delete(id);
-  else set.add(id);
-  setExpanded(b.id, [...set]);
-}
-
-export function createNode(kind: "folder" | "text") {
-  const b = state.book;
-  if (!b) return;
-  const parent = parentForNewItem();
+  const parent = at ? at.parent : parentForNewItem();
   const siblings = (parent ? findNode(state.area, parent)?.children : state.area) ?? [];
-  const index = siblings.length;
-  const title = kind === "folder" ? "Nova pasta" : "Novo documento";
+  const index = at ? at.index : siblings.length;
+  const title = kind === "folder" ? "Nova pasta" : kind === "text" ? "Novo documento" : "";
   return run(async () => {
     const { id, items } = await api.areaCreate(b.id, parent, index, kind, title);
     setState({ area: items, areaSel: id, areaConfirm: null });
-    if (parent && !state.areaExpanded.includes(parent)) setExpanded(b.id, [...state.areaExpanded, parent]);
-    startNodeRename(id);
+    if (parent) expand(parent);
+    if (kind !== "chapter") return startNodeRename(id);
+    await openNode(id, false);
+    focusTarget("title", 0);
+    flash("Capítulo " + pad(chapterNumber(state.area, id)) + " criado");
   });
 }
 
 export function startNodeRename(id: string) {
   const node = findNode(state.area, id);
-  if (!node) return;
+  if (!node || node.kind === "manuscript") return;
   setState({ areaRenaming: id, areaRenameVal: node.title });
 }
 
@@ -147,11 +84,12 @@ export function commitNodeRename() {
   setState({ areaRenaming: null, areaRenameVal: "" });
   if (!b || !id || !val) return;
   return run(async () => {
+    await flushAll();
     setState("area", await api.areaRename(b.id, id, val));
   });
 }
 
-/** Saves a node's notes; the UI calls this on blur, so no debounce is needed here. */
+/** Saves a node's notes; the UI calls this on change, so no debounce is needed here. */
 export function setNodeNotes(id: string, notes: string) {
   const b = state.book;
   const node = findNode(state.area, id);
@@ -173,10 +111,10 @@ export function deleteNode(id: string) {
   return run(async () => {
     await flushAll();
     const key = currentDocKey();
-    if (key && key.scope === "area" && insideSubtree(node, id, key.docId)) cancelDocSave();
+    if (key && insideSubtree(node, id, key.docId)) cancelDocSave();
     setState("area", await api.areaDelete(b.id, id));
-    if (state.areaOpen && insideSubtree(node, id, state.areaOpen)) setState("areaOpen", null);
     if (state.areaSel && insideSubtree(node, id, state.areaSel)) setState("areaSel", null);
+    if (state.areaOpen && insideSubtree(node, id, state.areaOpen)) await openFirstChapter();
   });
 }
 
@@ -189,16 +127,36 @@ export function requestDelete(id: string) {
   flash("Aperte Delete de novo para excluir «" + node.title + "»");
 }
 
-export function moveNode(dragId: string, targetId: string, pos: DropPos) {
+/**
+ * Moves `id` under `parent` at `index`. Across the Manuscrito's edge Rust converts text ⇄
+ * chapter; when that changes the open node's kind, it is reopened in the right editor.
+ */
+export function moveTo(id: string, parent: string | null, index: number) {
   const b = state.book;
   if (!b) return;
+  const openId = state.areaOpen;
+  const openKind = openId ? findNode(state.area, openId)?.kind : undefined;
+  return run(async () => {
+    // Pending text lands under its current kind before the node changes kind.
+    await flushAll();
+    setState("area", await api.areaMove(b.id, id, parent, index));
+    if (parent) expand(parent);
+    const now = openId ? findNode(state.area, openId) : null;
+    if (openId && now && now.kind !== openKind) {
+      // Text typed during the move is filed by the node's new kind (see `saveDocNow`), then
+      // the node reopens in the editor that matches it; nothing saves to the old path.
+      await settleDocSave();
+      setState("areaOpen", null);
+      await openNode(openId, false);
+    }
+  });
+}
+
+/** Drag and drop in the tree. */
+export function moveNode(dragId: string, targetId: string, pos: DropPos) {
   const target = dropTarget(state.area, dragId, targetId, pos);
   if (!target) return;
-  return run(async () => {
-    setState("area", await api.areaMove(b.id, dragId, target.parent, target.index));
-    // Show where the item went: a closed destination folder opens.
-    if (target.parent && !state.areaExpanded.includes(target.parent)) setExpanded(b.id, [...state.areaExpanded, target.parent]);
-  });
+  return moveTo(dragId, target.parent, target.index);
 }
 
 export function addFiles() {
@@ -208,24 +166,6 @@ export function addFiles() {
   return run(async () => {
     const items = await api.areaPickFiles(b.id, parent);
     if (items) setState("area", items);
-  });
-}
-
-export function sendToChapter(id: string) {
-  const b = state.book;
-  if (!b) return;
-  const node = findNode(state.area, id);
-  return run(async () => {
-    await flushAll();
-    const key = currentDocKey();
-    if (key && key.scope === "area" && key.docId === id) cancelDocSave();
-    const { book, items } = await api.areaToChapter(b.id, id);
-    setState("area", items);
-    if (state.areaOpen && insideSubtree(node, id, state.areaOpen)) setState("areaOpen", null);
-    if (state.areaSel && insideSubtree(node, id, state.areaSel)) setState("areaSel", null);
-    if (state.book?.id !== book.id) return;
-    setState("book", book);
-    flash("Enviado para os capítulos como capítulo " + pad(book.chapters.length));
   });
 }
 

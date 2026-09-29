@@ -1,58 +1,64 @@
 import { describe, expect, it } from "vitest";
 import { mockInvoke } from "../../api/mock";
-import type { BookMeta, BookSummary } from "../../api/types";
-import { setState, state } from "../state";
-import { deleteChapter, requestChapterDelete, sendChapterToArea } from "./chapters";
+import type { AreaNode, BookSummary, DocJSON } from "../../api/types";
+import { chapterOrder } from "../../lib/manuscript";
+import { findNode } from "../../lib/tree";
+import { state } from "../state";
+import { newChapterAfterCurrent, setStatus, splitCurrent } from "./chapters";
+import { openBook } from "./library";
+import { goChapterStep } from "./open";
 
-/** A fresh book with three chapters, the last one open. */
-async function bookWithThree(): Promise<BookMeta> {
+const doc = (t: string): DocJSON => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: t }] }] });
+
+/** Opens a fresh book (one chapter), isolated from the samples and the other tests. */
+async function openNew() {
   const created = await mockInvoke<BookSummary>("library_create", { title: "Obra de teste" });
-  await mockInvoke<BookMeta>("chapter_insert", { bookId: created.id, at: 1 });
-  const meta = await mockInvoke<BookMeta>("chapter_insert", { bookId: created.id, at: 2 });
-  setState({ book: meta, view: "editor", panel: "index", indexSel: 0, indexConfirm: null });
-  return meta;
+  await openBook(created.id);
 }
 
-describe("chapter deletion", () => {
-  it("deleting a chapter before the open one keeps that chapter open", async () => {
-    const meta = await bookWithThree();
-    const open = meta.chapters[2].id;
-    expect(meta.cur).toBe(2);
-    await deleteChapter(meta.chapters[0].id);
-    expect(state.book!.chapters).toHaveLength(2);
-    expect(state.book!.chapters[state.book!.cur].id).toBe(open);
+describe("chapters in the tree", () => {
+  it("a book opens on its chapter, with the Manuscrito expanded", async () => {
+    await openNew();
+    expect(state.view).toBe("book");
+    expect(state.areaOpen).toBe(chapterOrder(state.area)[0].id);
+    expect(state.areaExpanded).toContain(state.area[0].id);
   });
 
-  it("the index asks twice before deleting", async () => {
-    const meta = await bookWithThree();
-    await requestChapterDelete(1);
-    expect(state.indexConfirm).toBe(meta.chapters[1].id);
-    expect(state.book!.chapters).toHaveLength(3);
-    await requestChapterDelete(1);
-    expect(state.indexConfirm).toBeNull();
-    expect(state.book!.chapters.map((c) => c.id)).toEqual([meta.chapters[0].id, meta.chapters[2].id]);
+  it("Enter ×3 opens the new chapter right after the current one", async () => {
+    await openNew();
+    const first = state.areaOpen!;
+    await splitCurrent(doc("antes"), doc("depois"));
+    const order = chapterOrder(state.area).map((c) => c.id);
+    expect(order).toHaveLength(2);
+    expect(order[0]).toBe(first);
+    expect(state.areaOpen).toBe(order[1]);
+    expect(state.book!.open).toBe(order[1]);
   });
 
-  it("sending a chapter to the workspace keeps its text, title and notes", async () => {
-    const meta = await bookWithThree();
-    const first = meta.chapters[0];
-    const firstDoc = await mockInvoke("chapter_load", { bookId: meta.id, chapterId: first.id });
-    await sendChapterToArea(first.id);
-    expect(state.book!.chapters.map((c) => c.id)).not.toContain(first.id);
-    expect(state.book!.chapters[state.book!.cur].id).toBe(meta.chapters[2].id);
-    const node = state.area.find((n) => n.id === state.areaSel)!;
-    expect(node.kind).toBe("text");
-    expect(node.title).toBe(first.title.trim() || "Sem título");
-    expect(node.notes).toBe(first.notes);
-    expect(await mockInvoke("workspace_load_doc", { bookId: meta.id, id: node.id })).toEqual(firstDoc);
+  it("a new chapter after the current one opens right below", async () => {
+    await openNew();
+    await newChapterAfterCurrent();
+    expect(chapterOrder(state.area)).toHaveLength(2);
+    expect(state.areaOpen).toBe(chapterOrder(state.area)[1].id);
   });
 
-  it("never deletes the last chapter", async () => {
-    const created = await mockInvoke<BookSummary>("library_create", { title: "Só um" });
-    const meta = await mockInvoke<BookMeta>("book_open", { id: created.id });
-    setState({ book: meta });
-    await deleteChapter(meta.chapters[0].id);
-    expect(state.book!.chapters).toHaveLength(1);
-    expect(state.toast).toBe("A obra precisa de pelo menos um capítulo");
+  it("Alt ↑ walks the reading order and says when it ends", async () => {
+    await openNew();
+    const first = state.areaOpen!;
+    await newChapterAfterCurrent();
+    await goChapterStep(-1);
+    expect(state.areaOpen).toBe(first);
+    await goChapterStep(-1);
+    expect(state.toast).toBe("Este é o primeiro capítulo");
+    expect(state.areaOpen).toBe(first);
+  });
+
+  it("status changes in the tree and in the backend", async () => {
+    await openNew();
+    const id = state.areaOpen!;
+    setStatus(id, "pronto");
+    expect(findNode(state.area, id)!.status).toBe("pronto");
+    const tree = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: state.book!.id });
+    expect(findNode(tree, id)!.status).toBe("pronto");
   });
 });

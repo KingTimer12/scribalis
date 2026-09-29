@@ -1,5 +1,8 @@
-import { visibleRows, type Row } from "../../lib/tree";
-import { createNode, openNode, requestDelete, selectNode, startNodeRename, toggleExpanded } from "../actions/workspace";
+import { inManuscript } from "../../lib/manuscript";
+import { isContainer, visibleRows, type Row } from "../../lib/tree";
+import { toggleExpanded } from "../actions/expanded";
+import { openNode, selectNode } from "../actions/open";
+import { createNode, requestDelete, startNodeRename } from "../actions/workspace";
 import { setState, state } from "../state";
 
 /**
@@ -32,13 +35,13 @@ export function treeKey(e: KeyboardEvent, openMenu: () => void) {
       pick(rows[rows.length - 1]);
       break;
     case "ArrowRight":
-      if (row?.node.kind === "folder") {
+      if (row && isContainer(row.node.kind)) {
         if (!expanded(row.node.id)) toggleExpanded(row.node.id);
         else if (row.node.children?.length) selectNode(row.node.children[0].id);
       }
       break;
     case "ArrowLeft":
-      if (row?.node.kind === "folder" && expanded(row.node.id)) toggleExpanded(row.node.id);
+      if (row && isContainer(row.node.kind) && expanded(row.node.id)) toggleExpanded(row.node.id);
       else if (row?.parent) selectNode(row.parent);
       break;
     case "Enter":
@@ -61,7 +64,7 @@ export function treeKey(e: KeyboardEvent, openMenu: () => void) {
       break;
     default:
       if (e.key === "F10" && e.shiftKey) openMenu();
-      else if (e.code === "KeyN") void createNode(e.shiftKey ? "folder" : "text");
+      else if (e.code === "KeyN") void createNode(e.shiftKey ? "folder" : row && inManuscript(state.area, row.node.id) ? "chapter" : "text");
       else handled = false;
   }
 

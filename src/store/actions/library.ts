@@ -1,10 +1,12 @@
 import { batch } from "solid-js";
 import * as bookApi from "../../api/book";
-import * as chapterApi from "../../api/chapter";
 import * as api from "../../api/library";
 import { statsToday } from "../../api/prefs";
+import { areaTree } from "../../api/workspace";
 import { docWords } from "../../lib/doc";
 import { focusTarget } from "../focus";
+import { expandedFor } from "./expanded";
+import { initialNode, keyOf, loadNodeDoc } from "./open";
 import { backupAuto, fetchComments, loadBookCloud, syncCloudBadges } from "./cloud";
 import { flushAll, settleDocSave, swapDocument } from "../saving";
 import { sortedLibrary } from "../selectors/library";
@@ -28,25 +30,33 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
   try {
     await flushAll();
     const book = await bookApi.openBook(id);
-    const chapter = book.chapters[book.cur];
-    const doc = await chapterApi.loadChapter(book.id, chapter.id);
-    await swapDocument(doc, { bookId: book.id, docId: chapter.id, scope: "chapter" }, () => {
+    const items = await areaTree(id);
+    const node = initialNode(items, book.open);
+    const key = node ? keyOf(id, node) : null;
+    const doc = node && key ? await loadNodeDoc(id, node) : null;
+    const apply = () =>
       batch(() => {
         setState({
-          book, curId: id, view: "editor", panel: null, q: "", tripleHint: false, focus: false,
-          libConfirm: null, renaming: null, liveWords: docWords(doc),
-          // the workspace screen state belongs to the previous book
-          area: [], areaSel: null, areaOpen: null, areaRenaming: null, areaRenameVal: "", areaConfirm: null,
+          book, curId: id, view: "book", panel: null, q: "", tripleHint: false, focus: false,
+          libConfirm: null, renaming: null, liveWords: node?.kind === "chapter" && doc ? docWords(doc) : 0,
+          // the tree's screen state belongs to the previous book
+          area: items, areaExpanded: expandedFor(id, items, node?.id ?? null), areaSel: node?.id ?? null,
+          areaOpen: node?.id ?? null, areaRenaming: null, areaRenameVal: "", areaConfirm: null,
         });
       });
-    });
+    if (doc && key) await swapDocument(doc, key, apply);
+    else {
+      // Nothing to load into the editor: land pending text before it unmounts.
+      await settleDocSave();
+      apply();
+    }
     if (prev && prev !== id) backupAuto(prev);
     setState("cloudBook", null);
     void loadBookCloud(id).then((view) => {
       if (view?.enabled) void fetchComments(true);
     });
-    if (target === "title") focusTarget("title", 0);
-    else focusTarget("body", "end");
+    if (target === "title" && node?.kind === "chapter") focusTarget("title", 0);
+    else focusTarget(doc ? "body" : "tree", doc ? "end" : null);
   } catch (e) {
     flashError(e);
   }

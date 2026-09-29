@@ -15,25 +15,25 @@ export function flash(msg: string) {
 /** Shows a Rust/mock error as a toast. */
 export const flashError = (e: unknown) => flash(typeof e === "string" ? e : "Algo deu errado");
 
-/** Where focus rests on the current screen: the library grid, the workspace tree, or the text. */
+/** Where focus rests on the current screen: the library grid, the text of an open chapter or text, or the tree. */
 export function homeTarget(): FocusTarget {
   if (state.view === "library") return "lib";
-  if (state.view === "workspace") return openAreaNode()?.kind === "text" ? "body" : "tree";
-  return "body";
+  const kind = openAreaNode()?.kind;
+  return kind === "chapter" || kind === "text" ? "body" : "tree";
 }
 
 /** Closes any panel and returns focus to the main screen. */
 export function closePanel() {
   focusTarget(homeTarget());
   if (!state.panel) return;
-  setState({ panel: null, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [], indexConfirm: null });
+  setState({ panel: null, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [] });
 }
 
 /** Opens a panel; closes it if already open. */
 export function openPanel(name: Panel) {
   if (state.panel === name) return closePanel();
   focusTarget(name, name === "notes" ? "end" : null);
-  setState({ panel: name, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [], indexSel: state.book?.cur ?? 0, indexConfirm: null });
+  setState({ panel: name, q: "", pIdx: 0, confirmDel: false, prompt: null, hits: [] });
 }
 
 export function toggleFocusMode() {

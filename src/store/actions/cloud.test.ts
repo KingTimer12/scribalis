@@ -1,3 +1,5 @@
+import { chapterOrder } from "../../lib/manuscript";
+import { findNode } from "../../lib/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cloudDb } from "../../api/mock/db";
 import { listLibrary } from "../../api/library";
@@ -48,7 +50,7 @@ describe("cloud actions", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     await activateCloud("Casa");
     const id = await openFirstBook();
-    await createShare({ bookId: id, kind: "chapter", target: state.book!.chapters[0].id, freeze: false, includeNotes: false, allowComments: true, expiresInDays: null });
+    await createShare({ bookId: id, kind: "chapter", target: chapterOrder(state.area)[0].id, freeze: false, includeNotes: false, allowComments: true, expiresInDays: null });
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/scribalis/s/"));
     expect(state.toast).toBe("Link copiado");
     vi.unstubAllGlobals();
@@ -58,10 +60,10 @@ describe("cloud actions", () => {
     await activateCloud("Casa");
     const id = await openFirstBook();
     await loadBookCloud(id);
-    const chapterId = state.book!.chapters[state.book!.cur].id;
+    const chapterId = state.areaOpen!;
     cloudDb.comments[id] = [[chapterId, "achei confuso"]];
     await fetchComments(false);
-    expect(state.book!.chapters[state.book!.cur].notes).toContain("achei confuso");
+    expect(findNode(state.area, chapterId)!.notes).toContain("achei confuso");
     expect(state.toast).toBe("1 comentário adicionado às notas");
   });
 });

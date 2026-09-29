@@ -1,15 +1,17 @@
 import { call } from "./invoke";
-import type { BookMeta, ChapterMeta, ChapterPatch, DocJSON, SearchHit } from "./types";
+import type { AreaNode, ChapterPatch, Created, DocJSON, SearchHit } from "./types";
 
 export const loadChapter = (bookId: string, chapterId: string) => call<DocJSON>("chapter_load", { bookId, chapterId });
+/** Saves the text; resolves to the chapter node with its fresh word count. */
 export const saveChapter = (bookId: string, chapterId: string, doc: DocJSON) =>
-  call<ChapterMeta>("chapter_save", { bookId, chapterId, doc });
+  call<AreaNode>("chapter_save", { bookId, chapterId, doc });
 export const updateChapter = (bookId: string, chapterId: string, patch: ChapterPatch) =>
-  call<ChapterMeta>("chapter_update", { bookId, chapterId, patch });
-export const insertChapter = (bookId: string, at: number) => call<BookMeta>("chapter_insert", { bookId, at });
+  call<AreaNode>("chapter_update", { bookId, chapterId, patch });
+/** Enter x3: resolves to the new chapter's id and the tree. */
 export const splitChapter = (bookId: string, chapterId: string, before: DocJSON, after: DocJSON) =>
-  call<BookMeta>("chapter_split", { bookId, chapterId, before, after });
-export const moveChapter = (bookId: string, from: number, to: number) => call<BookMeta>("chapter_move", { bookId, from, to });
-export const deleteChapter = (bookId: string, chapterId: string) => call<BookMeta>("chapter_delete", { bookId, chapterId });
+  call<Created>("chapter_split", { bookId, chapterId, before, after });
+/** Previous (-1) or next (1) chapter in reading order; null past either end. */
+export const chapterNeighbor = (bookId: string, chapterId: string, step: -1 | 1) =>
+  call<string | null>("chapter_neighbor", { bookId, chapterId, step });
 export const searchChapters = (bookId: string, q: string) => call<SearchHit[]>("chapter_search", { bookId, q });
 export const chapterMarkdown = (bookId: string, chapterId: string) => call<string>("chapter_markdown", { bookId, chapterId });

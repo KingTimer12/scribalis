@@ -1,4 +1,5 @@
 import type { BookCloudView, CloudOverview, Share, ShareInput, Snapshot } from "../types";
+import { findNode } from "../../lib/tree";
 import { cloudDb, findBook, mockId, toBookMeta, toSummary } from "./db";
 
 const DEFAULT_URL = "https://kingtimer12.dev/api/scribalis/v1";
@@ -110,8 +111,9 @@ export const cloud = {
     const waiting = cloudDb.comments[bookId] ?? [];
     const book = findBook(bookId);
     for (const [nodeId, text] of waiting) {
-      const c = book.chapters.find((x) => x.id === nodeId);
-      if (c) c.notes = (c.notes.trim() ? c.notes.trim() + "\n\n" : "") + "— Visitante · " + text;
+      // Chapter or not, a comment goes to its node's notes (Rust's `cloud::comments::apply`).
+      const n = findNode(book.area, nodeId);
+      if (n) n.notes = (n.notes.trim() ? n.notes.trim() + "\n\n" : "") + "— Visitante · " + text;
     }
     cloudDb.comments[bookId] = [];
     if (cloudDb.books[bookId]) cloudDb.books[bookId].lastCommentsAt = Date.now();

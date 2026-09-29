@@ -2,6 +2,7 @@ import * as api from "../../api/book";
 import type { ImageSlot } from "../../api/types";
 import { insertImage } from "../../editor/bridge";
 import { flushAll } from "../saving";
+import { currentChapter } from "../selectors/book";
 import { refreshLibrary } from "./library";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -70,7 +71,7 @@ export async function clearBookImage(slot: ImageSlot) {
 /** Ctrl I / palette: Rust opens the dialog and copies the image into the book. */
 export async function insertChapterImage() {
   const id = state.book?.id;
-  if (!id) return;
+  if (!id || !currentChapter()) return;
   try {
     const src = await api.insertChapterImage(id);
     // The image was copied into book `id`: only insert it if that book is still open.
@@ -83,7 +84,7 @@ export async function insertChapterImage() {
 /** Files dropped on the window: each is copied into the book and placed at the drop point. */
 export async function dropChapterImages(paths: string[], at: { x: number; y: number }) {
   const id = state.book?.id;
-  if (!id || state.view !== "editor") return;
+  if (!id || !currentChapter()) return;
   for (const [i, path] of paths.entries()) {
     try {
       const src = await api.importChapterImage(id, path);

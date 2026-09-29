@@ -1,9 +1,11 @@
-import { cycleStatus, goChapter, moveChapter } from "../actions/chapters";
+import { cycleStatus, moveChapterStep } from "../actions/chapters";
 import { insertChapterImage } from "../actions/images";
 import { goLibrary } from "../actions/library";
+import { goChapterStep } from "../actions/open";
 import { toggleTheme } from "../actions/prefs";
-import { goChapters, goWorkspace } from "../actions/tabs";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
+import { currentChapter } from "../selectors/book";
+import { openAreaNode } from "../selectors/workspace";
 import { state } from "../state";
 
 /**
@@ -16,28 +18,24 @@ export function rootKey(e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey;
   const k = (e.key || "").toLowerCase();
   const code = e.code || "";
-  const ed = state.view === "editor";
-  const inBook = !!state.book && state.view !== "library";
-  const tabKey = inBook && mod && !e.shiftKey && !e.altKey;
-  const cur = state.book?.cur ?? 0;
+  const inBook = !!state.book && state.view === "book";
+  const chapter = inBook && !!currentChapter();
+  const withNotes = inBook && (chapter || openAreaNode()?.kind === "text");
   let handled = true;
 
   if (mod && (k === "k" || code === "KeyK")) openPanel("palette");
   else if (mod && !e.shiftKey && (k === "j" || code === "KeyJ")) toggleTheme();
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
   else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
-  else if (tabKey && code === "Digit1") void goChapters();
-  else if (tabKey && code === "Digit2") void goWorkspace();
   else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openPanel("cloud");
-  else if (ed && mod && !e.shiftKey && (k === "e" || code === "KeyE")) openPanel("index");
-  else if (ed && mod && (k === "." || code === "Period")) toggleFocusMode();
-  else if (ed && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
-  else if (ed && mod && e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
-  else if (ed && e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+  else if (inBook && mod && (k === "." || code === "Period")) toggleFocusMode();
+  else if (withNotes && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
+  else if (chapter && mod && e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
+  else if (chapter && e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
     const dir = e.key === "ArrowUp" ? -1 : 1;
-    if (e.shiftKey) moveChapter(cur, dir);
-    else goChapter(cur + dir);
-  } else if (ed && e.altKey && !mod && code === "KeyS") cycleStatus();
+    if (e.shiftKey) void moveChapterStep(dir);
+    else void goChapterStep(dir);
+  } else if (chapter && e.altKey && !mod && code === "KeyS") cycleStatus();
   else if (e.key === "Escape") closePanel();
   else handled = false;
 

@@ -8,7 +8,8 @@ export const book = {
     if (patch.title !== undefined) b.title = patch.title;
     if (patch.author !== undefined) b.author = patch.author;
     if (patch.separatorText !== undefined) b.separator = { type: "text", text: patch.separatorText };
-    if (patch.cur !== undefined) b.cur = Math.min(patch.cur, b.chapters.length - 1);
+    // Opening a node is not an edit: no touch.
+    if (patch.open !== undefined) b.open = patch.open;
     if (patch.title !== undefined || patch.author !== undefined || patch.separatorText !== undefined) touch(b);
     return toMeta(b);
   },

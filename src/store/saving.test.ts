@@ -27,6 +27,7 @@ vi.mock("../api/workspace", () => ({
 }));
 
 const { scheduleDocSave, swapDocument } = await import("./saving");
+const { setState } = await import("./state");
 
 /** Just enough of an Editor for the bridge; `type` simulates the user editing. */
 function fakeEditor() {
@@ -116,5 +117,22 @@ describe("chapter text saves across a chapter switch", () => {
     await vi.runAllTimersAsync();
     expect(saves).toEqual([]);
     expect(areaSaves).toHaveLength(1);
+  });
+
+  it("a chapter converted to a text while open is saved as a text, never to the chapter path", async () => {
+    const ed = fakeEditor();
+    setEditor(ed.editor);
+    // The tree already says "text" for the node the editor still holds under a chapter key.
+    setState({
+      book: { id: "b" } as never,
+      area: [{ id: "old", kind: "text", title: "", notes: "" }],
+    });
+    loadDoc(para("era capítulo"), OLD);
+    ed.type(para("era capítulo, agora texto"));
+    scheduleDocSave();
+    await vi.runAllTimersAsync();
+    expect(saves).toEqual([]);
+    expect(areaSaves).toEqual([{ bookId: "b", id: "old", text: text(para("era capítulo, agora texto")) }]);
+    setState({ book: null, area: [] });
   });
 });

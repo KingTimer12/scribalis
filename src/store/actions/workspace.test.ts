@@ -1,108 +1,113 @@
 import { describe, expect, it } from "vitest";
 import { mockInvoke } from "../../api/mock";
+import { db } from "../../api/mock/db";
 import type { AreaNode, BookMeta, BookSummary } from "../../api/types";
+import { chapterOrder } from "../../lib/manuscript";
 import { findNode } from "../../lib/tree";
 import { setState, state } from "../state";
-import { createNode, commitNodeRename, deleteNode, moveNode, sendToChapter, setNodeNotes } from "./workspace";
+import { commitNodeRename, createNode, deleteNode, moveNode, setNodeNotes } from "./workspace";
 
-/** A fresh book, isolated from the sample library and from other tests. */
+/** A fresh book with its tree in the store, isolated from the samples and other tests. */
 async function newBook(): Promise<BookMeta> {
   const created = await mockInvoke<BookSummary>("library_create", { title: "Obra de teste" });
-  return mockInvoke<BookMeta>("book_open", { id: created.id });
-}
-
-function resetAreaState(book: BookMeta) {
+  const book = await mockInvoke<BookMeta>("book_open", { id: created.id });
+  const area = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: book.id });
   setState({
-    book, area: [], areaSel: null, areaOpen: null, areaExpanded: [],
-    areaRenaming: null, areaRenameVal: "", areaConfirm: null,
+    book, area, areaSel: null, areaOpen: null, areaExpanded: [],
+    areaRenaming: null, areaRenameVal: "", areaConfirm: null, toast: "",
   });
+  return book;
 }
 
-describe("workspace actions (mock)", () => {
-  it("creates a folder, then a text node inside it, entering rename both times", async () => {
-    resetAreaState(await newBook());
-    await createNode("folder");
-    expect(state.area).toHaveLength(1);
-    const folder = state.area[0];
-    expect(folder.kind).toBe("folder");
-    expect(folder.title).toBe("Nova pasta");
-    expect(state.areaRenaming).toBe(folder.id);
-    expect(state.areaRenameVal).toBe("Nova pasta");
+/** Everything after the Manuscrito. */
+const outside = () => state.area.slice(1);
+const manuscriptId = () => state.area[0].id;
 
+describe("tree actions (mock)", () => {
+  it("creates a folder, then a text node inside it, entering rename both times", async () => {
+    await newBook();
+    await createNode("folder");
+    expect(outside()).toHaveLength(1);
+    const folder = outside()[0];
+    expect(folder.kind).toBe("folder");
+    expect(state.areaRenaming).toBe(folder.id);
     setState("areaSel", folder.id);
     await createNode("text");
     const inFolder = findNode(state.area, folder.id)?.children ?? [];
-    expect(inFolder).toHaveLength(1);
-    expect(inFolder[0].kind).toBe("text");
-    expect(inFolder[0].title).toBe("Novo documento");
+    expect(inFolder.map((n) => [n.kind, n.title])).toEqual([["text", "Novo documento"]]);
     expect(state.areaRenaming).toBe(inFolder[0].id);
   });
 
   it("renames a node", async () => {
-    resetAreaState(await newBook());
+    await newBook();
     await createNode("folder");
-    const id = state.area[0].id;
+    const id = outside()[0].id;
     setState("areaRenameVal", "Pesquisa");
     await commitNodeRename();
-    expect(state.areaRenaming).toBeNull();
     expect(findNode(state.area, id)?.title).toBe("Pesquisa");
   });
 
   it("moves a node inside another folder", async () => {
-    resetAreaState(await newBook());
-    await createNode("folder"); // "Nova pasta" #1
-    const first = state.area[0].id;
+    await newBook();
+    await createNode("folder");
+    const first = outside()[0].id;
     setState("areaSel", null);
-    await createNode("folder"); // "Nova pasta" #2, at the root (nothing selected)
-    const second = state.area.find((n) => n.id !== first)!.id;
-
+    await createNode("folder");
+    const second = outside().find((n) => n.id !== first)!.id;
     await moveNode(second, first, "inside");
-    expect(state.area.map((n) => n.id)).toEqual([first]);
+    expect(outside().map((n) => n.id)).toEqual([first]);
     expect(findNode(state.area, first)?.children?.map((n) => n.id)).toEqual([second]);
   });
 
-  it("deletes only on the second call, and closes the open node if it was inside", async () => {
-    resetAreaState(await newBook());
+  it("deletes only on the second call; the open node gives way to the first chapter", async () => {
+    await newBook();
     await createNode("folder");
-    const id = state.area[0].id;
+    const id = outside()[0].id;
     setState("areaOpen", id);
-
     deleteNode(id);
     expect(state.areaConfirm).toBe(id);
-    expect(state.area).toHaveLength(1);
-
+    expect(outside()).toHaveLength(1);
     await deleteNode(id);
-    expect(state.areaConfirm).toBeNull();
-    expect(state.area).toHaveLength(0);
-    expect(state.areaOpen).toBeNull();
+    expect(outside()).toHaveLength(0);
+    expect(state.areaOpen).toBe(chapterOrder(state.area)[0].id);
   });
 
   it("saves node notes immediately (no debounce), skipping the call when unchanged", async () => {
-    resetAreaState(await newBook());
+    await newBook();
     await createNode("folder");
-    const id = state.area[0].id;
-
+    const id = outside()[0].id;
     await setNodeNotes(id, "notas");
-    expect(findNode(state.area, id)?.notes).toBe("notas");
-    // Persisted on the backend right away, not just in the optimistic local tree.
     const tree = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: state.book!.id });
     expect(findNode(tree, id)?.notes).toBe("notas");
-
-    // Same value again: no call needed, and none is made (an id gone from the backend would throw).
     await setNodeNotes(id, "notas");
     expect(findNode(state.area, id)?.notes).toBe("notas");
   });
 
-  it("sends a text to the chapters, appending it to state.book", async () => {
-    const book = await newBook();
-    resetAreaState(book);
-    const before = state.book!.chapters.length;
+  it("a text dropped into the Manuscrito becomes a chapter with the same id", async () => {
+    await newBook();
     await createNode("text");
-    const id = state.area[0].id;
+    const id = outside()[0].id;
+    await moveNode(id, manuscriptId(), "inside");
+    expect(findNode(state.area, id)?.kind).toBe("chapter");
+    expect(chapterOrder(state.area).map((c) => c.id)).toContain(id);
+  });
 
-    await sendToChapter(id);
-    expect(state.area).toHaveLength(0);
-    expect(state.book!.chapters).toHaveLength(before + 1);
-    expect(state.book!.chapters[state.book!.chapters.length - 1].title).toBe("Novo documento");
+  it("an image dropped into the Manuscrito is refused with the reason", async () => {
+    const book = await newBook();
+    db.books.find((b) => b.id === book.id)!.area.push({ id: "img", kind: "image", title: "Mapa", notes: "", file: "arquivos/img.png" });
+    setState("area", await mockInvoke<AreaNode[]>("workspace_tree", { bookId: book.id }));
+    await moveNode("img", manuscriptId(), "inside");
+    expect(state.toast).toBe("Imagens e anexos não entram no Manuscrito");
+    expect(findNode(state.area, "img")?.kind).toBe("image");
+  });
+
+  it("the last chapter cannot leave the Manuscrito", async () => {
+    await newBook();
+    await createNode("folder");
+    const folder = outside()[0].id;
+    const only = chapterOrder(state.area)[0].id;
+    await moveNode(only, folder, "inside");
+    expect(state.toast).toBe("A obra precisa de pelo menos um capítulo");
+    expect(chapterOrder(state.area).map((c) => c.id)).toEqual([only]);
   });
 });

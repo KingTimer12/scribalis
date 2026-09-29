@@ -35,19 +35,13 @@ export interface BookSummary {
   cloud: boolean;
 }
 
-export interface ChapterMeta {
-  id: string;
-  title: string;
-  status: Status;
-  notes: string;
-  words: number;
-}
-
+/** Book-level fields of the open book; its structure comes separately, as the tree. */
 export interface BookMeta {
   id: string;
   title: string;
   author: string;
-  cur: number;
+  /** Last opened node (chapter or not). */
+  open: string | null;
   updatedAt: number;
   /** Absolute folder; image fields are relative to it. */
   dir: string;
@@ -55,10 +49,10 @@ export interface BookMeta {
   header: string | null;
   footer: string | null;
   separator: Separator;
-  chapters: ChapterMeta[];
 }
 
 export interface SearchHit {
+  /** Position in reading order. */
   index: number;
   chapterId: string;
 }
@@ -90,18 +84,6 @@ export interface Created {
   items: AreaNode[];
 }
 
-export interface ToChapterResult {
-  book: BookMeta;
-  items: AreaNode[];
-}
-
-/** A chapter turned into a workspace text: the book without it, the new node's id and the tree. */
-export interface FromChapterResult {
-  book: BookMeta;
-  id: string;
-  items: AreaNode[];
-}
-
 export interface LibraryListing {
   books: BookSummary[];
   warnings: string[];
@@ -119,7 +101,7 @@ export interface Prefs {
   font: 0 | 1 | 2;
 }
 
-export type BookPatch = Partial<{ title: string; author: string; cur: number; separatorText: string }>;
+export type BookPatch = Partial<{ title: string; author: string; open: string; separatorText: string }>;
 export type ChapterPatch = Partial<{ title: string; notes: string; status: Status }>;
 export type PrefsPatch = Partial<Prefs>;
 

@@ -1,9 +1,8 @@
-import * as bookApi from "../../api/book";
 import * as api from "../../api/cloud";
 import type { CloudStatus, ShareInput } from "../../api/types";
 import { areaTree } from "../../api/workspace";
 import { flushAll } from "../saving";
-import { editBook, setState, state } from "../state";
+import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
 
 export async function loadCloud() {
@@ -180,14 +179,11 @@ export async function fetchComments(quiet: boolean) {
   }
 }
 
-/** Copies fresh notes into the open book without touching the chapter being edited. */
+/** Copies fresh notes (chapters and other nodes alike) into the open book's tree. */
 async function reloadNotes(bookId: string) {
-  const meta = await bookApi.openBook(bookId);
-  if (state.book?.id !== bookId) return;
-  editBook((b) => {
-    for (const c of b.chapters) c.notes = meta.chapters.find((x) => x.id === c.id)?.notes ?? c.notes;
-  });
-  if (state.view === "workspace") setState("area", await areaTree(bookId));
+  await flushAll();
+  const items = await areaTree(bookId);
+  if (state.book?.id === bookId) setState("area", items);
 }
 
 export function applyCloudStatus(s: CloudStatus) {

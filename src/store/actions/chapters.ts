@@ -1,79 +1,26 @@
-import * as bookApi from "../../api/book";
 import * as api from "../../api/chapter";
 import { statsToday } from "../../api/prefs";
-import type { BookMeta, DocJSON, FromChapterResult } from "../../api/types";
-import { areaFromChapter } from "../../api/workspace";
+import type { Created, DocJSON, Status } from "../../api/types";
+import { areaMove } from "../../api/workspace";
 import { liveText, type DocKey } from "../../editor/bridge";
 import { STATUS, STATUS_LABEL } from "../../lib/constants";
 import { docWords } from "../../lib/doc";
 import { pad, wc } from "../../lib/format";
-import { focusTarget, type Caret } from "../focus";
+import { chapterNumber } from "../../lib/manuscript";
+import { findNode, locate } from "../../lib/tree";
+import { focusTarget } from "../focus";
 import { cancelDocSave, flushAll, scheduleChapterPatch, scheduleDocSave, swapDocument } from "../saving";
 import { currentChapter } from "../selectors/book";
-import { editBook, setState, state } from "../state";
+import { editNode, setState, state } from "../state";
+import { run } from "./run";
 import { flash, flashError } from "./ui";
-
-/** Where focus lands after showing a chapter: the title, or a caret in the text. */
-type Target = Caret | "title";
+import { createNode } from "./workspace";
 
 export async function refreshToday() {
   setState("today", (await statsToday()).today);
 }
 
-/** Replaces the open book's metadata, unless the user has left that book meanwhile. */
-function applyMeta(meta: BookMeta, extra: { liveWords?: number } = {}): boolean {
-  if (state.book?.id !== meta.id) return false;
-  setState({ book: meta, tripleHint: false, ...extra });
-  return true;
-}
-
-/**
- * Applies new book metadata and loads its current chapter into the editor.
- * `discard` drops text typed meanwhile into the old chapter (it was deleted).
- */
-async function showCurrent(meta: BookMeta, target: Target, discard = false): Promise<boolean> {
-  const chapter = meta.chapters[meta.cur];
-  const doc = await api.loadChapter(meta.id, chapter.id);
-  if (discard) cancelDocSave();
-  const key: DocKey = { bookId: meta.id, docId: chapter.id, scope: "chapter" };
-  if (!(await swapDocument(doc, key, () => applyMeta(meta, { liveWords: docWords(doc) })))) return false;
-  if (target === "title") focusTarget("title", 0);
-  else focusTarget("body", target);
-  return true;
-}
-
-async function run(fn: () => Promise<void>) {
-  try {
-    await fn();
-  } catch (e) {
-    flashError(e);
-  }
-}
-
-export function goChapter(i: number, caret: Target = "end") {
-  const b = state.book;
-  if (!b) return;
-  if (i < 0 || i >= b.chapters.length) {
-    flash(i < 0 ? "Este é o primeiro capítulo" : "Este é o último capítulo");
-    return;
-  }
-  return run(async () => {
-    await flushAll();
-    const meta = await bookApi.updateBook(b.id, { cur: i });
-    await showCurrent(meta, caret);
-  });
-}
-
-export function insertChapterAt(at: number) {
-  const b = state.book;
-  if (!b) return;
-  return run(async () => {
-    await flushAll();
-    if (await showCurrent(await api.insertChapter(b.id, at), "title")) flash("Capítulo " + pad(at + 1) + " criado");
-  });
-}
-
-/** Enter ×3 from the editor. */
+/** Enter ×3 from the editor: the text after the caret opens a new chapter right below, in the same folder. */
 export function splitCurrent(before: DocJSON, after: DocJSON) {
   const b = state.book;
   const c = currentChapter();
@@ -82,121 +29,77 @@ export function splitCurrent(before: DocJSON, after: DocJSON) {
   cancelDocSave();
   return run(async () => {
     await flushAll();
-    let meta: BookMeta;
+    let created: Created;
     try {
-      meta = await api.splitChapter(b.id, c.id, before, after);
+      created = await api.splitChapter(b.id, c.id, before, after);
     } catch (e) {
       // Nothing was split: the editor still holds the whole text, save it as usual.
       scheduleDocSave();
       throw e;
     }
-    const key: DocKey = { bookId: meta.id, docId: meta.chapters[meta.cur].id, scope: "chapter" };
-    if (!(await swapDocument(after, key, () => applyMeta(meta, { liveWords: docWords(after) })))) return;
+    const { id, items } = created;
+    const key: DocKey = { bookId: b.id, docId: id, scope: "chapter" };
+    const shown = await swapDocument(after, key, () => {
+      if (state.book?.id !== b.id) return false;
+      setState({ area: items, areaOpen: id, areaSel: id, liveWords: docWords(after), tripleHint: false });
+      setState("book", "open", id);
+    });
+    if (!shown) return;
     focusTarget("title", 0);
     await refreshToday();
-    flash("Capítulo " + pad(meta.cur + 1) + " criado" + (after.content.length ? " — o texto seguinte foi junto" : ""));
+    flash("Capítulo " + pad(chapterNumber(state.area, id)) + " criado" + (after.content.length ? " — o texto seguinte foi junto" : ""));
   });
 }
 
-/** Swaps chapter `from` with its neighbor. Resolves to the new index, or null. */
-export async function moveChapter(from: number, dir: -1 | 1): Promise<number | null> {
+/** A new empty chapter right after the open one, in the same folder. */
+export function newChapterAfterCurrent() {
+  const c = currentChapter();
+  const loc = c ? locate(state.area, c.id) : null;
+  if (!loc) return;
+  return createNode("chapter", { parent: loc.parent, index: loc.index + 1 });
+}
+
+export function setStatus(id: string, status: Status) {
   const b = state.book;
-  const to = from + dir;
-  if (!b || to < 0 || to >= b.chapters.length) return null;
-  try {
-    await flushAll();
-    if (!applyMeta(await api.moveChapter(b.id, from, to))) return null;
-    flash("Movido para a posição " + pad(to + 1));
-    return to;
-  } catch (e) {
-    flashError(e);
-    return null;
-  }
+  if (!b) return;
+  editNode(id, (n) => (n.status = status));
+  api.updateChapter(b.id, id, { status }).catch(flashError);
+  flash("Status: " + STATUS_LABEL[status]);
 }
 
 export function cycleStatus() {
-  const b = state.book;
   const c = currentChapter();
-  if (!b || !c) return;
-  const next = STATUS[(STATUS.indexOf(c.status) + 1) % STATUS.length];
-  editBook((bk) => (bk.chapters[bk.cur].status = next));
-  api.updateChapter(b.id, c.id, { status: next }).catch(flashError);
-  flash("Status: " + STATUS_LABEL[next]);
-}
-
-/**
- * Takes chapter `id` out of the book through `op` (delete, or send to the workspace).
- * The open chapter gives way to its neighbor, dropping text typed after the last save;
- * any other chapter leaves the editor alone. Resolves to the chapter's old index, or null.
- */
-async function takeChapterOut(id: string, op: (bookId: string) => Promise<BookMeta>): Promise<number | null> {
-  const b = state.book;
-  if (!b) return null;
-  const gone = b.chapters.findIndex((c) => c.id === id);
-  if (gone < 0) return null;
-  if (b.chapters.length === 1) {
-    flash("A obra precisa de pelo menos um capítulo");
-    return null;
-  }
-  const open = gone === b.cur;
-  if (open) cancelDocSave();
-  setState("indexConfirm", null);
-  try {
-    await flushAll();
-    const meta = await op(b.id);
-    const shown = open ? await showCurrent(meta, "end", true) : applyMeta(meta);
-    await refreshToday();
-    if (!shown) return null;
-    setState("indexSel", Math.min(state.indexSel, meta.chapters.length - 1));
-    // From the index, the index keeps the keyboard.
-    if (state.panel === "index") focusTarget("index");
-    return gone;
-  } catch (e) {
-    flashError(e);
-    return null;
-  }
-}
-
-/** Deletes chapter `id` for good. */
-export async function deleteChapter(id: string) {
-  const gone = await takeChapterOut(id, (bookId) => api.deleteChapter(bookId, id));
-  if (gone != null) flash("Capítulo " + pad(gone + 1) + " excluído");
-}
-
-/** Moves chapter `id` into the workspace as a text (with its title and notes), instead of deleting it. */
-export async function sendChapterToArea(id: string) {
-  const title = state.book?.chapters.find((c) => c.id === id)?.title.trim() || "Sem título";
-  const out: { r?: FromChapterResult } = {};
-  const gone = await takeChapterOut(id, async (bookId) => {
-    out.r = await areaFromChapter(bookId, id);
-    return out.r.book;
-  });
-  if (gone == null || !out.r) return;
-  setState({ area: out.r.items, areaSel: out.r.id });
-  flash("«" + title + "» foi para a área de trabalho");
-}
-
-export function deleteCurrentChapter() {
-  const c = currentChapter();
-  if (c) return deleteChapter(c.id);
-}
-
-/** Delete with confirmation from the index: the first request arms it, the second deletes. */
-export function requestChapterDelete(i: number) {
-  const c = state.book?.chapters[i];
   if (!c) return;
-  if (state.indexConfirm === c.id) return deleteChapter(c.id);
-  setState("indexConfirm", c.id);
-  flash("Aperte Delete de novo para excluir o capítulo " + pad(i + 1));
+  const cur = c.status ?? "rascunho";
+  setStatus(c.id, STATUS[(STATUS.indexOf(cur) + 1) % STATUS.length]);
 }
 
-export async function copyCurrentChapter() {
+/** Alt Shift ↑ / ↓: moves the open chapter one place among its siblings. */
+export function moveChapterStep(dir: -1 | 1) {
   const b = state.book;
   const c = currentChapter();
-  if (!b || !c) return;
+  const loc = c ? locate(state.area, c.id) : null;
+  if (!b || !c || !loc) return;
+  const siblings = (loc.parent ? findNode(state.area, loc.parent)?.children : state.area) ?? [];
+  const to = loc.index + dir;
+  if (to < 0 || to >= siblings.length) {
+    flash(dir < 0 ? "Já é o primeiro desta pasta" : "Já é o último desta pasta");
+    return;
+  }
+  return run(async () => {
+    await flushAll();
+    setState("area", await areaMove(b.id, c.id, loc.parent, to));
+    flash("Agora é o capítulo " + pad(chapterNumber(state.area, c.id)));
+  });
+}
+
+/** "Copiar para publicar": the heading plus the markdown of chapter `id` (the open one by default). */
+export async function copyChapter(id = currentChapter()?.id) {
+  const b = state.book;
+  if (!b || !id) return;
   try {
     await flushAll();
-    await navigator.clipboard.writeText(await api.chapterMarkdown(b.id, c.id));
+    await navigator.clipboard.writeText(await api.chapterMarkdown(b.id, id));
     flash("Capítulo copiado");
   } catch {
     flash("Não foi possível copiar aqui");
@@ -204,21 +107,20 @@ export async function copyCurrentChapter() {
 }
 
 export function setChapterTitle(title: string) {
-  editBook((b) => (b.chapters[b.cur].title = title));
+  const c = currentChapter();
+  if (!c) return;
+  editNode(c.id, (n) => (n.title = title));
   scheduleChapterPatch({ title });
 }
 
 export function setChapterNotes(notes: string) {
-  editBook((b) => (b.chapters[b.cur].notes = notes));
+  const c = currentChapter();
+  if (!c) return;
+  editNode(c.id, (n) => (n.notes = notes));
   scheduleChapterPatch({ notes });
 }
 
-export function openFromIndex(i: number) {
-  setState("panel", null);
-  return goChapter(i);
-}
-
-/** Called by the editor on every change: live count + debounced save. */
+/** Called by the chapter editor on every change: live count + debounced save. */
 export function onEditorChange() {
   setState("liveWords", wc(liveText()));
   scheduleDocSave();

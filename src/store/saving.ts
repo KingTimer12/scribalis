@@ -4,7 +4,9 @@ import { statsToday } from "../api/prefs";
 import type { BookPatch, ChapterPatch, DocJSON } from "../api/types";
 import { saveAreaDoc } from "../api/workspace";
 import { currentDocKey, getDoc, loadDoc, sameKey, type DocKey } from "../editor/bridge";
-import { editBook, setState, state } from "./state";
+import { findNode } from "../lib/tree";
+import { editNode, setState, state } from "./state";
+import { currentChapter } from "./selectors/book";
 import { flashError } from "./actions/ui";
 
 const DOC_DELAY = 800;
@@ -22,7 +24,7 @@ let bookPatch: Pending<BookPatch> | null = null;
 
 function target() {
   const b = state.book;
-  const c = b?.chapters[b.cur];
+  const c = currentChapter();
   return b && c ? { bookId: b.id, chapterId: c.id } : null;
 }
 
@@ -30,15 +32,15 @@ async function saveDocNow(key: DocKey) {
   // Null when the editor already holds another document: never file its text under `key`.
   const doc = getDoc(key);
   if (!doc) return;
-  if (key.scope === "area") {
+  // A node dragged across the Manuscrito changes kind while the editor still holds its old key:
+  // file the text by what the node is now, never to the path it had.
+  const kind = state.book?.id === key.bookId ? findNode(state.area, key.docId)?.kind : undefined;
+  if (kind === "text" || (!kind && key.scope === "area")) {
     await saveAreaDoc(key.bookId, key.docId, doc);
     return;
   }
   const saved = await chapterApi.saveChapter(key.bookId, key.docId, doc);
-  editBook((b) => {
-    const c = b.id === key.bookId ? b.chapters.find((x) => x.id === key.docId) : undefined;
-    if (c) c.words = saved.words;
-  });
+  if (state.book?.id === key.bookId) editNode(key.docId, (n) => (n.words = saved.words));
   setState("today", (await statsToday()).today);
 }
 

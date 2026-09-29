@@ -1,81 +1,67 @@
-import type { BookMeta, ChapterMeta, ChapterPatch, DocJSON, SearchHit } from "../types";
+import type { AreaNode, ChapterPatch, Created, DocJSON, SearchHit } from "../types";
 import { docText, docWords } from "../../lib/doc";
 import { norm, pad } from "../../lib/format";
-import { chapterMeta as meta, chapter as newChapter, findBook, findChapter, toMeta, touch } from "./db";
+import { chapterOrder } from "../../lib/manuscript";
+import { locate } from "../../lib/tree";
+import { chapter as newChapter, EMPTY, findBook, findChapter, touch } from "./db";
+import { insertNode } from "./workspace";
 
 type Ids = { bookId: string; chapterId: string };
 
 export const chapter = {
   chapter_load: ({ bookId, chapterId }: Ids): DocJSON => {
     const b = findBook(bookId);
-    return structuredClone(b.chapters[findChapter(b, chapterId)].doc);
+    findChapter(b, chapterId);
+    return b.docs[chapterId] ?? EMPTY;
   },
-  chapter_save: ({ bookId, chapterId, doc }: Ids & { doc: DocJSON }): ChapterMeta => {
+  chapter_save: ({ bookId, chapterId, doc }: Ids & { doc: DocJSON }): AreaNode => {
     const b = findBook(bookId);
-    const c = b.chapters[findChapter(b, chapterId)];
-    c.doc = structuredClone(doc);
+    const c = findChapter(b, chapterId);
+    b.docs[chapterId] = structuredClone(doc);
     c.words = docWords(doc);
     touch(b);
-    return meta(c);
+    return c;
   },
-  chapter_update: ({ bookId, chapterId, patch }: Ids & { patch: ChapterPatch }): ChapterMeta => {
+  chapter_update: ({ bookId, chapterId, patch }: Ids & { patch: ChapterPatch }): AreaNode => {
     const b = findBook(bookId);
-    const c = b.chapters[findChapter(b, chapterId)];
+    const c = findChapter(b, chapterId);
     Object.assign(c, patch);
     touch(b);
-    return meta(c);
+    return c;
   },
-  chapter_insert: ({ bookId, at }: { bookId: string; at: number }): BookMeta => {
+  chapter_split: ({ bookId, chapterId, before, after }: Ids & { before: DocJSON; after: DocJSON }): Created => {
     const b = findBook(bookId);
-    const i = Math.min(at, b.chapters.length);
-    b.chapters.splice(i, 0, newChapter("", "rascunho", { type: "doc", content: [] }));
-    b.cur = i;
+    const c = findChapter(b, chapterId);
+    const loc = locate(b.area, chapterId)!;
+    const [node, doc] = newChapter("", "rascunho", structuredClone(after));
+    b.docs[node.id] = doc;
+    insertNode(b.area, loc.parent, loc.index + 1, node);
+    b.docs[chapterId] = structuredClone(before);
+    c.words = docWords(before);
+    b.open = node.id;
     touch(b);
-    return toMeta(b);
+    return { id: node.id, items: b.area };
   },
-  chapter_split: ({ bookId, chapterId, before, after }: Ids & { before: DocJSON; after: DocJSON }): BookMeta => {
-    const b = findBook(bookId);
-    const i = findChapter(b, chapterId);
-    b.chapters[i].doc = structuredClone(before);
-    b.chapters[i].words = docWords(before);
-    b.chapters.splice(i + 1, 0, newChapter("", "rascunho", structuredClone(after)));
-    b.cur = i + 1;
-    touch(b);
-    return toMeta(b);
-  },
-  chapter_move: ({ bookId, from, to }: { bookId: string; from: number; to: number }): BookMeta => {
-    const b = findBook(bookId);
-    if (from < 0 || from >= b.chapters.length || to < 0 || to >= b.chapters.length) throw "Posição inválida";
-    const currentId = b.chapters[b.cur]?.id;
-    const [c] = b.chapters.splice(from, 1);
-    b.chapters.splice(to, 0, c);
-    b.cur = Math.max(0, b.chapters.findIndex((x) => x.id === currentId));
-    touch(b);
-    return toMeta(b);
-  },
-  chapter_delete: ({ bookId, chapterId }: Ids): BookMeta => {
-    const b = findBook(bookId);
-    if (b.chapters.length === 1) throw "A obra precisa de pelo menos um capítulo";
-    const i = findChapter(b, chapterId);
-    b.chapters.splice(i, 1);
-    // Same rule as Rust: a deletion before the open chapter keeps that chapter open.
-    if (i < b.cur) b.cur -= 1;
-    b.cur = Math.min(b.cur, b.chapters.length - 1);
-    touch(b);
-    return toMeta(b);
+  chapter_neighbor: ({ bookId, chapterId, step }: Ids & { step: number }): string | null => {
+    const list = chapterOrder(findBook(bookId).area);
+    const i = list.findIndex((c) => c.id === chapterId);
+    if (i < 0) throw "Capítulo não encontrado";
+    return list[i + step]?.id ?? null;
   },
   chapter_search: ({ bookId, q }: { bookId: string; q: string }): SearchHit[] => {
     const query = norm(q.trim());
     if (!query) return [];
-    return findBook(bookId)
-      .chapters.map((c, index) => ({ c, index }))
-      .filter(({ c, index }) => norm(c.title).includes(query) || pad(index + 1).startsWith(query) || norm(docText(c.doc)).includes(query))
+    const b = findBook(bookId);
+    return chapterOrder(b.area)
+      .map((c, index) => ({ c, index }))
+      .filter(({ c, index }) =>
+        norm(c.title).includes(query) || pad(index + 1).startsWith(query) || norm(docText(b.docs[c.id] ?? EMPTY)).includes(query))
       .map(({ c, index }) => ({ index, chapterId: c.id }));
   },
   chapter_markdown: ({ bookId, chapterId }: Ids): string => {
     const b = findBook(bookId);
-    const i = findChapter(b, chapterId);
-    const c = b.chapters[i];
-    return (c.title ? `Capítulo ${i + 1} — ${c.title}` : `Capítulo ${i + 1}`) + "\n\n" + docText(c.doc);
+    const c = findChapter(b, chapterId);
+    const n = chapterOrder(b.area).indexOf(c) + 1;
+    return (c.title ? `Capítulo ${n} — ${c.title}` : `Capítulo ${n}`) + "\n\n" + docText(b.docs[chapterId] ?? EMPTY);
   },
 };

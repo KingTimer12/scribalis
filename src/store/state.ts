@@ -4,6 +4,7 @@ import type {
   SearchHit, ShareKind, UpdateInfo,
 } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
+import { findNode } from "../lib/tree";
 import type { Panel, View } from "../lib/types";
 
 export interface PromptState {
@@ -32,7 +33,7 @@ export interface AppState {
   /** False until the first library listing arrives. */
   ready: boolean;
   library: BookSummary[];
-  /** Metadata of the open book (no chapter texts). */
+  /** Book-level fields of the open book; its structure is `area`. */
   book: BookMeta | null;
   /** Open book id, or the last opened one (highlighted in the library). */
   curId: string | null;
@@ -46,10 +47,6 @@ export interface AppState {
   confirmDel: boolean;
   hits: SearchHit[];
   prompt: PromptState | null;
-  // index
-  indexSel: number;
-  /** Chapter id armed for deletion in the index; a second Delete confirms it. */
-  indexConfirm: string | null;
   // bottom bar
   toast: string;
   toastKey: number;
@@ -68,10 +65,10 @@ export interface AppState {
   update: UpdateInfo | null;
   /** True while the update downloads and installs. */
   updating: boolean;
-  // workspace ("area")
+  // the book's tree
   area: AreaNode[];
   areaSel: string | null;
-  /** Node currently shown in the reading pane: a text in the editor, or an image/attachment preview. */
+  /** Node shown in the main pane: a chapter or text in the editor, or an image/attachment preview. */
   areaOpen: string | null;
   /** Ids of expanded folders. */
   areaExpanded: string[];
@@ -105,8 +102,6 @@ export const [state, setState] = createStore<AppState>({
   confirmDel: false,
   hits: [],
   prompt: null,
-  indexSel: 0,
-  indexConfirm: null,
   toast: "",
   toastKey: 0,
   tripleHint: false,
@@ -138,6 +133,16 @@ export const session = {
   /** id reserved for the book being created (only picks the cover tone). */
   newId: "",
 };
+
+/** Mutates a node of the open book's tree in place; no-op when it is gone. */
+export function editNode(id: string, fn: (node: AreaNode) => void) {
+  setState(
+    produce((s) => {
+      const n = findNode(s.area, id);
+      if (n) fn(n);
+    }),
+  );
+}
 
 /** Mutates the open book in place; no-op when none is open. */
 export function editBook(fn: (book: BookMeta) => void) {

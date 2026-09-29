@@ -8,7 +8,6 @@ export type FocusTarget =
   | "title"
   | "body"
   | "notes"
-  | "index"
   | "palette"
   | "help"
   | "spacing"

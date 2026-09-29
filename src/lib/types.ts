@@ -1,3 +1,3 @@
 export type { Prefs, Status } from "../api/types";
-export type View = "library" | "editor" | "workspace";
-export type Panel = "palette" | "index" | "notes" | "help" | "spacing" | "cloud";
+export type View = "library" | "book";
+export type Panel = "palette" | "notes" | "help" | "spacing" | "cloud";
