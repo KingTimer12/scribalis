@@ -3,7 +3,7 @@ use std::{fs, io::ErrorKind, path::{Path, PathBuf}};
 
 use super::{binder::{parse_binder, BinderItem}, rtf::rtf_to_doc};
 use crate::error::{AppError, AppResult};
-use crate::model::doc::Doc;
+use crate::model::{doc::Doc, workspace::SYNOPSIS_MAX};
 use crate::text::words::doc_text;
 
 #[derive(Debug)]
@@ -93,19 +93,22 @@ impl Project {
         }
     }
 
-    /// Synopsis and document notes as plain text (unreadable parts are skipped).
+    fn side_bytes(&self, key: &str, v3_name: &str, v2_suffix: &str) -> Option<Vec<u8>> {
+        self.side_file(key, v3_name, v2_suffix).and_then(|p| read_optional(&p).ok().flatten())
+    }
+
+    /// The item's synopsis (plain text, trimmed, cut like the app's own); "" when absent or unreadable.
+    pub fn synopsis(&self, key: &str) -> String {
+        self.side_bytes(key, "synopsis.txt", "_synopsis.txt")
+            .map(|b| String::from_utf8_lossy(&b).trim().chars().take(SYNOPSIS_MAX).collect())
+            .unwrap_or_default()
+    }
+
+    /// The item's document notes as plain text; "" when absent or unreadable.
     pub fn notes(&self, key: &str) -> String {
-        let synopsis = self
-            .side_file(key, "synopsis.txt", "_synopsis.txt")
-            .and_then(|p| read_optional(&p).ok().flatten())
-            .map(|b| String::from_utf8_lossy(&b).trim().to_string())
-            .unwrap_or_default();
-        let notes = self
-            .side_file(key, "notes.rtf", "_notes.rtf")
-            .and_then(|p| read_optional(&p).ok().flatten())
+        self.side_bytes(key, "notes.rtf", "_notes.rtf")
             .map(|b| doc_text(&rtf_to_doc(&b)).trim().to_string())
-            .unwrap_or_default();
-        [synopsis, notes].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("\n\n")
+            .unwrap_or_default()
     }
 }
 
@@ -130,7 +133,8 @@ mod tests {
             assert_eq!(project.title, "Meu Livro");
             assert_eq!(project.binder().unwrap()[0].title, "Um");
             assert_eq!(crate::text::words::doc_text(&project.text("A-1").unwrap()), "Olá");
-            assert_eq!(project.notes("A-1"), "Resumo\n\nNota");
+            assert_eq!(project.notes("A-1"), "Nota");
+            assert_eq!(project.synopsis("A-1"), "Resumo");
         }
     }
 
@@ -142,10 +146,14 @@ mod tests {
         fs::write(dir.join("project.scrivx"), BINDER).unwrap();
         fs::write(dir.join("Files/Docs/3.rtf"), r"{\rtf1 Tr\u234?s\par}").unwrap();
         fs::write(dir.join("Files/Docs/3_notes.rtf"), r"{\rtf1 N\par}").unwrap();
+        fs::write(dir.join("Files/Docs/3_synopsis.txt"), "  Sinopse velha \n").unwrap();
         fs::write(dir.join("Files/Docs/4.jpg"), b"jpg").unwrap();
         let project = Project::open(&dir).unwrap();
         assert_eq!(crate::text::words::doc_text(&project.text("3").unwrap()), "Três");
         assert_eq!(project.notes("3"), "N");
+        assert_eq!(project.synopsis("3"), "Sinopse velha");
+        assert_eq!(project.synopsis("99"), "");
+        assert_eq!(project.synopsis("../x"), "");
         assert_eq!(project.content("4").unwrap().file_name().unwrap(), "4.jpg");
         // Missing text = empty document, not an error.
         assert_eq!(project.text("99").unwrap(), crate::model::doc::Doc::default());

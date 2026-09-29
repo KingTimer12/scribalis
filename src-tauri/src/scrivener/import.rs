@@ -65,12 +65,13 @@ impl Ctx<'_> {
         })
     }
 
-    fn text_node(&mut self, title: &str, notes: String, doc: &Doc) -> AppResult<Node> {
+    fn text_node(&mut self, title: &str, notes: String, synopsis: String, doc: &Doc) -> AppResult<Node> {
         let id = new_id();
         let file = format!("{id}.md");
         write_node_doc(self.dir, &file, doc)?;
         let mut node = Node::leaf(id, NodeKind::Text, title, &file);
         node.notes = notes;
+        node.synopsis = synopsis;
         self.items += 1;
         Ok(node)
     }
@@ -84,6 +85,7 @@ impl Ctx<'_> {
         let (rel, kind) = copy_into_area(self.dir, &src, &id)?;
         let mut node = Node::leaf(id, kind, &title_of(item), &rel);
         node.notes = self.project.notes(&item.key);
+        node.synopsis = self.project.synopsis(&item.key);
         self.items += 1;
         Ok(Some(node))
     }
@@ -112,12 +114,14 @@ impl Ctx<'_> {
             ItemKind::Text if item.children.is_empty() => {
                 let doc = self.text(&item.key);
                 let notes = self.project.notes(&item.key);
-                self.text_node(&title_of(item), notes, &doc).map(Some)
+                let synopsis = self.project.synopsis(&item.key);
+                self.text_node(&title_of(item), notes, synopsis, &doc).map(Some)
             }
             ItemKind::Image | ItemKind::File => {
                 // Media with children: a folder titled like the item, holding its own
                 // media node first (when the file exists) and then its children.
                 let mut folder = Node::folder(new_id(), &title_of(item));
+                folder.synopsis = self.project.synopsis(&item.key);
                 self.items += 1;
                 if let Some(media) = self.media_node(item)? {
                     folder.children.push(media);
@@ -133,14 +137,21 @@ impl Ctx<'_> {
                 self.items += 1;
                 let doc = self.text(&item.key);
                 let notes = self.project.notes(&item.key);
+                let synopsis = self.project.synopsis(&item.key);
+                folder.synopsis = synopsis.clone();
                 let own_text = has_text(&doc) || item.kind == ItemKind::Text;
                 if own_text {
-                    folder.children.push(self.text_node(&title, notes, &doc)?);
+                    folder.children.push(self.text_node(&title, notes, synopsis, &doc)?);
                 } else {
                     folder.notes = notes;
                 }
                 self.push_children(&mut folder, item)?;
-                if !own_text && folder.children.is_empty() && !item.children.is_empty() && folder.notes.is_empty() {
+                if !own_text
+                    && folder.children.is_empty()
+                    && !item.children.is_empty()
+                    && folder.notes.is_empty()
+                    && folder.synopsis.is_empty()
+                {
                     // Every child became a chapter (e.g. the manuscript): an empty shell is just noise.
                     self.items -= 1;
                     return Ok(None);
@@ -151,7 +162,8 @@ impl Ctx<'_> {
     }
 
     /// Depth-first texts and notes under `item` (itself included); media go to attachments.
-    fn gather(&mut self, item: &BinderItem, blocks: &mut Vec<Block>, notes: &mut Vec<String>) -> AppResult<()> {
+    /// Below the top item, each synopsis joins the notes as "Título: sinopse".
+    fn gather(&mut self, item: &BinderItem, top: bool, blocks: &mut Vec<Block>, notes: &mut Vec<String>) -> AppResult<()> {
         if item.kind == ItemKind::Trash {
             return Ok(());
         }
@@ -162,7 +174,7 @@ impl Ctx<'_> {
             // The media itself never contributes chapter text, but its children
             // (if any) are gathered like any other descendant's.
             for child in &item.children {
-                self.gather(child, blocks, notes)?;
+                self.gather(child, false, blocks, notes)?;
             }
             return Ok(());
         }
@@ -173,12 +185,18 @@ impl Ctx<'_> {
             }
             blocks.extend(doc.content);
         }
+        if !top {
+            let s = self.project.synopsis(&item.key);
+            if !s.is_empty() {
+                notes.push(format!("{}: {s}", title_of(item)));
+            }
+        }
         let n = self.project.notes(&item.key);
         if !n.is_empty() {
             notes.push(n);
         }
         for child in &item.children {
-            self.gather(child, blocks, notes)?;
+            self.gather(child, false, blocks, notes)?;
         }
         Ok(())
     }
@@ -186,9 +204,10 @@ impl Ctx<'_> {
     /// One chapter node from `item`: its text and every descendant's, in binder order.
     fn emit_chapter(&mut self, item: &BinderItem) -> AppResult<()> {
         let (mut blocks, mut notes) = (Vec::new(), Vec::new());
-        self.gather(item, &mut blocks, &mut notes)?;
+        self.gather(item, true, &mut blocks, &mut notes)?;
         let mut node = new_chapter(self.dir, &title_of(item), &Doc::new(blocks))?;
         node.notes = notes.join("\n\n");
+        node.synopsis = self.project.synopsis(&item.key);
         self.chapters.push(node);
         Ok(())
     }
@@ -321,6 +340,8 @@ mod tests {
         fs::write(dir.join("Livro.scrivx"), BINDER).unwrap();
         put("S1", "content.rtf", br"{\rtf1 Primeira {\b cena}.\par}");
         put("S1", "synopsis.txt", b"Abertura");
+        put("C1", "synopsis.txt", "Chegada ao porto".as_bytes());
+        put("N1", "synopsis.txt", "A heroína".as_bytes());
         put("S2", "content.rtf", br"{\rtf1 Segunda cena.\par}");
         put("C2", "content.rtf", br"{\rtf1\qc Fim\par}");
         put("N1", "content.rtf", br"{\rtf1 Olhos cinzentos.\par}");
@@ -414,7 +435,8 @@ mod tests {
         let list = chapter_list(&dir);
         // The imported chapters replace the empty starter.
         assert_eq!(list.len(), 2);
-        assert_eq!((list[0].0.as_str(), list[0].1.as_str()), ("Capítulo 1", "Abertura"));
+        // The chapter keeps its top item's synopsis; the scenes' go into its notes.
+        assert_eq!((list[0].0.as_str(), list[0].1.as_str()), ("Capítulo 1", "Cena 1: Abertura"));
         let d1 = read_at(&dir, &list[0].2).unwrap();
         assert_eq!(d1.content.len(), 3);
         assert_eq!(d1.content[1], Block::Separator);
@@ -430,6 +452,8 @@ mod tests {
         let research = &ws.items[1];
         assert_eq!(research.children.len(), 2); // "Sumiu" has no file: warning, no node
         assert_eq!((research.children[0].kind, research.children[0].notes.as_str()), (NodeKind::Text, "Protagonista"));
+        assert_eq!(chapters(&ws.items)[0].synopsis, "Chegada ao porto");
+        assert_eq!(research.children[0].synopsis, "A heroína");
         assert_eq!(research.children[1].kind, NodeKind::File);
         assert_eq!(ws.items[2].children[0].kind, NodeKind::Image);
         assert!(!ws.items.iter().any(|n| n.title == "Lixeira"));
@@ -558,12 +582,15 @@ mod tests {
         let titles: Vec<&str> = list.iter().map(|c| c.0.as_str()).collect();
         assert_eq!(titles, vec!["Cena 2", "Ana"]);
         assert_eq!(list[1].1, "Protagonista");
+        // A chapter from a single item: synopsis in its own field, never in the notes.
+        assert_eq!(chapters(&read_workspace(&dir).unwrap().items)[1].synopsis, "A heroína");
         let ws = read_workspace(&dir).unwrap();
         // What was left of the Draft is a plain folder, named so it is not taken for the Manuscrito.
         let leftover = &ws.items[1];
         assert_eq!((leftover.kind, leftover.title.as_str()), (NodeKind::Folder, "Manuscrito (Scrivener)"));
         let chapter1 = &leftover.children[0];
         assert_eq!(chapter1.title, "Capítulo 1");
+        assert_eq!(chapter1.synopsis, "Chegada ao porto");
         let left: Vec<&str> = chapter1.children.iter().map(|n| n.title.as_str()).collect();
         assert_eq!(left, vec!["Cena 1", "Esboço"]);
         assert_eq!(leftover.children[1].title, "Capítulo 2");
@@ -597,6 +624,31 @@ mod tests {
         let ws = read_workspace(&dir).unwrap();
         assert_eq!(ws.items[1].title, "Manuscrito (Scrivener)");
         assert_eq!(ws.items[1].children[0].kind, NodeKind::Folder);
+    }
+
+    #[test]
+    fn a_folder_left_empty_keeps_itself_when_it_has_a_synopsis() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("Sin.scriv");
+        let data = dir.join("Files/Data");
+        for key in ["F", "T"] {
+            fs::create_dir_all(data.join(key)).unwrap();
+        }
+        fs::write(dir.join("Sin.scrivx"), r#"<ScrivenerProject><Binder>
+          <BinderItem UUID="F" Type="Folder"><Title>Parte</Title><Children>
+            <BinderItem UUID="T" Type="Text"><Title>Cena</Title></BinderItem>
+          </Children></BinderItem>
+        </Binder></ScrivenerProject>"#).unwrap();
+        fs::write(data.join("F/synopsis.txt"), "Onde tudo começa").unwrap();
+        fs::write(data.join("T/content.rtf"), br"{\rtf1 Texto.\par}").unwrap();
+        let p = Project::open(&dir).unwrap();
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (book, _meta, out) = import_new_book(&root, &p, &folders(&["T"])).unwrap();
+        assert_eq!(out.chapters, 1);
+        let ws = read_workspace(&book).unwrap();
+        assert_eq!((ws.items[1].title.as_str(), ws.items[1].synopsis.as_str()), ("Parte", "Onde tudo começa"));
+        assert!(ws.items[1].children.is_empty());
     }
 
     #[test]
