@@ -23,7 +23,7 @@ O Scribalis fica no meio: tem a organização de um gerenciador de manuscrito e 
   estão abertos nunca fica carregado na interface.
 - **Funciona offline**, sempre.
 - **Vem do Scrivener sem perder o trabalho.** Importa projetos `.scriv` (Scrivener 2 e 3) com negrito, itálico
-  e parágrafos, e você escolhe o que vira capítulo e o que vai para a área de trabalho.
+  e parágrafos, e você escolhe o que vira capítulo e o que vai para a árvore.
 - **Teclado primeiro.** Quase tudo tem atalho, e a paleta de comandos acha qualquer ação ou trecho de texto.
 
 ## Features
@@ -45,37 +45,44 @@ O Scribalis fica no meio: tem a organização de um gerenciador de manuscrito e 
 - Imagens dentro do capítulo, por atalho (`Ctrl Shift I`) ou arrastando para a página.
 - Salvamento automático com escrita atômica: um arquivo nunca fica pela metade se o app fechar no meio.
 - Copiar o capítulo inteiro para colar na plataforma de publicação.
-- Modo foco (`Ctrl .`), tema claro e escuro (`Ctrl J`), largura do texto e tamanho da letra ajustáveis.
+- Modo foco (`Ctrl .`, esconde a árvore e as barras), tema claro e escuro (botão de sol/lua na barra de cima
+  ou `Ctrl J`), largura do texto e tamanho da letra ajustáveis.
 
-### Organização dos capítulos
+### Manuscrito e área de trabalho
 
-- Índice de capítulos (`Ctrl E`) com reordenação (`Alt Shift ↑ ↓`) e exclusão.
-- Status por capítulo: rascunho, revisão, pronto (`Alt S`).
-- Notas por capítulo (`Ctrl ;`), fora do texto.
-- Navegação rápida entre capítulos (`Alt ↑ ↓`).
-- Contagem de palavras por capítulo e total da obra.
+Cada obra é uma árvore só, numa barra lateral ao lado do texto (aberta por padrão; `«` ou `Ctrl E`
+recolhem e reabrem, e a escolha fica salva por obra).
+
+- **Manuscrito**, fixo no topo, guarda os capítulos. Pastas dentro dele (ex.: "Parte 1") só agrupam: a
+  numeração continua de uma parte para a outra.
+- O resto da árvore guarda pesquisa, fichas de personagens, mapas e rascunhos: pastas, textos livres,
+  imagens e anexos.
+- Arrastar um texto para dentro do Manuscrito (ou "Mover para o Manuscrito") o torna capítulo; arrastar um
+  capítulo para fora o torna texto, com o conteúdo e as notas. Imagens e anexos não entram no Manuscrito.
+- **+ Novo** no pé da barra cria capítulo (no Manuscrito), texto, pasta, imagem ou arquivo na pasta
+  selecionada. Botão direito abre o menu de cada item (renomear, status, compartilhar, copiar para publicar,
+  mover, excluir).
+- Cada capítulo mostra status (rascunho, revisão, pronto — `Alt S`) e palavras; o Manuscrito mostra o total
+  da obra.
+- Notas por capítulo ou texto (`Ctrl ;`), fora do texto.
+- Capítulo anterior / seguinte na ordem do Manuscrito (`Alt ↑ ↓`); mover o capítulo dentro da pasta
+  (`Alt Shift ↑ ↓`).
+- Textos livres usam o mesmo editor, sem moldura, separador nem `Enter ×3`; imagens aparecem no app; PDFs e
+  outros arquivos abrem no programa padrão do sistema.
+- Obras antigas são convertidas sozinhas ao abrir: os capítulos entram no Manuscrito na mesma ordem e uma
+  cópia do `metadata.json` original fica em `metadata.antes-da-migracao.json`.
 
 ### Meta diária
 
 - Meta de palavras por dia configurável, com barra de progresso sempre visível.
 
-### Área de trabalho
-
-Uma segunda aba dentro de cada obra (`Ctrl 2`) para tudo que não é capítulo: pesquisa, fichas de
-personagens, mapas, rascunhos soltos.
-
-- Árvore livre de pastas, textos, imagens e anexos.
-- Criar, renomear, mover (arrastar ou teclado) e excluir, com menu de contexto.
-- Textos usam o mesmo editor dos capítulos; imagens aparecem no app; PDFs e outros arquivos abrem no programa
-  padrão do sistema.
-- Um capítulo pode ser enviado para a área de trabalho em vez de apagado.
-
 ### Importação do Scrivener
 
 - Lê projetos `.scriv` do Scrivener 2 e 3: estrutura do binder, textos em RTF, sinopses, notas e mídia.
 - Mantém negrito, itálico, alinhamento e espaçamento de parágrafo.
-- Tela de importação onde você escolhe, item por item, o que vira capítulo; o resto vai para a área de
-  trabalho.
+- Tela de importação onde você escolhe, item por item, o que vira capítulo; os capítulos entram no
+  Manuscrito na ordem do binder e o resto vai para a árvore. Dentro de uma obra aberta, os capítulos entram
+  no fim do Manuscrito.
 - Importa como obra nova (na biblioteca) ou dentro de uma obra já aberta.
 
 ### Busca e comandos
@@ -93,7 +100,8 @@ personagens, mapas, rascunhos soltos.
   arquivos que mudaram são enviados.
 - Até 3 backups por obra; restaurar substitui a obra (o estado atual vira um backup antes).
 - Leve o cofre para outro computador com um código; baixe de lá as obras que ainda não estão nele.
-- Links públicos de um capítulo ou da área de trabalho, com comentários. Os comentários chegam nas notas.
+- Links públicos de um capítulo (botão direito no capítulo, "Compartilhar") ou de parte da árvore, com
+  comentários. Os comentários chegam nas notas do capítulo ou do texto.
 - Sem conta: a chave fica no chaveiro do sistema. `Ctrl Shift S` abre o painel.
 - O endereço da API é configurável. As rotas que um servidor próprio precisa ter estão em
   `docs/superpowers/specs/2026-09-28-nuvem-backup-links-design.md`.
@@ -129,16 +137,17 @@ Depois da primeira instalação, as atualizações chegam pelo próprio app.
 ```
 ~/Documentos/Scribalis/
   minha-obra/
-    metadata.json      título, autor, capa, ordem, status e notas dos capítulos
+    metadata.json      título, autor, capa, separador, molduras, o último item aberto e uma cópia da
+                       lista de capítulos (para a Nuvem e versões antigas; o app lê a árvore)
     capitulos/         um arquivo .md por capítulo
     imagens/           capa, molduras, separador e imagens dos capítulos
     area/
-      area.json        árvore da área de trabalho
-      arquivos/        textos, imagens e anexos da área de trabalho
+      area.json        a árvore da obra: o Manuscrito (ordem, status, notas e palavras dos capítulos) e o resto
+      arquivos/        textos, imagens e anexos fora do Manuscrito
 ```
 
-Renomear uma obra no app não renomeia a pasta. Campos desconhecidos no `metadata.json` são preservados, então
-editar à mão ou com outras ferramentas não perde dados.
+Renomear uma obra no app não renomeia a pasta. Campos desconhecidos no `metadata.json` e no `area.json` são
+preservados, então editar à mão ou com outras ferramentas não perde dados.
 
 ## Desenvolvimento
 
