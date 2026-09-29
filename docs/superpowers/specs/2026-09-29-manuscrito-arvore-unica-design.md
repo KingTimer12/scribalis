@@ -19,11 +19,13 @@ capítulos, e o resto da árvore guarda pesquisa, fichas, mapas e rascunhos.
   textos livres.
 - **Árvore numa barra lateral recolhível**, aberta por padrão, visível na tela de escrita.
 - **Compartilhar um capítulo continua**, pelo botão direito no capítulo, "Compartilhar".
+- **Botão de tema** visível: um sol/lua que troca entre claro e escuro com um clique, sem passar pela paleta.
 
 ### Fora de escopo
 
 - **Descoberta sem atalhos** (crítica de que tudo depende de comandos). Vira um spec próprio, logo depois
-  deste; aqui só entra o que a nova tela já pede (botão "+ Novo", menus de contexto, botão de recolher).
+  deste; aqui só entra o que a nova tela já pede (botão "+ Novo", menus de contexto, botão de recolher) e o
+  botão de tema.
 - **Imagens do Scrivener dentro do texto** (`\pict` ignorado em `scrivener/rtf.rs`). É um bug separado,
   corrigido fora deste spec.
 - Compilar/exportar o manuscrito inteiro num arquivo.
@@ -115,6 +117,15 @@ Obras novas (criar obra, obras de exemplo) já nascem na versão 2 com um Manusc
 - **Modo foco** (`Ctrl .`) esconde a barra lateral e as barras de cima e de baixo.
 - Ao abrir a obra, abre o nó `open`; se não existir, o primeiro capítulo.
 
+### Botão de tema
+
+- Botão na barra de cima, visível na biblioteca e na tela da obra (some no modo foco, junto com a barra).
+- Mostra uma lua no tema claro e um sol no tema escuro; um clique troca o tema e o ícone. Dica ao passar o
+  mouse: "Tema escuro" / "Tema claro" com o atalho `Ctrl J`.
+- Usa a mesma preferência de tema de hoje (salva no Rust); `Ctrl J` e a paleta continuam funcionando.
+- Ícones em SVG inline, sem biblioteca nova; troca com uma transição curta, respeitando
+  `prefers-reduced-motion`.
+
 ### Menu de contexto (botão direito)
 
 | Item | Opções |
@@ -179,7 +190,8 @@ A paleta (`Ctrl K`) e a ajuda (`Ctrl /`) são atualizadas: saem as ações das a
   capítulo ⇄ texto (arquivo movido, id mantido); ordem em profundidade com partes; próximo/anterior;
   `Enter ×3` cria na pasta certa; importação do Scrivener para o Manuscrito.
 - **Front (vitest, mock):** barra lateral recolhe e lembra; "+ Novo" mostra as opções certas por seleção;
-  menu de contexto por tipo; arrastar para dentro e para fora do Manuscrito; sem aba Capítulos.
+  menu de contexto por tipo; arrastar para dentro e para fora do Manuscrito; sem aba Capítulos; botão de
+  tema troca o tema e o ícone (lua ⇄ sol) e salva a preferência.
 - **Manual:** abrir uma obra antiga (migra, backup de `metadata.json` existe, links de capítulo continuam
   recebendo comentários); criar obra nova; foco; Scrivener.
 
