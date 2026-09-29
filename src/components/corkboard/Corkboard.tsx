@@ -80,7 +80,17 @@ export function Corkboard(props: { folder: AreaNode }) {
           aria-activedescendant={selected() ? cardId(selected()!) : undefined}
           onKeyDown={(e) => boardKey(e, ids(), gridColumns(grid), openMenuAtSelection)}
         >
-          <For each={children()}>{(c) => <IndexCard node={c} onMenu={(x, y) => openCardMenu(c, x, y)} />}</For>
+          {/* Keyed by id: a fresh tree from Rust keeps the cards (and a focused synopsis) mounted. */}
+          <For each={ids()}>
+            {(id) => {
+              const node = () => children().find((c) => c.id === id);
+              return (
+                <Show when={node()}>
+                  {(n) => <IndexCard node={n()} onMenu={(x, y) => openCardMenu(n(), x, y)} />}
+                </Show>
+              );
+            }}
+          </For>
         </div>
         <div class="ws-help">
           <Hint keys="←↑↓→">escolher</Hint>

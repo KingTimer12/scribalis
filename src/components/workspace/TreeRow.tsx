@@ -2,6 +2,7 @@ import { Show } from "solid-js";
 import { fmt } from "../../lib/format";
 import { displayTitle } from "../../lib/manuscript";
 import { isContainer, type Row } from "../../lib/tree";
+import { toggleExpanded } from "../../store/actions/expanded";
 import { openNode } from "../../store/actions/open";
 import { cancelNodeRename, commitNodeRename, startNodeRename } from "../../store/actions/workspace";
 import { focusTarget } from "../../store/focus";
@@ -90,7 +91,17 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
         props.onMenu(e.clientX, e.clientY);
       }}
     >
-      <span class="ws-chev" classList={{ on: expanded() }} aria-hidden="true">
+      {/* The chevron only folds: a click on the row itself opens the folder's board. */}
+      <span
+        class="ws-chev"
+        classList={{ on: expanded() }}
+        aria-hidden="true"
+        onClick={(e) => {
+          if (!folder()) return;
+          e.stopPropagation();
+          if (!consumeDragClick()) toggleExpanded(id());
+        }}
+      >
         <Show when={folder()}>
           <svg viewBox="0 0 10 10">
             <path d="M3.5 2l3 3-3 3" />
