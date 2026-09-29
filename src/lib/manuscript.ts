@@ -4,8 +4,8 @@
 import type { AreaNode } from "../api/types";
 import { findNode, manuscriptOf } from "./tree";
 
-// Shared with `lib/tree.ts` (which owns them, so the two modules never import each other).
-export { isContainer, manuscriptOf } from "./tree";
+// `manuscriptOf` is owned by `lib/tree.ts` (so the two modules never import each other).
+export { manuscriptOf } from "./tree";
 
 function collect(nodes: AreaNode[], out: AreaNode[]) {
   for (const n of nodes) {

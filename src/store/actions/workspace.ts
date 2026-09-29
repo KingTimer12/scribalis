@@ -2,11 +2,11 @@ import * as api from "../../api/workspace";
 import type { AreaNode } from "../../api/types";
 import { currentDocKey } from "../../editor/bridge";
 import { pad } from "../../lib/format";
-import { chapterNumber, isContainer } from "../../lib/manuscript";
-import { dropTarget, findNode, locate, type DropPos } from "../../lib/tree";
+import { chapterNumber } from "../../lib/manuscript";
+import { dropTarget, findNode, isContainer, locate, type DropPos } from "../../lib/tree";
 import { focusTarget } from "../focus";
-import { cancelDocSave, flushAll, settleDocSave } from "../saving";
-import { setState, state } from "../state";
+import { cancelDocSave, flushAll, holdDocSaves, releaseDocSaves, settleDocSave } from "../saving";
+import { editNode, setState, state } from "../state";
 import { expand } from "./expanded";
 import { openFirstChapter, openNode } from "./open";
 import { run as runAction } from "./run";
@@ -99,6 +99,29 @@ export function setNodeNotes(id: string, notes: string) {
   });
 }
 
+let pendingNotes: { id: string; notes: string; timer: ReturnType<typeof setTimeout> } | null = null;
+
+/** Notes typed into a free text: shown at once, saved a moment later (or by `flushNodeNotes`). */
+export function scheduleNodeNotes(id: string, notes: string) {
+  if (pendingNotes && pendingNotes.id !== id) void flushNodeNotes();
+  if (pendingNotes) clearTimeout(pendingNotes.timer);
+  editNode(id, (n) => (n.notes = notes));
+  pendingNotes = { id, notes, timer: setTimeout(() => void flushNodeNotes(), 300) };
+}
+
+/** Saves the pending notes now, if any. The drawer calls it on close, so nothing typed is lost. */
+export function flushNodeNotes() {
+  const p = pendingNotes;
+  pendingNotes = null;
+  const b = state.book;
+  if (!p || !b) return;
+  clearTimeout(p.timer);
+  // The tree already shows the text: only the write is left.
+  return run(async () => {
+    await api.areaSetNotes(b.id, p.id, p.notes);
+  });
+}
+
 export function deleteNode(id: string) {
   if (state.areaConfirm !== id) {
     setState("areaConfirm", id);
@@ -137,17 +160,23 @@ export function moveTo(id: string, parent: string | null, index: number) {
   const openId = state.areaOpen;
   const openKind = openId ? findNode(state.area, openId)?.kind : undefined;
   return run(async () => {
-    // Pending text lands under its current kind before the node changes kind.
+    // Pending text lands under its current kind before the node changes kind; typing during
+    // the move is held back until the tree (and so the node's kind) is up to date.
     await flushAll();
-    setState("area", await api.areaMove(b.id, id, parent, index));
-    if (parent) expand(parent);
-    const now = openId ? findNode(state.area, openId) : null;
-    if (openId && now && now.kind !== openKind) {
-      // Text typed during the move is filed by the node's new kind (see `saveDocNow`), then
-      // the node reopens in the editor that matches it; nothing saves to the old path.
-      await settleDocSave();
-      setState("areaOpen", null);
-      await openNode(openId, false);
+    holdDocSaves();
+    try {
+      setState("area", await api.areaMove(b.id, id, parent, index));
+      if (parent) expand(parent);
+      const now = openId ? findNode(state.area, openId) : null;
+      if (openId && now && now.kind !== openKind) {
+        // The node reopens in the editor that matches its new kind; text typed meanwhile is
+        // filed by that kind (see `saveDocNow`), never to the old path.
+        await settleDocSave();
+        setState("areaOpen", null);
+        await openNode(openId, false);
+      }
+    } finally {
+      releaseDocSaves();
     }
   });
 }

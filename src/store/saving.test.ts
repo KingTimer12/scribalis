@@ -26,7 +26,7 @@ vi.mock("../api/workspace", () => ({
   loadAreaDoc: async () => ({ type: "doc", content: [] }) satisfies DocJSON,
 }));
 
-const { scheduleDocSave, swapDocument } = await import("./saving");
+const { holdDocSaves, releaseDocSaves, scheduleDocSave, swapDocument } = await import("./saving");
 const { setState } = await import("./state");
 
 /** Just enough of an Editor for the bridge; `type` simulates the user editing. */
@@ -134,5 +134,19 @@ describe("chapter text saves across a chapter switch", () => {
     expect(saves).toEqual([]);
     expect(areaSaves).toEqual([{ bookId: "b", id: "old", text: text(para("era capítulo, agora texto")) }]);
     setState({ book: null, area: [] });
+  });
+
+  it("held saves wait for the release, then land once", async () => {
+    const ed = fakeEditor();
+    setEditor(ed.editor);
+    loadDoc(para("a"), OLD);
+    holdDocSaves();
+    ed.type(para("ab"));
+    scheduleDocSave();
+    await vi.runAllTimersAsync();
+    expect(saves).toEqual([]);
+    releaseDocSaves();
+    await vi.runAllTimersAsync();
+    expect(saves).toEqual([{ chapterId: "old", text: text(para("ab")) }]);
   });
 });

@@ -4,8 +4,8 @@ import type { AreaNode, DocJSON } from "../../api/types";
 import { loadAreaDoc } from "../../api/workspace";
 import { currentDocKey, sameKey, type DocKey } from "../../editor/bridge";
 import { docWords } from "../../lib/doc";
-import { chapterOrder, isContainer } from "../../lib/manuscript";
-import { findNode } from "../../lib/tree";
+import { chapterOrder } from "../../lib/manuscript";
+import { findNode, isContainer } from "../../lib/tree";
 import { focusTarget } from "../focus";
 import { flushAll, settleDocSave, swapDocument } from "../saving";
 import { currentChapter } from "../selectors/book";
@@ -31,11 +31,14 @@ export function loadNodeDoc(bookId: string, node: AreaNode): Promise<DocJSON> {
   return node.kind === "chapter" ? chapterApi.loadChapter(bookId, node.id) : loadAreaDoc(bookId, node.id);
 }
 
-/** Where a book opens: the remembered node when it still exists and is not a folder, else the first chapter. */
+/** First chapter in reading order whose file is still on disk. */
+const firstChapter = (items: AreaNode[]) => chapterOrder(items).find((c) => !c.missing) ?? null;
+
+/** Where a book opens: the remembered node when it still exists and is not a folder, else the first chapter that is not missing. */
 export function initialNode(items: AreaNode[], open: string | null): AreaNode | null {
   const n = open ? findNode(items, open) : null;
-  if (n && !isContainer(n.kind)) return n;
-  return chapterOrder(items)[0] ?? null;
+  if (n && !isContainer(n.kind) && !n.missing) return n;
+  return firstChapter(items);
 }
 
 /** Remembers the open node in Rust (not an edit); a failure only costs the next reopening. */
@@ -103,6 +106,6 @@ export function goChapterStep(step: -1 | 1) {
 /** After the open node went away: the first chapter, or nothing. */
 export async function openFirstChapter() {
   setState("areaOpen", null);
-  const first = chapterOrder(state.area)[0];
+  const first = firstChapter(state.area);
   if (first) await openNode(first.id, false);
 }

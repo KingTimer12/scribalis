@@ -1,5 +1,6 @@
 import type { AreaNode, Created, DocJSON, NodeKind } from "../types";
-import { inManuscript, isContainer, manuscriptWords } from "../../lib/manuscript";
+import { inManuscript, manuscriptWords } from "../../lib/manuscript";
+import { isContainer } from "../../lib/tree";
 import { db, EMPTY, findBook, mockId, touch } from "./db";
 import { checkCreate, checkDelete, checkMove, checkRename, convert, NO_MEDIA, rootIndex } from "./manuscript";
 

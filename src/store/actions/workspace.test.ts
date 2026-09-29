@@ -5,7 +5,8 @@ import type { AreaNode, BookMeta, BookSummary } from "../../api/types";
 import { chapterOrder } from "../../lib/manuscript";
 import { findNode } from "../../lib/tree";
 import { setState, state } from "../state";
-import { commitNodeRename, createNode, deleteNode, moveNode, setNodeNotes } from "./workspace";
+import { openNode } from "./open";
+import { commitNodeRename, createNode, deleteNode, flushNodeNotes, moveNode, scheduleNodeNotes, setNodeNotes } from "./workspace";
 
 /** A fresh book with its tree in the store, isolated from the samples and other tests. */
 async function newBook(): Promise<BookMeta> {
@@ -109,5 +110,28 @@ describe("tree actions (mock)", () => {
     await moveNode(only, folder, "inside");
     expect(state.toast).toBe("A obra precisa de pelo menos um capítulo");
     expect(chapterOrder(state.area).map((c) => c.id)).toEqual([only]);
+  });
+
+  it("typed notes show at once and a flush saves them (drawer closing before `change`)", async () => {
+    await newBook();
+    await createNode("folder");
+    const id = outside()[0].id;
+    scheduleNodeNotes(id, "digitado");
+    expect(findNode(state.area, id)?.notes).toBe("digitado");
+    await flushNodeNotes();
+    const tree = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: state.book!.id });
+    expect(findNode(tree, id)?.notes).toBe("digitado");
+  });
+
+  it("the open text reopens as a chapter after crossing into the Manuscrito", async () => {
+    await newBook();
+    await createNode("text");
+    const id = outside()[0].id;
+    await openNode(id, false);
+    expect(state.areaOpen).toBe(id);
+    await moveNode(id, manuscriptId(), "inside");
+    expect(findNode(state.area, id)?.kind).toBe("chapter");
+    expect(state.areaOpen).toBe(id);
+    expect(state.toast).toBe("");
   });
 });

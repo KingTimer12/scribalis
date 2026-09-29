@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AreaNode } from "../api/types";
 import {
-  chapterCount, chapterNumber, chapterOrder, displayTitle, inManuscript, isContainer, manuscriptOf, manuscriptWords,
+  chapterCount, chapterNumber, chapterOrder, displayTitle, inManuscript, manuscriptOf, manuscriptWords,
 } from "./manuscript";
+import { isContainer } from "./tree";
 
 const ch = (id: string, words: number, title = ""): AreaNode => ({ id, kind: "chapter", title, notes: "", status: "rascunho", words });
 const items: AreaNode[] = [

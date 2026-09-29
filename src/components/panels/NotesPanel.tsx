@@ -1,8 +1,8 @@
-import { Show } from "solid-js";
+import { onCleanup, Show } from "solid-js";
 import { ago, pad } from "../../lib/format";
 import { setChapterNotes } from "../../store/actions/chapters";
 import { fetchComments } from "../../store/actions/cloud";
-import { setNodeNotes } from "../../store/actions/workspace";
+import { flushNodeNotes, scheduleNodeNotes } from "../../store/actions/workspace";
 import { focusRef } from "../../store/focus";
 import { currentNumber } from "../../store/selectors/book";
 import { openAreaNode } from "../../store/selectors/workspace";
@@ -16,6 +16,8 @@ export function NotesPanel() {
   const node = () => openAreaNode();
   const chapter = () => node()?.kind === "chapter";
   const label = () => (chapter() ? "Capítulo " + pad(currentNumber()) : node()?.title || "Documento");
+  // Closing the drawer unmounts the field before a `change` event: land pending notes here.
+  onCleanup(() => void flushNodeNotes());
   return (
     <>
       <Scrim />
@@ -26,11 +28,12 @@ export function NotesPanel() {
           id="ch-notes"
           class="notes-ta"
           value={node()?.notes ?? ""}
-          // Chapter notes save debounced while typing; a text's notes save when the field changes.
-          onInput={(e) => chapter() && setChapterNotes(e.currentTarget.value)}
-          onChange={(e) => {
+          // Both kinds save debounced while typing; closing the drawer flushes a pending save.
+          onInput={(e) => {
             const n = node();
-            if (n && !chapter()) void setNodeNotes(n.id, e.currentTarget.value);
+            if (!n) return;
+            if (chapter()) setChapterNotes(e.currentTarget.value);
+            else scheduleNodeNotes(n.id, e.currentTarget.value);
           }}
           ref={focusRef("notes")}
           placeholder="Ideias, pendências, lembretes de continuidade…"

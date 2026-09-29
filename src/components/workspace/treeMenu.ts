@@ -1,6 +1,7 @@
 import type { AreaNode } from "../../api/types";
 import { pad } from "../../lib/format";
-import { chapterNumber, inManuscript, isContainer } from "../../lib/manuscript";
+import { chapterNumber, inManuscript } from "../../lib/manuscript";
+import { isContainer } from "../../lib/tree";
 import { openNode, selectNode } from "../../store/actions/open";
 import { openPanel } from "../../store/actions/ui";
 import { addFiles, createNode, openFile, requestDelete, startNodeRename } from "../../store/actions/workspace";
@@ -43,7 +44,11 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
     },
   };
   if (node.kind === "manuscript") return creators(true);
-  if (isContainer(node.kind)) return [...creators(inManuscript(state.area, id)), rename, share, del];
+  if (isContainer(node.kind)) {
+    // Inside the Manuscrito only chapters are shareable; outside, a folder shares as a tree item.
+    const inside = inManuscript(state.area, id);
+    return [...creators(inside), rename, ...(inside ? [] : [share]), del];
+  }
   if (node.kind === "text") return [open, rename, share, del];
   if (node.kind === "file") return [open, { label: "Abrir no app padrão", act: () => void openFile(id) }, rename, share, del];
   return [open, rename, share, del];

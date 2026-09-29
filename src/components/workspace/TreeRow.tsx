@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
-import { displayTitle, isContainer } from "../../lib/manuscript";
-import type { Row } from "../../lib/tree";
+import { displayTitle } from "../../lib/manuscript";
+import { isContainer, type Row } from "../../lib/tree";
 import { openNode } from "../../store/actions/open";
 import { cancelNodeRename, commitNodeRename, startNodeRename } from "../../store/actions/workspace";
 import { focusTarget } from "../../store/focus";

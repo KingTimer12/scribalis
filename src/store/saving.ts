@@ -53,8 +53,31 @@ async function flushDocSave() {
   await p.run();
 }
 
+let held = false;
+let heldDirty = false;
+
+/**
+ * Pauses text saves (typing still counts) while a tree change may convert the open node, so
+ * nothing is filed under a kind the node is about to lose. `releaseDocSaves` resumes them.
+ */
+export function holdDocSaves() {
+  held = true;
+}
+
+export function releaseDocSaves() {
+  held = false;
+  if (heldDirty) {
+    heldDirty = false;
+    scheduleDocSave();
+  }
+}
+
 /** Debounced save of the text of the document the editor holds. */
 export function scheduleDocSave() {
+  if (held) {
+    heldDirty = true;
+    return;
+  }
   const key = currentDocKey();
   if (!key) return;
   if (docSave && !sameKey(docSave.key, key)) void flushDocSave();
