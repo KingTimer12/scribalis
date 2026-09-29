@@ -3,6 +3,7 @@ import { insertChapterImage } from "../actions/images";
 import { goLibrary } from "../actions/library";
 import { goChapterStep } from "../actions/open";
 import { toggleTheme } from "../actions/prefs";
+import { toggleSidebar } from "../actions/sidebar";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
 import { currentChapter } from "../selectors/book";
 import { openAreaNode } from "../selectors/workspace";
@@ -27,6 +28,7 @@ export function rootKey(e: KeyboardEvent) {
   else if (mod && !e.shiftKey && (k === "j" || code === "KeyJ")) toggleTheme();
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
   else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
+  else if (inBook && mod && !e.shiftKey && (k === "e" || code === "KeyE")) toggleSidebar();
   else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openPanel("cloud");
   else if (inBook && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (withNotes && mod && (k === ";" || code === "Semicolon")) openPanel("notes");

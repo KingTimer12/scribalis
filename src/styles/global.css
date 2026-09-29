@@ -329,8 +329,9 @@
     width: 280px;
     flex-shrink: 0;
     border-right: 1px solid var(--faint);
-    overflow-y: auto;
-    scrollbar-width: thin;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
   .ws-main {
     position: relative;
@@ -340,10 +341,31 @@
     justify-content: center;
   }
   .ws-tree {
-    min-height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
     box-sizing: border-box;
     padding: 12px 8px;
     outline: none;
+  }
+  .ws-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--faint);
+  }
+  .ws-rail {
+    width: 36px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--faint);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 8px 0;
   }
   /* With a row selected, its accent bar already shows the focus. */
   .ws-tree:focus-visible:not(:has(.ws-row.sel)) {

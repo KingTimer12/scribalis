@@ -99,6 +99,8 @@ export interface Prefs {
   goal: number;
   width: 0 | 1 | 2;
   font: 0 | 1 | 2;
+  /** Books whose tree sidebar is collapsed. */
+  sidebarClosed: string[];
 }
 
 export type BookPatch = Partial<{ title: string; author: string; open: string; separatorText: string }>;

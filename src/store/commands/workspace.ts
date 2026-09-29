@@ -1,5 +1,6 @@
 import { goLibrary } from "../actions/library";
 import { startScrivenerImport } from "../actions/scrivener";
+import { sidebarOpen, toggleSidebar } from "../actions/sidebar";
 import { addFiles, createNode, deleteNode, startNodeRename } from "../actions/workspace";
 import { focusTarget } from "../focus";
 import { openAreaNode, selectedAreaNode } from "../selectors/workspace";
@@ -17,6 +18,7 @@ function importIntoBook() {
 export function workspaceCommands(): Command[] {
   const sel = selectedAreaNode();
   const list: Command[] = [
+    { label: sidebarOpen() ? "Recolher barra lateral" : "Mostrar barra lateral", hint: "Ctrl E", act: toggleSidebar },
     { label: "Novo documento", hint: "N", act: () => void createNode("text") },
     { label: "Nova pasta", hint: "Shift N", act: () => void createNode("folder") },
     { label: "Adicionar arquivos…", hint: "", act: () => void addFiles() },

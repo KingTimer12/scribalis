@@ -71,7 +71,7 @@ function samples(): MockBook[] {
 /** Saved words of a book's chapters. */
 export const bookWords = (b: MockBook) => manuscriptWords(b.area);
 
-export const db = { books: samples(), prefs: { theme: "light", goal: 2000, width: 1, font: 1 } as Prefs, base: 0 };
+export const db = { books: samples(), prefs: { theme: "light", goal: 2000, width: 1, font: 1, sidebarClosed: [] } as Prefs, base: 0 };
 db.base = db.books.reduce((a, b) => a + bookWords(b), 0);
 
 export interface MockCloudBook {

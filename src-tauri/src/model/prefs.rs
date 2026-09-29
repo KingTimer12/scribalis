@@ -7,11 +7,14 @@ pub struct Prefs {
     pub goal: u32,
     pub width: u8,
     pub font: u8,
+    /// Books whose tree sidebar is collapsed (open is the default).
+    #[serde(default)]
+    pub sidebar_closed: Vec<String>,
 }
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { theme: "light".into(), goal: 2000, width: 1, font: 1 }
+        Self { theme: "light".into(), goal: 2000, width: 1, font: 1, sidebar_closed: Vec::new() }
     }
 }
 
@@ -22,6 +25,7 @@ pub struct PrefsPatch {
     pub goal: Option<u32>,
     pub width: Option<u8>,
     pub font: Option<u8>,
+    pub sidebar_closed: Option<Vec<String>>,
 }
 
 impl Prefs {
@@ -30,6 +34,7 @@ impl Prefs {
         if let Some(v) = p.goal { self.goal = v; }
         if let Some(v) = p.width { self.width = v.min(2); }
         if let Some(v) = p.font { self.font = v.min(2); }
+        if let Some(v) = p.sidebar_closed { self.sidebar_closed = v; }
         self
     }
 }
@@ -37,6 +42,15 @@ impl Prefs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closed_sidebars_are_replaced_and_default_to_none() {
+        let p: Prefs = serde_json::from_str(r#"{"theme":"dark","goal":2000,"width":1,"font":1}"#).unwrap();
+        assert!(p.sidebar_closed.is_empty());
+        let p = p.apply(PrefsPatch { sidebar_closed: Some(vec!["b1".into()]), ..Default::default() });
+        assert_eq!(p.sidebar_closed, vec!["b1".to_string()]);
+        assert_eq!(serde_json::to_value(&p).unwrap()["sidebarClosed"][0], "b1");
+    }
 
     #[test]
     fn patch_merges_and_clamps() {
