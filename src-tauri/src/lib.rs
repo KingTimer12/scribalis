@@ -19,7 +19,8 @@ use tauri::Manager;
 
 use cloud::{status::CLOUD_FILE, CloudState};
 use commands::{
-    book, chapter, cloud_backup, cloud_share, cloud_vault, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd, workspace,
+    board, book, chapter, cloud_backup, cloud_share, cloud_vault, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd,
+    workspace,
 };
 use state::Library;
 use storage::paths::ROOT_NAME;
@@ -82,6 +83,14 @@ pub fn run() {
             workspace::workspace_save_doc,
             workspace::workspace_pick_files,
             workspace::workspace_open_file,
+            board::board_list,
+            board::board_create,
+            board::board_rename,
+            board::board_load_text,
+            board::board_save_text,
+            board::board_move,
+            board::board_delete,
+            board::board_duplicate,
             scrivener_cmd::scrivener_pick,
             scrivener_cmd::scrivener_scan,
             scrivener_cmd::scrivener_import,
