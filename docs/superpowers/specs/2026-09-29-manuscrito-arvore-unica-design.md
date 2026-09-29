@@ -61,7 +61,11 @@ A árvore passa a ser a única fonte da estrutura da obra.
 
 - Fica só com o que é da obra: título, autor, capa, `separator`, `header`, `footer`, meta diária e demais
   campos de hoje.
-- `chapters` deixa de ser escrito a partir da versão 2 (campo legado; lido só pela migração).
+- `chapters` continua sendo escrito, mas como **espelho derivado** do Manuscrito: lista plana na ordem em
+  profundidade, com os mesmos campos de hoje (`id`, `file`, `title`, `status`, `notes`, `words`), regravada toda
+  vez que a árvore ou os dados de um capítulo são salvos. O app nunca lê esse espelho depois da migração (a
+  árvore é a única fonte da estrutura); ele existe para que o servidor da Nuvem, servidores próprios e versões
+  antigas do app continuem funcionando sem mudança.
 - `cur` (índice do capítulo aberto) vira `open` (id do último nó aberto). A migração converte.
 
 ### O que continua sendo só de capítulo
@@ -82,7 +86,8 @@ silenciosa e sem perda.
    com o mesmo `id`, `title`, `notes`, `status`, `words` e `file`. Nenhum arquivo é movido.
 3. Os itens atuais da área de trabalho ficam depois do Manuscrito, sem mudança.
 4. `cur` vira `open` com o id do capítulo correspondente.
-5. Grava `area.json` (versão 2) e depois `metadata.json` (sem `chapters`), ambos com escrita atômica.
+5. Grava `area.json` (versão 2) e depois `metadata.json` (com `chapters` como espelho derivado do Manuscrito e
+   `open`), ambos com escrita atômica.
 
 Se a migração falhar no meio, a obra abre com um erro claro e os arquivos originais continuam válidos (o passo
 5 só grava depois que tudo foi montado em memória). Uma obra já migrada nunca é migrada de novo.
@@ -152,6 +157,8 @@ A paleta (`Ctrl K`) e a ajuda (`Ctrl /`) são atualizadas: saem as ações das a
 
 - Links públicos de capítulo continuam com o mesmo `nodeId` (o id do capítulo não muda na migração).
 - Comentários de visitantes entram nas notas do nó, capítulo ou texto, como hoje.
+- Nenhuma mudança no servidor: o espelho `metadata.chapters` mantém os links de capítulo e a página pública
+  funcionando como hoje (o servidor continua achando o capítulo e o arquivo por ele).
 - Backup é por arquivo, então não muda. A primeira migração gera um backup novo porque `area.json` e
   `metadata.json` mudaram.
 - A restauração de um snapshot antigo (versão 1) passa pela migração ao abrir a obra.

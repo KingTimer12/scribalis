@@ -4,7 +4,7 @@
 
 **Goal:** Replace the two book tabs (Capítulos / Área de trabalho) with one tree whose fixed first node, **Manuscrito**, holds the chapters, shown in a collapsible sidebar next to the editor, plus a visible sun/moon theme button.
 
-**Architecture:** Rust owns the structure: `area/area.json` goes to version 2 with two new node kinds (`manuscript`, `chapter`); pure rules live in `model/manuscript.rs`, disk operations (conversion chapter ⇄ text, chapter lookups by tree, word totals) in `ops/manuscript.rs`, and the v1 → v2 migration in `storage/migrate.rs`, run when a book is loaded into the `Library` cache. `metadata.json` keeps only book-level fields (`open` replaces `cur`, `chapters` is legacy, read only by the migration). The webview keeps only the tree it receives, the selection, the open node and the sidebar state (saved per book in the Rust prefs); the tabs, `ChapterIndex` and every index-based chapter action go away.
+**Architecture:** Rust owns the structure: `area/area.json` goes to version 2 with two new node kinds (`manuscript`, `chapter`); pure rules live in `model/manuscript.rs`, disk operations (conversion chapter ⇄ text, chapter lookups by tree, word totals) in `ops/manuscript.rs`, and the v1 → v2 migration in `storage/migrate.rs`, run when a book is loaded into the `Library` cache. `metadata.json` keeps the book-level fields (`open` replaces `cur`) plus `chapters`, now a derived, write-only mirror of the Manuscrito (rewritten after every command that touches the book, never read by the app after the migration) so the cloud server, custom servers and older app versions keep working unchanged. The webview keeps only the tree it receives, the selection, the open node and the sidebar state (saved per book in the Rust prefs); the tabs, `ChapterIndex` and every index-based chapter action go away.
 
 **Tech Stack:** Rust (Tauri 2, serde, tempfile for tests), SolidJS, Tailwind v4 + `src/styles/global.css`, vitest (jsdom via vite-plugin-solid, the in-memory mock API; store-level tests, no component rendering), bun.
 
@@ -21,8 +21,9 @@
 - The `manuscript` node is always the first item of `items`, titled "Manuscrito"; it cannot be deleted, renamed, moved, nor have a sibling before it. It (and folders inside it) accept only `chapter` and `folder` children.
 - Chapter order = depth-first walk of the Manuscrito; folders only group; numbering is continuous (Cap. 1, 2, 3… across parts).
 - A text moved into the Manuscrito becomes a `chapter` (file to `capitulos/<id>.md`, status `rascunho`, words counted); a chapter moved out becomes a `text` (file to `area/arquivos/<id>.md`, content and notes intact, status and words dropped). Images and attachments never enter the Manuscrito. The node id never changes.
-- `metadata.json`: `chapters` is no longer written from version 2 on (legacy, read only by the migration); `cur` becomes `open` (id of the last opened node).
-- Migration v1 → v2: copy `metadata.json` to `metadata.antes-da-migracao.json` (only if absent); build everything in memory; write `area.json` (v2) then `metadata.json` (without `chapters`), both atomically. On failure the book does not open and shows "Não foi possível atualizar esta obra para o novo formato. Nada foi alterado." (technical error to the log). A migrated book is never migrated again.
+- `metadata.json`: `chapters` keeps being written as a **derived mirror** of the Manuscrito — flat, depth-first order, same `ChapterEntry` fields (`id`, `file`, `title`, `status`, `notes`, `words`) — every time the tree or chapter data is saved. The app never reads it after the migration; the tree is the only source of structure. `cur` becomes `open` (id of the last opened node).
+- No server change: the cloud server and custom servers keep finding chapters through `metadata.chapters`.
+- Migration v1 → v2: copy `metadata.json` to `metadata.antes-da-migracao.json` (only if absent); build everything in memory; write `area.json` (v2) then `metadata.json` (with `chapters` as the mirror of the new Manuscrito, and `open`), both atomically. On failure the book does not open and shows "Não foi possível atualizar esta obra para o novo formato. Nada foi alterado." (technical error to the log). A migrated book is never migrated again.
 - New books and sample books are born v2 with a Manuscrito holding one chapter.
 - Forbidden Manuscrito operations are refused in Rust with a Portuguese message shown in the status bar.
 - Sidebar open by default; the « button and `Ctrl E` collapse/reopen it; the choice is saved per book in the Rust prefs. Focus mode (`Ctrl .`) hides the sidebar and both bars.
@@ -46,8 +47,8 @@
 | File | Change | Responsibility |
 |---|---|---|
 | `model/workspace.rs` | modify | Node kinds (`manuscript`, `chapter` added), chapter fields, constructors, container rule, tree version 2, `subtree_files` with kinds |
-| `model/manuscript.rs` | create | Pure Manuscrito rules: where it is, chapter order (DFS), neighbor, totals, what may be created/moved/renamed/deleted |
-| `model/metadata.rs` | modify | `open` field; `chapters` and `cur` become legacy (read, never written) |
+| `model/manuscript.rs` | create | Pure Manuscrito rules: where it is, chapter order (DFS), neighbor, totals, what may be created/moved/renamed/deleted, the `metadata.chapters` mirror |
+| `model/metadata.rs` | modify | `open` field; `chapters` becomes the derived mirror (written, read only by the migration); `cur` legacy |
 | `model/views.rs` | modify | `BookMeta` with `open` (no chapter list), `BookSummary::from_tree` |
 | `model/patches.rs` | modify | `BookPatch.open` replaces `cur` |
 | `model/prefs.rs` | modify | `sidebar_closed` (book ids whose sidebar is collapsed) |
@@ -55,12 +56,12 @@
 | `storage/chapter_io.rs` | modify | Chapter markdown by book-relative path (no `ChapterEntry`) |
 | `storage/workspace_io.rs` | modify | Missing `area/` reads as a v1 tree; file helpers that resolve a node's path by kind |
 | `storage/migrate.rs` | create | v1 → v2: pure `upgrade`, on-disk `open_book`, read-only `peek_tree` |
-| `ops/manuscript.rs` | create | Disk operations of the Manuscrito: word total, new chapter file/node, conversion chapter ⇄ text, move with conversion |
+| `ops/manuscript.rs` | create | Disk operations of the Manuscrito: word total, new chapter file/node, conversion chapter ⇄ text, move with conversion, `sync_mirror` |
 | `ops/chapter.rs` | rewrite | Chapters found through the tree: load, save, update, split, neighbor, search, markdown |
 | `ops/workspace.rs` | modify | Create chapters, rules on rename/delete/import, delete by kind, move through `ops::manuscript`; `to_chapter`/`from_chapter` removed |
 | `ops/book.rs` | modify | `open` instead of `cur` |
 | `ops/library.rs` | modify | New books and samples born v2 |
-| `state.rs` | modify | Loads books through the migration; word totals from the tree |
+| `state.rs` | modify | Loads books through the migration; word totals from the tree; rewrites the mirror after each command |
 | `commands/{book,chapter,workspace,library,scrivener,cloud_backup}.rs`, `lib.rs` | modify | New command set (`chapter_neighbor`; `chapter_insert/move/delete`, `workspace_to_chapter/from_chapter` removed) |
 | `cloud/restore.rs`, `cloud/comments.rs`, `cloud/inbox.rs` | modify | Totals from the tree; comments land in the node notes (chapter or not) |
 | `scrivener/import.rs` | modify | Chosen items become chapter nodes at the end of the Manuscrito |
@@ -91,7 +92,6 @@
 | `editor/writerKeys.ts`, `editor/createEditor.ts` | modify | Free texts have no `Ctrl Enter` separator |
 | `data/shortcuts.ts`, `styles/global.css`, `README.md` | modify | Help, styles, docs |
 
-**Cloud server (separate repo `~/app/timerdev`)**: `src/server/scribalis/book.ts` (+ `book.test.ts`) reads chapters from the v2 tree (Task 14).
 
 ---
 ### Task 1: Node kinds and pure Manuscrito rules
@@ -109,6 +109,7 @@
   - `Node { id, kind, title, notes, file: Option<String>, status: Option<Status>, words: Option<usize>, children, extra }`; `Node::folder(id, title)`, `Node::leaf(id, kind, title, file)`, `Node::chapter(id, title, file)`, `Node::manuscript(id)`.
   - `WORKSPACE_VERSION = 2`, `LEGACY_WORKSPACE_VERSION = 1`.
   - `subtree_files(&Node) -> Vec<(NodeKind, String)>`.
+  - `model::manuscript::mirror(&[Node]) -> Vec<ChapterEntry>` (flat, reading order; chapters without a file are skipped).
   - `model::manuscript`: `MANUSCRIPT_TITLE`, `LAST_CHAPTER`, `NO_MEDIA`, `manuscript(&[Node]) -> Option<&Node>`, `manuscript_mut(&mut [Node]) -> Option<&mut Node>`, `in_manuscript(&[Node], &str) -> bool`, `chapters(&[Node]) -> Vec<&Node>`, `chapter(&[Node], &str) -> Option<&Node>`, `position(&[Node], &str) -> Option<usize>`, `neighbor(&[Node], &str, i32) -> Option<String>`, `total_words(&[Node]) -> usize`, `ready(&[Node]) -> usize`, `chapters_in(&Node) -> usize`, `root_index(&[Node], Option<&str>, usize) -> usize`, `check_rename`, `check_delete`, `check_create(&[Node], NodeKind, Option<&str>)`, `check_move(&[Node], &str, Option<&str>, usize)` (all `-> AppResult<()>`).
 
 Nothing else changes behavior yet: `insert`/`move_node` accept the Manuscrito as a container. Until Task 2, a book without `area/` reads as an empty tree tagged version 2; nothing migrates yet, and Task 2 makes that case read as version 1 before the migration exists, so run Tasks 1 and 2 back to back.
@@ -231,6 +232,19 @@ mod tests {
         let t = tree();
         assert!(check_move(&t, "c3", None, 2).is_ok());
         assert!(check_delete(&t, "p").is_ok());
+    }
+
+    #[test]
+    fn mirror_lists_the_chapters_flat_in_reading_order() {
+        let mut t = tree();
+        t[0].children[1].extra.insert("cor".into(), serde_json::Value::from("azul"));
+        let m = mirror(&t);
+        let ids: Vec<&str> = m.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, vec!["c1", "c2", "c3"]);
+        assert_eq!((m[0].file.as_str(), m[0].words, m[0].status), ("capitulos/c1.md", 10, Status::Pronto));
+        assert_eq!((m[0].title.as_str(), m[0].notes.as_str()), ("c1", ""));
+        assert_eq!(m[2].extra["cor"], "azul");
+        assert!(mirror(&t[1..]).is_empty());
     }
 
     #[test]
@@ -590,7 +604,7 @@ and import it in `ops/workspace.rs`: add `remove_file_at` to the `workspace_io::
 Put this above the `#[cfg(test)]` module:
 
 ```rust
-use super::metadata::Status;
+use super::metadata::{ChapterEntry, Status};
 use super::workspace::{find, Node, NodeKind};
 use crate::error::{AppError, AppResult};
 
@@ -658,6 +672,25 @@ pub fn total_words(items: &[Node]) -> usize {
 /// Chapters marked "pronto".
 pub fn ready(items: &[Node]) -> usize {
     chapters(items).iter().filter(|c| c.status == Some(Status::Pronto)).count()
+}
+
+/// `metadata.chapters` as the cloud server, custom servers and older app versions read it: the
+/// chapters in reading order, flat, with the legacy fields. Written, never read back by the app.
+pub fn mirror(items: &[Node]) -> Vec<ChapterEntry> {
+    chapters(items)
+        .into_iter()
+        .filter_map(|c| {
+            Some(ChapterEntry {
+                id: c.id.clone(),
+                file: c.file.clone()?,
+                title: c.title.clone(),
+                status: c.status.unwrap_or_default(),
+                notes: c.notes.clone(),
+                words: c.words.unwrap_or(0),
+                extra: c.extra.clone(),
+            })
+        })
+        .collect()
 }
 
 /// Chapters in `node`'s subtree, itself included.
@@ -746,7 +779,7 @@ Expected: PASS (all existing tests plus the new `model::manuscript` and `model::
 
 ```bash
 git add src-tauri/src/model/workspace.rs src-tauri/src/model/manuscript.rs src-tauri/src/model/mod.rs src-tauri/src/ops/workspace.rs src-tauri/src/storage/workspace_io.rs
-git commit -m "feat(model): manuscript and chapter nodes with pure manuscript rules"
+git commit -m "feat(model): manuscript and chapter nodes with pure manuscript rules and the metadata mirror"
 ```
 
 ---
@@ -764,7 +797,7 @@ git commit -m "feat(model): manuscript and chapter nodes with pure manuscript ru
 **Interfaces:**
 - Consumes (Task 1): `Node::chapter`, `Node::manuscript`, `NodeKind::Chapter`, `WORKSPACE_VERSION`, `LEGACY_WORKSPACE_VERSION`, `remove_file_at`.
 - Produces:
-  - `Metadata.open: Option<String>`; `cur` and `chapters` are omitted from the JSON when zero/empty.
+  - `Metadata.open: Option<String>`; `cur` and `chapters` are omitted from the JSON when zero/empty; after the migration `chapters` holds `manuscript::mirror` of the new tree.
   - `paths::BACKUP_META_FILE = "metadata.antes-da-migracao.json"`, `paths::chapter_rel(id) -> String` (`capitulos/<id>.md`), `paths::area_text_rel(id) -> String` (`arquivos/<id>.md`, relative to `area/`).
   - `chapter_io::{read_at(dir, rel) -> AppResult<Doc>, write_at(dir, rel, &Doc) -> AppResult<()>, delete_at(dir, rel) -> AppResult<()>}` (book-relative; the `&ChapterEntry` functions stay as wrappers until Task 5).
   - `workspace_io::{read_doc_at(dir, NodeKind, rel) -> AppResult<Doc>, write_doc_at(dir, NodeKind, rel, &Doc) -> AppResult<()>, remove_file_at(..)}`; `read_workspace` returns version 1 for a book without `area/`.
@@ -848,7 +881,8 @@ mod tests {
         assert_eq!(c1.extra["cor"], "azul");
         assert_eq!(ws.items[1].id, "f");
         assert_eq!(meta.open.as_deref(), Some("c2"));
-        assert!(meta.chapters.is_empty());
+        // The mirror equals the old list: same ids, order and fields (unknown ones too).
+        assert_eq!(meta.chapters, v1_meta().chapters);
     }
 
     #[test]
@@ -876,7 +910,10 @@ mod tests {
         assert_eq!(ws.items[0].children.len(), 3);
         assert_eq!(ws.items[1].id, "f");
         let raw = raw_meta(dir);
-        assert!(raw.get("chapters").is_none());
+        // `chapters` stays, as the mirror of the Manuscrito, for servers and older app versions.
+        let mirrored: Vec<&str> = raw["chapters"].as_array().unwrap().iter().map(|c| c["id"].as_str().unwrap()).collect();
+        assert_eq!(mirrored, vec!["c1", "c2", "c3"]);
+        assert_eq!(raw["chapters"][0]["cor"], "azul");
         assert!(raw.get("cur").is_none());
         assert_eq!(raw["open"], "c2");
         assert!(!dir.join(AREA_DIR).join(format!("{AREA_FILE}.tmp")).exists());
@@ -952,7 +989,8 @@ In `src-tauri/src/model/metadata.rs`, replace the `cur` and `chapters` fields of
 ```
 
 ```rust
-    /// Legacy (tree v1): the chapter list. Read only by the migration; never written once empty.
+    /// Tree v1: the chapter list, read only by the migration. Tree v2: a derived mirror of the
+    /// Manuscrito (`manuscript::mirror`), written for the cloud server and older app versions.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chapters: Vec<ChapterEntry>,
 ```
@@ -1150,6 +1188,7 @@ use super::{
 use crate::error::{AppError, AppResult};
 use crate::ids::new_id;
 use crate::model::{
+    manuscript,
     metadata::{ChapterEntry, Metadata},
     workspace::{Node, Workspace, WORKSPACE_VERSION},
 };
@@ -1171,7 +1210,8 @@ fn chapter_node(c: &ChapterEntry) -> Node {
 
 /// The v2 pair of a v1 book, built in memory: a Manuscrito holding one chapter per legacy
 /// entry (same id, title, notes, status, words, file and unknown fields, same order), then
-/// the old items unchanged. `cur` becomes `open`; no file moves.
+/// the old items unchanged. `cur` becomes `open`; `chapters` becomes the mirror of the new
+/// Manuscrito (equal to the old list); no file moves.
 pub fn upgrade(meta: &Metadata, ws: &Workspace, manuscript_id: String) -> (Metadata, Workspace) {
     let mut manuscript = Node::manuscript(manuscript_id);
     manuscript.children = meta.chapters.iter().map(chapter_node).collect();
@@ -1180,7 +1220,7 @@ pub fn upgrade(meta: &Metadata, ws: &Workspace, manuscript_id: String) -> (Metad
     items.extend(ws.items.iter().cloned());
     let mut out = meta.clone();
     out.open = meta.chapters.get(meta.cur).map(|c| c.id.clone());
-    out.chapters.clear();
+    out.chapters = manuscript::mirror(&items);
     out.cur = 0;
     (out, Workspace { version: WORKSPACE_VERSION, items, extra: ws.extra.clone() })
 }
@@ -1546,7 +1586,7 @@ git commit -m "feat(ops): convert chapters and texts when crossing the manuscrip
 ---
 ### Task 4: Chapters through the tree; books load through the migration
 
-This is the switch: after it, Rust finds chapters only in the Manuscrito and every book is migrated when it is loaded. `create_book`, the samples and the Scrivener import still write v1 books until Task 6 — they are migrated on first open, so they keep working (except the Scrivener import *into an open book*, whose chapters land in the legacy list until Task 6 fixes it). The desktop webview only understands the new shapes after Task 8; use the Rust tests until then.
+This is the switch: after it, Rust finds chapters only in the Manuscrito and every book is migrated when it is loaded. `create_book`, the samples and the Scrivener import still write v1 books until Task 6 — they are migrated on first open, so they keep working (except the Scrivener import *into an open book*, whose chapters land in `meta.chapters` and are then overwritten by the mirror sync until Task 6 fixes it — do not use it in between). The desktop webview only understands the new shapes after Task 8; use the Rust tests until then.
 
 **Files:**
 - Modify: `src-tauri/src/model/views.rs` (whole file below)
@@ -1555,6 +1595,7 @@ This is the switch: after it, Rust finds chapters only in the Manuscrito and eve
 - Rewrite: `src-tauri/src/ops/workspace.rs`
 - Modify: `src-tauri/src/ops/book.rs` (`update`, one test)
 - Modify: `src-tauri/src/ops/library.rs` (add `summarize`)
+- Modify: `src-tauri/src/ops/manuscript.rs` (add `sync_mirror`)
 - Rewrite: `src-tauri/src/state.rs`
 - Rewrite: `src-tauri/src/commands/chapter.rs`, `src-tauri/src/commands/workspace.rs`, `src-tauri/src/commands/library.rs`
 - Modify: `src-tauri/src/commands/scrivener.rs`, `src-tauri/src/commands/cloud_backup.rs`, `src-tauri/src/cloud/restore.rs`, `src-tauri/src/lib.rs`
@@ -1567,7 +1608,7 @@ This is the switch: after it, Rust finds chapters only in the Manuscrito and eve
   - `chapter_load(bookId, chapterId) -> Doc`; `chapter_save(bookId, chapterId, doc) -> Node`; `chapter_update(bookId, chapterId, patch) -> Node`; `chapter_split(bookId, chapterId, before, after) -> Created { id, items }`; `chapter_neighbor(bookId, chapterId, step: i32) -> string|null`; `chapter_search(bookId, q) -> SearchHit[]` (index = reading order); `chapter_markdown(bookId, chapterId) -> string`.
   - `workspace_create(bookId, parent, index, kind: "folder"|"text"|"chapter", title) -> Created`; `workspace_move` converts across the Manuscrito; `workspace_rename/delete/pick_files` apply the rules.
   - Removed: `chapter_insert`, `chapter_move`, `chapter_delete`, `workspace_to_chapter`, `workspace_from_chapter`.
-  - Rust API: `ops::chapter::{load(dir, id), save(dir, meta, id, doc) -> Node, update(dir, meta, id, patch) -> Node, split(dir, meta, id, before, after) -> Created, neighbor(dir, id, step) -> Option<String>, search(dir, q), markdown(dir, id)}`; `ops::library::summarize(dir, meta) -> (BookSummary, usize)`; `Library::{register(dir, id, words), replace(dir, id, words)}`; `BookSummary::from_tree(dir, meta, items)`.
+  - Rust API: `ops::chapter::{load(dir, id), save(dir, meta, id, doc) -> Node, update(dir, meta, id, patch) -> Node, split(dir, meta, id, before, after) -> Created, neighbor(dir, id, step) -> Option<String>, search(dir, q), markdown(dir, id)}`; `ops::library::summarize(dir, meta) -> (BookSummary, usize)`; `Library::{register(dir, id, words), replace(dir, id, words)}`; `BookSummary::from_tree(dir, meta, items)`; `ops::manuscript::sync_mirror(dir, &mut Metadata) -> AppResult<()>`, called by `Library::with_book` after every successful command, so `metadata.chapters` always equals `manuscript::mirror` of the tree.
 
 - [ ] **Step 1: Views and patches**
 
@@ -2372,14 +2413,35 @@ Add this test to its module:
     }
 ```
 
-- [ ] **Step 8: Rewrite `src-tauri/src/state.rs`**
+- [ ] **Step 8: The mirror sync, then rewrite `src-tauri/src/state.rs`**
+
+Append to `src-tauri/src/ops/manuscript.rs` (above its tests), adding `metadata::Metadata` to its `crate::model::{…}` import and `metadata_io::write_metadata` to its `crate::storage::{…}` import:
+
+```rust
+/// Rewrites `metadata.chapters` as the derived mirror of the Manuscrito when it drifted from the
+/// tree. The app never reads it back; the cloud server, custom servers and older app versions do.
+pub fn sync_mirror(dir: &Path, meta: &mut Metadata) -> AppResult<()> {
+    let ws = read_workspace(dir)?;
+    if manuscript::manuscript(&ws.items).is_none() {
+        return Ok(());
+    }
+    let mirror = manuscript::mirror(&ws.items);
+    if meta.chapters != mirror {
+        meta.chapters = mirror;
+        write_metadata(dir, meta)?;
+    }
+    Ok(())
+}
+```
+
+Then replace `src-tauri/src/state.rs`:
 
 ```rust
 use std::{collections::HashMap, path::{Path, PathBuf}, sync::{Mutex, MutexGuard}};
 
 use crate::error::{AppError, AppResult};
 use crate::model::metadata::Metadata;
-use crate::ops::manuscript::book_words;
+use crate::ops::manuscript::{book_words, sync_mirror};
 use crate::storage::migrate::open_book;
 
 /// Runtime state managed by Tauri. Keeps only one book's metadata in memory; its tree is
@@ -2468,6 +2530,10 @@ impl Library {
         let (dir, meta) = self.open.as_mut().expect("just loaded");
         match f(dir, meta) {
             Ok(out) => {
+                // Whatever the command touched, `metadata.chapters` follows the tree.
+                if let Err(e) = sync_mirror(dir, meta) {
+                    eprintln!("could not update the chapter mirror of {id}: {e}");
+                }
                 match book_words(dir) {
                     Ok(total) => {
                         self.totals.insert(id.to_string(), total);
@@ -2580,6 +2646,45 @@ mod tests {
         assert_eq!(open, Some(first_chapter(&dir, &meta)));
         let ws = crate::storage::workspace_io::read_workspace(&dir).unwrap();
         assert_eq!(ws.version, 2);
+    }
+
+    #[test]
+    fn the_metadata_mirror_follows_the_manuscript() {
+        use crate::model::{metadata::Status, patches::ChapterPatch, workspace::NodeKind};
+        use crate::ops::workspace;
+        use crate::storage::{metadata_io::read_metadata, workspace_io::read_workspace};
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "A").unwrap();
+        let mut lib = Library::new(root.path().to_path_buf());
+        lib.register(&dir, &meta.id, 0);
+        let mirror = |d: &Path| read_metadata(d).unwrap().chapters.iter().map(|c| c.id.clone()).collect::<Vec<_>>();
+        let order = |d: &Path| chapters(&read_workspace(d).unwrap().items).iter().map(|c| c.id.clone()).collect::<Vec<_>>();
+        let mid = lib.with_book(&meta.id, |d, _| Ok(read_workspace(d)?.items[0].id.clone())).unwrap();
+        // create
+        let c2 = lib.with_book(&meta.id, |d, _| workspace::create(d, Some(&mid), 0, NodeKind::Chapter, "Novo")).unwrap().id;
+        assert_eq!(mirror(&dir), order(&dir));
+        assert_eq!(mirror(&dir)[0], c2);
+        // rename, status, words
+        lib.with_book(&meta.id, |d, _| workspace::rename(d, &c2, "Outro").map(|_| ())).unwrap();
+        lib.with_book(&meta.id, |d, m| {
+            chapter::update(d, m, &c2, ChapterPatch { status: Some(Status::Pronto), ..Default::default() }).map(|_| ())
+        })
+        .unwrap();
+        lib.with_book(&meta.id, |d, m| chapter::save(d, m, &c2, &parse("um dois")).map(|_| ())).unwrap();
+        let first = read_metadata(&dir).unwrap().chapters[0].clone();
+        assert_eq!((first.title.as_str(), first.status, first.words), ("Outro", Status::Pronto, 2));
+        assert_eq!(first.file, format!("capitulos/{c2}.md"));
+        // a text moved in, a chapter moved out, a delete
+        let t = lib.with_book(&meta.id, |d, _| workspace::create(d, None, 1, NodeKind::Text, "Texto")).unwrap().id;
+        lib.with_book(&meta.id, |d, _| workspace::move_to(d, &t, Some(&mid), 2).map(|_| ())).unwrap();
+        assert_eq!(mirror(&dir), order(&dir));
+        assert!(mirror(&dir).contains(&t));
+        lib.with_book(&meta.id, |d, _| workspace::move_to(d, &c2, None, 2).map(|_| ())).unwrap();
+        assert_eq!(mirror(&dir), order(&dir));
+        assert!(!mirror(&dir).contains(&c2));
+        lib.with_book(&meta.id, |d, _| workspace::delete(d, &t).map(|_| ())).unwrap();
+        assert_eq!(mirror(&dir), order(&dir));
+        assert_eq!(mirror(&dir).len(), 1);
     }
 
     #[test]
@@ -3037,7 +3142,7 @@ git commit -m "feat(cloud): comments go to the tree node notes, chapters include
 
 **Interfaces:**
 - Consumes: `ops::manuscript::new_chapter`, `model::manuscript::{chapters, manuscript_mut}`, `workspace::remove`, `chapter_io::{read_at, delete_at}`.
-- Produces: `create_book(root, title) -> AppResult<(PathBuf, Metadata)>` writes `area/area.json` v2 (`[Manuscrito { chapter }]`) and `metadata.json` with `open` = that chapter and no `chapters`; `write_samples` likewise with `open` = the sample's `cur` chapter; `scrivener::import::import_into(project, chapter_items, dir, meta, wrap)` appends chapter nodes at the end of the Manuscrito (same signature); the leftover of the Scrivener Draft (items not marked as chapters) becomes a folder titled "<título do Draft> (Scrivener)".
+- Produces: `create_book(root, title) -> AppResult<(PathBuf, Metadata)>` writes `area/area.json` v2 (`[Manuscrito { chapter }]`) and `metadata.json` with `open` = that chapter and `chapters` = its mirror; `write_samples` likewise with `open` = the sample's `cur` chapter; `scrivener::import::import_into(project, chapter_items, dir, meta, wrap)` appends chapter nodes at the end of the Manuscrito (same signature); the leftover of the Scrivener Draft (items not marked as chapters) becomes a folder titled "<título do Draft> (Scrivener)".
 
 - [ ] **Step 1: Write the failing library tests**
 
@@ -3067,8 +3172,8 @@ In the tests of `src-tauri/src/ops/library.rs`, replace `create_then_scan` and `
         let only = chapters(&ws.items);
         assert_eq!(only.len(), 1);
         assert_eq!(meta.open.as_deref(), Some(only[0].id.as_str()));
-        let raw: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("metadata.json")).unwrap()).unwrap();
-        assert!(raw.get("chapters").is_none());
+        // Born with the mirror, for the cloud server and older app versions.
+        assert_eq!(read_metadata(&dir).unwrap().chapters, manuscript::mirror(&ws.items));
         assert!(!dir.join(crate::storage::paths::BACKUP_META_FILE).exists());
     }
 
@@ -3131,13 +3236,15 @@ use crate::storage::{
 and replace `create_book` and `write_samples`:
 
 ```rust
-/// Writes a v2 book: the tree (a Manuscrito holding `chapters`) first, then the metadata,
-/// opened on chapter `open` (or the first one).
+/// Writes a v2 book: the tree (a Manuscrito holding `chapters`) first, then the metadata with
+/// its chapter mirror, opened on chapter `open` (or the first one).
 fn write_new_book(dir: &Path, meta: &mut Metadata, chapters: Vec<Node>, open: usize) -> AppResult<()> {
     meta.open = chapters.get(open).or(chapters.first()).map(|c| c.id.clone());
     let mut m = Node::manuscript(new_id());
     m.children = chapters;
-    write_workspace(dir, &Workspace { items: vec![m], ..Workspace::default() })?;
+    let ws = Workspace { items: vec![m], ..Workspace::default() };
+    meta.chapters = manuscript::mirror(&ws.items);
+    write_workspace(dir, &ws)?;
     write_metadata(dir, meta)
 }
 
@@ -3224,6 +3331,8 @@ Then change the assertions of these tests (everything else in them stays):
         assert_eq!(list[1].0, "Capítulo 2");
         let ws = read_workspace(&dir).unwrap();
         assert_eq!(meta.open.as_deref(), Some(chapters(&ws.items)[0].id.as_str()));
+        // The metadata mirror lists exactly the imported chapters, starter gone.
+        assert_eq!(meta.chapters, crate::model::manuscript::mirror(&ws.items));
         let titles: Vec<&str> = ws.items.iter().map(|n| n.title.as_str()).collect();
         assert_eq!(titles, vec!["Manuscrito", "Pesquisa", "Anexos do manuscrito"]);
         assert_eq!(ws.items[0].kind, NodeKind::Manuscript);
@@ -3246,6 +3355,7 @@ Then change the assertions of these tests (everything else in them stays):
         assert_eq!(ws.items.len(), 2);
         assert_eq!(ws.items[1].title, "Livro");
         assert_eq!(ws.items[1].children[0].title, "Pesquisa");
+        assert_eq!(meta.chapters.len(), 3);
 ```
 
 - `wrap_title_is_trimmed_and_falls_back_when_blank`: `ws.items[0].title` → `ws.items[1].title` and `ws2.items[0].title` → `ws2.items[1].title`.
@@ -3301,7 +3411,7 @@ use crate::error::{AppError, AppResult};
 use crate::ids::{new_id, now_ms};
 use crate::model::{
     doc::{Block, Doc},
-    manuscript::{chapters, manuscript_mut},
+    manuscript::{chapters, manuscript_mut, mirror},
     metadata::Metadata,
     workspace::{remove, Node, NodeKind},
 };
@@ -3384,6 +3494,7 @@ pub fn import_into(
         m.children.extend(ctx.chapters);
     }
     write_workspace(dir, &ws)?;
+    meta.chapters = mirror(&ws.items);
     meta.updated_at = now_ms();
     write_metadata(dir, meta)?;
     Ok(Outcome { chapters, items: ctx.items, warnings: ctx.warnings })
@@ -3399,6 +3510,7 @@ fn fill_new_book(project: &Project, chapter_items: &HashSet<String>, dir: &Path,
         let mut ws = read_workspace(dir)?;
         remove(&mut ws.items, &starter.id);
         meta.open = chapters(&ws.items).first().map(|c| c.id.clone());
+        meta.chapters = mirror(&ws.items);
         write_workspace(dir, &ws)?;
         write_metadata(dir, meta)?;
         if let Some(file) = &starter.file {
@@ -6908,7 +7020,8 @@ Replace the tree block of `## Onde ficam os dados` with:
 ```
 ~/Documentos/Scribalis/
   minha-obra/
-    metadata.json      título, autor, capa, separador, molduras e o último item aberto
+    metadata.json      título, autor, capa, separador, molduras, o último item aberto e uma cópia da
+                       lista de capítulos (para a Nuvem e versões antigas; o app lê a árvore)
     capitulos/         um arquivo .md por capítulo
     imagens/           capa, molduras, separador e imagens dos capítulos
     area/
@@ -6937,176 +7050,6 @@ git commit -m "docs: README for the single tree with the Manuscrito"
 
 ---
 
-### Task 14: Cloud server reads chapters from the v2 tree (repo `~/app/timerdev`)
-
-The public page (`kingtimer12.dev`) finds a chapter link's text through `metadata.chapters`, which v2 books no longer write, and its workspace walk does not know `manuscript`/`chapter` nodes. Without this task, chapter links of migrated books stop resolving after their next backup. This task runs in the **other repository** (`/Users/aaronyanoliveirasaldanha/app/timerdev`, Bun); follow its `CLAUDE.md` (`bun test`) and its convention of Portuguese comments. Deploy it before (or together with) the app release that contains Tasks 1–13.
-
-**Files:**
-- Modify: `/Users/aaronyanoliveirasaldanha/app/timerdev/src/server/scribalis/book.ts`
-- Create: `/Users/aaronyanoliveirasaldanha/app/timerdev/src/server/scribalis/book.test.ts`
-
-**Interfaces:**
-- Consumes: the v2 `area/area.json` shape from Task 1 (`manuscript` first; `chapter` nodes with book-relative `file`, `status`, `words`).
-- Produces: `chapterList(meta: Metadata, area: string | null): ChapterEntry[]` (v2 tree first, `meta.chapters` for v1); `targetExists` and `buildShareView` use it; the workspace view shows the Manuscrito as a `folder` and chapters as `text` nodes (the public page's `ShareNode` kinds are unchanged).
-
-- [ ] **Step 1: Write the failing test**
-
-Create `src/server/scribalis/book.test.ts`:
-
-```ts
-import { describe, expect, test } from "bun:test";
-import { buildShareView, targetExists, type Manifest, type Metadata } from "./book";
-
-const meta: Metadata = { id: "b1", title: "Obra", author: "A", separator: { type: "text", text: "* * *" } };
-const area = {
-  version: 2,
-  items: [
-    { id: "m", kind: "manuscript", title: "Manuscrito", notes: "", children: [
-      { id: "p", kind: "folder", title: "Parte 1", notes: "", children: [
-        { id: "c1", kind: "chapter", title: "Início", notes: "nota", file: "capitulos/c1.md", status: "pronto", words: 2 },
-      ] },
-      { id: "c2", kind: "chapter", title: "", notes: "", file: "capitulos/c2.md", status: "rascunho", words: 1 },
-    ] },
-    { id: "t", kind: "text", title: "Ana", notes: "", file: "arquivos/t.md" },
-  ],
-};
-const files: Record<string, string> = {
-  "metadata.json": JSON.stringify(meta),
-  "area/area.json": JSON.stringify(area),
-  "capitulos/c1.md": "Era uma\n",
-  "capitulos/c2.md": "Fim\n",
-  "area/arquivos/t.md": "Olhos cinzentos.\n",
-};
-const manifest: Manifest = new Map(
-  Object.entries(files).map(([p, t], i) => [p, { hash: String(i).padStart(64, "0"), size: t.length }]),
-);
-const opts = (kind: "chapter" | "workspace", target: string | null) => ({
-  kind, target, includeNotes: true, manifest, createdAt: 1,
-  readText: async (p: string) => files[p] ?? null,
-  url: (h: string) => "/blob/" + h,
-});
-
-describe("v2 books: chapters in the Manuscrito", () => {
-  test("a chapter link finds its chapter in the tree, numbered in reading order", async () => {
-    expect(targetExists("chapter", "c2", meta, files["area/area.json"])).toBe(true);
-    expect(targetExists("chapter", "t", meta, files["area/area.json"])).toBe(false);
-    const out = await buildShareView(opts("chapter", "c2"));
-    expect(out!.view.chapter).toMatchObject({ id: "c2", number: 2, markdown: "Fim\n", status: "rascunho" });
-  });
-
-  test("v1 books still resolve through metadata.chapters", () => {
-    const v1: Metadata = { ...meta, chapters: [{ id: "x", file: "capitulos/x.md" }] };
-    expect(targetExists("chapter", "x", v1, null)).toBe(true);
-  });
-
-  test("the workspace view shows the Manuscrito as a folder and chapters as texts", async () => {
-    const out = await buildShareView(opts("workspace", null));
-    const [m, t] = out!.view.workspace!.items;
-    expect(m).toMatchObject({ kind: "folder", title: "Manuscrito" });
-    expect(m.children![0].children![0]).toMatchObject({ id: "c1", kind: "text", text: "Era uma\n" });
-    expect(t).toMatchObject({ kind: "text", text: "Olhos cinzentos.\n" });
-  });
-});
-```
-
-Run: `cd /Users/aaronyanoliveirasaldanha/app/timerdev && bun test src/server/scribalis/book.test.ts`
-Expected: FAIL — `targetExists("chapter", "c2", …)` is false (no `metadata.chapters`), the workspace view has kind `manuscript`.
-
-- [ ] **Step 2: Read chapters from the tree**
-
-In `src/server/scribalis/book.ts`, widen the tree node type:
-
-```ts
-type AreaNode = {
-  id: string;
-  kind: ShareNode["kind"] | "manuscript" | "chapter";
-  title?: string;
-  notes?: string;
-  /** Capítulos: relativo à pasta da obra; o resto: relativo a `area/`. */
-  file?: string;
-  status?: string;
-  words?: number;
-  children?: AreaNode[];
-};
-```
-
-Add after `findNode`:
-
-```ts
-function collectChapters(nodes: AreaNode[], out: ChapterEntry[]) {
-  for (const n of nodes) {
-    if (n.kind === "chapter" && n.file) {
-      out.push({ id: n.id, file: n.file, title: n.title, status: n.status, notes: n.notes, words: n.words });
-    }
-    collectChapters(n.children ?? [], out);
-  }
-}
-
-/** Capítulos em ordem de leitura: o Manuscrito da árvore (obra v2) ou `metadata.chapters` (obra v1). */
-export function chapterList(meta: Metadata, area: string | null): ChapterEntry[] {
-  const items = parseArea(area);
-  const m = items[0]?.kind === "manuscript" ? items[0] : null;
-  if (!m) return meta.chapters ?? [];
-  const out: ChapterEntry[] = [];
-  collectChapters(m.children ?? [], out);
-  return out;
-}
-```
-
-Replace the chapter line of `targetExists`:
-
-```ts
-  if (kind === "chapter") return !!target && chapterList(meta, area).some(c => c.id === target);
-```
-
-In `buildShareView`, replace `const chapters = meta.chapters ?? [];` with:
-
-```ts
-    const chapters = chapterList(meta, await readText(AREA_FILE));
-```
-
-and in the workspace `walk`, replace the body of the `for` loop up to `out.push(node);` with:
-
-```ts
-      // A página pública conhece pastas e textos: o Manuscrito aparece como pasta, o capítulo como texto.
-      const kind: ShareNode["kind"] = n.kind === "manuscript" ? "folder" : n.kind === "chapter" ? "text" : n.kind;
-      const node: ShareNode = { id: n.id, kind, title: n.title ?? "" };
-      if (includeNotes && n.notes) node.notes = n.notes;
-      const path = n.file ? (n.kind === "chapter" ? n.file : AREA_DIR + n.file) : null;
-      if (kind === "folder") node.children = await walk(n.children ?? []);
-      else if (kind === "text" && path) {
-        const size = manifest.get(path)?.size ?? 0;
-        if (size <= budget) {
-          budget -= size;
-          node.text = (await readText(path)) ?? "";
-          addImages(node.text);
-        }
-      } else if (path) {
-        const u = fileUrl(path);
-        if (u) {
-          node.url = u;
-          node.size = manifest.get(path)?.size;
-        }
-      }
-      out.push(node);
-```
-
-A share targeting a folder inside the Manuscrito keeps working: `roots = n.kind === "folder" ? …` — change that line to `roots = n.kind === "folder" || n.kind === "manuscript" ? (n.children ?? []) : [n];`.
-
-- [ ] **Step 3: Run the server tests**
-
-Run: `cd /Users/aaronyanoliveirasaldanha/app/timerdev && bun test`
-Expected: PASS (the new file and the existing `api.test.ts`, whose v1 fixtures still resolve through `metadata.chapters`).
-
-- [ ] **Step 4: Commit (in the timerdev repo)**
-
-```bash
-cd /Users/aaronyanoliveirasaldanha/app/timerdev
-git add src/server/scribalis/book.ts src/server/scribalis/book.test.ts
-git commit -m "feat(scribalis): read chapters from the v2 tree (Manuscrito)"
-```
-
----
 ## Self-Review
 
 **Spec coverage**
@@ -7117,7 +7060,7 @@ git commit -m "feat(scribalis): read chapters from the v2 tree (Manuscrito)"
 | Manuscrito rules (fixed, no delete/rename/move/sibling before, only chapters and folders) | 1 (pure), 4 (enforced in ops), 8 (mock copy) |
 | DFS order, continuous numbering, previous/next | 1, 4 (`chapter_neighbor`), 7 (display), 8 (`Alt ↑ ↓`) |
 | Move in/out converts, id kept, media refused with status-bar message | 3, 4, 8 (drag), 10 (menus) |
-| `metadata.json` without `chapters`, `cur` → `open` | 2, 4 |
+| `metadata.json`: `chapters` as a derived mirror, `cur` → `open` | 1 (`mirror`), 2 (migration), 4 (`sync_mirror` after every command), 6 (new books, Scrivener) |
 | Chapter-only features (frame, separator, status, words, goal, Enter ×3 in the same folder, copy, link) | 4, 8, 12 |
 | Migration (backup copy, same ids/order/fields, atomic writes, failure message, once) | 2, 4 (`with_book` → `open_book`) |
 | New books and samples born v2 | 6 |
@@ -7126,7 +7069,7 @@ git commit -m "feat(scribalis): read chapters from the v2 tree (Manuscrito)"
 | Context menus per type, share on chapter, double delete, folder chapter count | 10 |
 | What goes away (tabs, `ChapterIndex`, "Enviar capítulo…", index code) | 8 |
 | Palette and help updates | 8, 9, 12 |
-| Cloud: same `nodeId`, comments into node notes, backup unchanged, old snapshot migrates on open, public page | 4 (restore), 5, 14 |
+| Cloud: same `nodeId`, comments into node notes, backup unchanged, old snapshot migrates on open, no server change (mirror) | 4 (restore, mirror), 5 |
 | Scrivener into the Manuscrito, append when importing into an open book | 6 |
 | README | 13 |
 
@@ -7138,8 +7081,8 @@ git commit -m "feat(scribalis): read chapters from the v2 tree (Manuscrito)"
 - "Status ›" and "Novo ›" submenus are flattened into plain items (the context menu has no submenus).
 - Scrivener: chosen items become chapters at the end of the Manuscrito in binder order (no part folders); what is left of the Draft stays a plain folder titled "<Draft> (Scrivener)".
 - `Alt Shift ↑ ↓` stays, moving the open chapter among its siblings.
-- The cloud server must read chapters from `area.json` v2 (Task 14, other repo), or chapter links break after the next backup.
+- `metadata.chapters` is rewritten from the tree in one place, `Library::with_book` (after every successful command), plus the writers outside it (migration, new books, samples, Scrivener new-book import); this keeps the cloud server, custom servers and older apps working with no server change.
 
-**Checks done:** every code step shows full code; types and names match across tasks (`Created`, `move_converting`, `open_book`, `peek_tree`, `summarize`, `openNode`, `openFirstChapter`, `expand`/`reveal`, `moveTo`, `newMenu`, `themeButton`); each Review Focus item has its test in the owning task; `tsconfig` has `noUnusedLocals`, so the import lists were written against the final code of each file.
+**Checks done:** every code step shows full code; types and names match across tasks (`Created`, `move_converting`, `open_book`, `peek_tree`, `summarize`, `openNode`, `openFirstChapter`, `expand`/`reveal`, `moveTo`, `newMenu`, `themeButton`, `mirror`, `sync_mirror`); each Review Focus item has its test in the owning task; `tsconfig` has `noUnusedLocals`, so the import lists were written against the final code of each file.
 
-**Execution:** the Rust tasks (1–6) keep `cargo test` green at every commit; the desktop webview only matches the new commands from Task 8 on, so run Tasks 4–8 back to back before trying `bun run tauri dev`. Task 14 is in another repository and must be deployed with the release.
+**Execution:** the Rust tasks (1–6) keep `cargo test` green at every commit; the desktop webview only matches the new commands from Task 8 on, so run Tasks 4–8 back to back before trying `bun run tauri dev`.
