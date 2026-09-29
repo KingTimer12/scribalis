@@ -1,19 +1,15 @@
-//! Visitors' comments become plain notes: each thread is appended to the notes of its chapter or
-//! workspace item (or of an inbox text when the item was deleted).
+//! Visitors' comments become plain notes: each thread is appended to the notes of its node
+//! (or of an inbox text when the node was deleted).
 use std::path::Path;
 
 use super::api::Comment;
 use crate::error::AppResult;
-use crate::ids::{new_id, now_ms};
+use crate::ids::new_id;
 use crate::model::{
     doc::Doc,
-    metadata::Metadata,
-    workspace::{find, find_mut, Node, NodeKind, Workspace},
+    workspace::{find_mut, Node, NodeKind, Workspace},
 };
-use crate::storage::{
-    metadata_io::write_metadata,
-    workspace_io::{read_workspace, write_node_doc, write_workspace},
-};
+use crate::storage::workspace_io::{read_workspace, write_node_doc, write_workspace};
 
 pub const INBOX_TITLE: &str = "Comentários recebidos";
 const QUOTE_MAX: usize = 80;
@@ -98,12 +94,6 @@ pub fn append_note(existing: &str, block: &str) -> String {
     if base.is_empty() { block.to_string() } else { format!("{base}\n\n{block}") }
 }
 
-enum Target {
-    Chapter(usize),
-    Node,
-    Inbox,
-}
-
 /// Root-level text that collects threads whose item no longer exists; created on first use.
 fn inbox<'a>(dir: &Path, ws: &'a mut Workspace) -> AppResult<&'a mut Node> {
     let found = ws.items.iter().position(|n| n.kind == NodeKind::Text && n.title == INBOX_TITLE);
@@ -120,50 +110,25 @@ fn inbox<'a>(dir: &Path, ws: &'a mut Workspace) -> AppResult<&'a mut Node> {
     Ok(&mut ws.items[i])
 }
 
-/// Appends each thread to its item's notes and saves; returns the root ids written.
-pub fn apply(dir: &Path, meta: &mut Metadata, threads: &[Thread], utc_offset_min: i32) -> AppResult<Vec<String>> {
+/// Appends each thread to its node's notes (chapter or not) and saves; returns the root ids written.
+pub fn apply(dir: &Path, threads: &[Thread], utc_offset_min: i32) -> AppResult<Vec<String>> {
     if threads.is_empty() {
         return Ok(Vec::new());
     }
     let mut ws = read_workspace(dir)?;
-    let (mut meta_changed, mut ws_changed) = (false, false);
     let mut done = Vec::new();
     for t in threads {
         let node_id = t.root.node_id.as_str();
-        let target = if let Some(i) = meta.chapters.iter().position(|c| c.id == node_id) {
-            Target::Chapter(i)
-        } else if find(&ws.items, node_id).is_some() {
-            Target::Node
-        } else {
-            Target::Inbox
-        };
-        match target {
-            Target::Chapter(i) => {
-                let c = &mut meta.chapters[i];
-                c.notes = append_note(&c.notes, &format_thread(t, false, utc_offset_min));
-                meta_changed = true;
-            }
-            Target::Node => {
-                if let Some(n) = find_mut(&mut ws.items, node_id) {
-                    n.notes = append_note(&n.notes, &format_thread(t, false, utc_offset_min));
-                    ws_changed = true;
-                }
-            }
-            Target::Inbox => {
+        match find_mut(&mut ws.items, node_id) {
+            Some(n) => n.notes = append_note(&n.notes, &format_thread(t, false, utc_offset_min)),
+            None => {
                 let n = inbox(dir, &mut ws)?;
                 n.notes = append_note(&n.notes, &format_thread(t, true, utc_offset_min));
-                ws_changed = true;
             }
         }
         done.push(t.root.id.clone());
     }
-    if ws_changed {
-        write_workspace(dir, &ws)?;
-    }
-    if meta_changed {
-        meta.updated_at = now_ms();
-        write_metadata(dir, meta)?;
-    }
+    write_workspace(dir, &ws)?;
     Ok(done)
 }
 
@@ -234,28 +199,30 @@ mod tests {
 
     #[test]
     fn writes_to_chapter_node_and_inbox_and_reuses_the_inbox() {
+        use crate::model::workspace::find;
         let root = tempfile::tempdir().unwrap();
-        let (dir, mut meta) = create_book(root.path(), "A").unwrap();
-        let chapter = meta.chapters[0].id.clone();
-        let node = workspace::create(&dir, None, 0, NodeKind::Text, "Ficha").unwrap().id;
+        let (dir, _meta) = create_book(root.path(), "A").unwrap();
+        crate::storage::migrate::open_book(&dir).unwrap();
+        let chapter = crate::model::manuscript::chapters(&read_workspace(&dir).unwrap().items)[0].id.clone();
+        let node = workspace::create(&dir, None, 1, NodeKind::Text, "Ficha").unwrap().id;
         let list = vec![
             comment("r1", None, &chapter, "no capítulo", 1),
             comment("r2", None, &node, "na ficha", 2),
             comment("r3", None, "apagado", "sem destino", 3),
         ];
-        let done = apply(&dir, &mut meta, &threads(&list, &[]), 0).unwrap();
+        let done = apply(&dir, &threads(&list, &[]), 0).unwrap();
         assert_eq!(done, vec!["r1", "r2", "r3"]);
-        assert!(meta.chapters[0].notes.contains("no capítulo"));
-        let saved = crate::storage::metadata_io::read_metadata(&dir).unwrap();
-        assert!(saved.chapters[0].notes.contains("no capítulo"));
         let ws = read_workspace(&dir).unwrap();
+        assert!(find(&ws.items, &chapter).unwrap().notes.contains("no capítulo"));
         assert!(find(&ws.items, &node).unwrap().notes.contains("na ficha"));
         let inbox: Vec<&Node> = ws.items.iter().filter(|n| n.title == INBOX_TITLE).collect();
         assert_eq!(inbox.len(), 1);
         assert!(inbox[0].notes.contains("sem destino"));
+        // The inbox is a free text after the Manuscrito, never before it.
+        assert_eq!(ws.items[0].kind, NodeKind::Manuscript);
 
         let more = vec![comment("r4", None, "sumiu", "outro", 4)];
-        apply(&dir, &mut meta, &threads(&more, &[]), 0).unwrap();
+        apply(&dir, &threads(&more, &[]), 0).unwrap();
         let ws = read_workspace(&dir).unwrap();
         let inbox: Vec<&Node> = ws.items.iter().filter(|n| n.title == INBOX_TITLE).collect();
         assert_eq!(inbox.len(), 1);

@@ -46,7 +46,7 @@ async fn fetch_once(app: &AppHandle, cloud: &CloudState, book_id: &str, utc_offs
         Vec::new()
     } else {
         lock(&app.state::<SharedLibrary>())?
-            .with_book(book_id, |dir, meta| comments::apply(dir, meta, &threads, utc_offset_min))?
+            .with_book(book_id, |dir, _meta| comments::apply(dir, &threads, utc_offset_min))?
     };
     if !written.is_empty() {
         cloud.edit(|f| f.book_mut(book_id).pending_resolve.extend(written.iter().cloned()))?;
