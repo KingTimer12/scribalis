@@ -122,6 +122,17 @@ pub fn find_mut<'a>(items: &'a mut [Node], id: &str) -> Option<&'a mut Node> {
     None
 }
 
+/// Where a node sits: its parent id (None at the root) and its index in that list.
+pub fn locate<'a>(items: &'a [Node], id: &str) -> Option<(Option<&'a str>, usize)> {
+    fn walk<'a>(list: &'a [Node], parent: Option<&'a str>, id: &str) -> Option<(Option<&'a str>, usize)> {
+        if let Some(i) = list.iter().position(|n| n.id == id) {
+            return Some((parent, i));
+        }
+        list.iter().find_map(|n| walk(&n.children, Some(n.id.as_str()), id))
+    }
+    walk(items, None, id)
+}
+
 pub fn remove(items: &mut Vec<Node>, id: &str) -> Option<Node> {
     if let Some(i) = items.iter().position(|n| n.id == id) {
         return Some(items.remove(i));
@@ -224,6 +235,14 @@ mod tests {
         let t = tree();
         assert_eq!(find(&t, "e").unwrap().title, "Vael");
         assert!(find(&t, "zz").is_none());
+    }
+
+    #[test]
+    fn locates_parent_and_index() {
+        let t = tree();
+        assert_eq!(locate(&t, "c"), Some((Some("a"), 1)));
+        assert_eq!(locate(&t, "f"), Some((None, 2)));
+        assert_eq!(locate(&t, "zz"), None);
     }
 
     #[test]
