@@ -1,12 +1,41 @@
-import { describe, expect, it } from "vitest";
+import type { Editor } from "@tiptap/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockInvoke } from "../../api/mock";
 import { db } from "../../api/mock/db";
-import type { AreaNode, BookMeta, BookSummary } from "../../api/types";
+import type { AreaNode, BookMeta, BookSummary, DocJSON } from "../../api/types";
+import { setEditor } from "../../editor/bridge";
+import { scheduleDocSave, settleDocSave } from "../saving";
 import { chapterOrder } from "../../lib/manuscript";
 import { findNode } from "../../lib/tree";
 import { setState, state } from "../state";
 import { openNode } from "./open";
-import { commitNodeRename, createNode, deleteNode, flushNodeNotes, moveNode, scheduleNodeNotes, setNodeNotes } from "./workspace";
+import { commitNodeRename, createNode, deleteNode, flushNodeNotes, moveNode, moveTo, scheduleNodeNotes, setNodeNotes } from "./workspace";
+
+// Lets a test type into the editor in the middle of the move IPC.
+let duringMove: (() => void) | null = null;
+vi.mock("../../api/workspace", async (orig) => {
+  const real = await orig<typeof import("../../api/workspace")>();
+  return {
+    ...real,
+    areaMove: (...args: Parameters<typeof real.areaMove>) => {
+      duringMove?.();
+      return real.areaMove(...args);
+    },
+  };
+});
+
+/** Just enough of an Editor for the bridge; `type` simulates the user editing. */
+function fakeEditor() {
+  let content: DocJSON = { type: "doc", content: [] };
+  const chain = { setMeta: () => chain, setContent: (d: DocJSON) => ((content = d), chain), run: () => true };
+  return { editor: { chain: () => chain, getJSON: () => content } as unknown as Editor, type: (d: DocJSON) => (content = d) };
+}
+const para = (t: string): DocJSON => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: t }] }] });
+
+afterEach(() => {
+  duringMove = null;
+  setEditor(null);
+});
 
 /** A fresh book with its tree in the store, isolated from the samples and other tests. */
 async function newBook(): Promise<BookMeta> {
@@ -133,5 +162,40 @@ describe("tree actions (mock)", () => {
     expect(findNode(state.area, id)?.kind).toBe("chapter");
     expect(state.areaOpen).toBe(id);
     expect(state.toast).toBe("");
+  });
+
+  it("text typed during a converting move is saved under the new kind", async () => {
+    const book = await newBook();
+    await createNode("text");
+    const id = outside()[0].id;
+    const ed = fakeEditor();
+    setEditor(ed.editor);
+    await openNode(id, false);
+    duringMove = () => {
+      ed.type(para("digitado no meio"));
+      scheduleDocSave();
+    };
+    await moveNode(id, manuscriptId(), "inside");
+    expect(findNode(state.area, id)?.kind).toBe("chapter");
+    expect(await mockInvoke("chapter_load", { bookId: book.id, chapterId: id })).toEqual(para("digitado no meio"));
+  });
+
+  it("text typed during a refused move is saved under the unchanged kind", async () => {
+    const book = await newBook();
+    await createNode("text");
+    const id = outside()[0].id;
+    const ed = fakeEditor();
+    setEditor(ed.editor);
+    await openNode(id, false);
+    duringMove = () => {
+      ed.type(para("digitado e recusado"));
+      scheduleDocSave();
+    };
+    // Nothing may sit before the Manuscrito: Rust's rule refuses this.
+    await moveTo(id, null, 0);
+    await settleDocSave();
+    expect(state.toast).toBe("Nada pode ficar antes do Manuscrito");
+    expect(findNode(state.area, id)?.kind).toBe("text");
+    expect(await mockInvoke("workspace_load_doc", { bookId: book.id, id })).toEqual(para("digitado e recusado"));
   });
 });

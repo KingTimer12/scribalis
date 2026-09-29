@@ -161,22 +161,23 @@ export function moveTo(id: string, parent: string | null, index: number) {
   const openKind = openId ? findNode(state.area, openId)?.kind : undefined;
   return run(async () => {
     // Pending text lands under its current kind before the node changes kind; typing during
-    // the move is held back until the tree (and so the node's kind) is up to date.
+    // the move is only marked dirty (saves are held) until the tree knows the node's final kind.
     await flushAll();
     holdDocSaves();
     try {
       setState("area", await api.areaMove(b.id, id, parent, index));
       if (parent) expand(parent);
-      const now = openId ? findNode(state.area, openId) : null;
-      if (openId && now && now.kind !== openKind) {
-        // The node reopens in the editor that matches its new kind; text typed meanwhile is
-        // filed by that kind (see `saveDocNow`), never to the old path.
-        await settleDocSave();
-        setState("areaOpen", null);
-        await openNode(openId, false);
-      }
     } finally {
+      // Moved or refused, the tree now holds the kind the node really has: held text is
+      // scheduled again and lands under it.
       releaseDocSaves();
+    }
+    const now = openId ? findNode(state.area, openId) : null;
+    if (openId && now && now.kind !== openKind) {
+      // Write the held text under the new kind before the reload, or it would be discarded.
+      await settleDocSave();
+      setState("areaOpen", null);
+      await openNode(openId, false);
     }
   });
 }
