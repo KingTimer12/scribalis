@@ -10,6 +10,8 @@ pub const WORKSPACE_VERSION: u32 = 2;
 /// Trees written before the Manuscrito existed (chapters lived in `metadata.json`).
 pub const LEGACY_WORKSPACE_VERSION: u32 = 1;
 const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "gif"];
+/// Longest synopsis kept, in characters: an index card holds a short summary.
+pub const SYNOPSIS_MAX: usize = 2000;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Workspace {
@@ -57,6 +59,9 @@ pub struct Node {
     pub title: String,
     #[serde(default)]
     pub notes: String,
+    /// Short summary shown on the node's index card; absent from disk when empty.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub synopsis: String,
     /// Chapters: relative to the book folder (`capitulos/…`). Other leaves: relative to `area/`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
@@ -83,6 +88,7 @@ impl Node {
             kind: NodeKind::Folder,
             title: title.to_string(),
             notes: String::new(),
+            synopsis: String::new(),
             file: None,
             status: None,
             words: None,
@@ -237,6 +243,17 @@ mod tests {
         assert_eq!(v["children"][0]["words"], 0);
         let back: Node = serde_json::from_value(v).unwrap();
         assert_eq!(back, m);
+    }
+
+    #[test]
+    fn synopsis_is_optional_on_disk() {
+        let n: Node = serde_json::from_str(r#"{"id":"a","kind":"folder","title":"P","notes":""}"#).unwrap();
+        assert_eq!(n.synopsis, "");
+        assert!(serde_json::to_value(&n).unwrap().get("synopsis").is_none());
+        let n = Node { synopsis: "Resumo".into(), ..n };
+        let v = serde_json::to_value(&n).unwrap();
+        assert_eq!(v["synopsis"], "Resumo");
+        assert_eq!(serde_json::from_value::<Node>(v).unwrap(), n);
     }
 
     #[test]

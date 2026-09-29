@@ -75,6 +75,7 @@ pub fn run() {
             workspace::workspace_create,
             workspace::workspace_rename,
             workspace::workspace_set_notes,
+            workspace::workspace_set_synopsis,
             workspace::workspace_move,
             workspace::workspace_delete,
             workspace::workspace_load_doc,

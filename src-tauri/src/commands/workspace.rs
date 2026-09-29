@@ -34,6 +34,16 @@ pub async fn workspace_set_notes(state: State<'_, SharedLibrary>, book_id: Strin
     lock(&state)?.with_book(&book_id, |dir, _meta| ops::set_notes(dir, &id, &notes))
 }
 
+#[tauri::command]
+pub async fn workspace_set_synopsis(
+    state: State<'_, SharedLibrary>,
+    book_id: String,
+    id: String,
+    synopsis: String,
+) -> AppResult<Vec<Node>> {
+    lock(&state)?.with_book(&book_id, |dir, _meta| ops::set_synopsis(dir, &id, &synopsis))
+}
+
 /// Moving across the Manuscrito's edge converts texts ⇄ chapters. Words that enter the
 /// chapters were not typed today, and words that leave them were not erased: the daily
 /// count stays where it was.

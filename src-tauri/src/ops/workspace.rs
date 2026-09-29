@@ -9,7 +9,7 @@ use crate::ids::new_id;
 use crate::model::{
     doc::Doc,
     manuscript,
-    workspace::{find, find_mut, insert, remove, subtree_files, Node, NodeKind},
+    workspace::{find, find_mut, insert, remove, subtree_files, Node, NodeKind, SYNOPSIS_MAX},
 };
 use crate::ops::manuscript::{flag_missing, move_converting, new_chapter};
 use crate::storage::workspace_io::{
@@ -103,6 +103,15 @@ pub fn rename(dir: &Path, id: &str, title: &str) -> AppResult<Vec<Node>> {
 pub fn set_notes(dir: &Path, id: &str, notes: &str) -> AppResult<Vec<Node>> {
     edit(dir, |items| {
         find_mut(items, id).ok_or_else(not_found)?.notes = notes.to_string();
+        Ok(())
+    })
+}
+
+/// Index card summary of any node, the Manuscrito included, cut to `SYNOPSIS_MAX` characters.
+pub fn set_synopsis(dir: &Path, id: &str, synopsis: &str) -> AppResult<Vec<Node>> {
+    let synopsis: String = synopsis.chars().take(SYNOPSIS_MAX).collect();
+    edit(dir, |items| {
+        find_mut(items, id).ok_or_else(not_found)?.synopsis = synopsis;
         Ok(())
     })
 }
@@ -297,6 +306,24 @@ mod tests {
         let t = create(&dir, None, 1, NodeKind::Text, "Prólogo").unwrap().id;
         let items = move_to(&dir, &t, Some(&manuscript_id(&dir)), 0).unwrap();
         assert_eq!(find(&items, &t).unwrap().kind, NodeKind::Chapter);
+    }
+
+    #[test]
+    fn set_synopsis_saves_and_cuts_long_text() {
+        let (_r, dir) = book();
+        let m = manuscript_id(&dir);
+        let items = set_synopsis(&dir, &m, "A história toda").unwrap();
+        assert_eq!(find(&items, &m).unwrap().synopsis, "A história toda");
+        assert_eq!(find(&tree(&dir).unwrap(), &m).unwrap().synopsis, "A história toda");
+        // Multi-byte characters: cut by character, never inside one.
+        let long = "é".repeat(SYNOPSIS_MAX + 5);
+        let items = set_synopsis(&dir, &m, &long).unwrap();
+        assert_eq!(find(&items, &m).unwrap().synopsis.chars().count(), SYNOPSIS_MAX);
+        // Clearing it drops the field from disk.
+        set_synopsis(&dir, &m, "").unwrap();
+        let raw = std::fs::read_to_string(dir.join(AREA_DIR).join("area.json")).unwrap();
+        assert!(!raw.contains("synopsis"));
+        assert_eq!(set_synopsis(&dir, "zz", "x").unwrap_err().0, "Item não encontrado");
     }
 
     #[test]
