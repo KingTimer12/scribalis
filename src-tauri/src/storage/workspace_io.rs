@@ -1,7 +1,7 @@
 //! Disk I/O for the workspace tree and the files its nodes reference.
 use std::{fs, io::ErrorKind, path::{Path, PathBuf}};
 
-use super::{atomic::write_atomic, paths::{safe_join, AREA_DIR, AREA_FILE, AREA_FILES_DIR}};
+use super::{atomic::write_atomic, chapter_io::delete_at, paths::{safe_join, AREA_DIR, AREA_FILE, AREA_FILES_DIR}};
 use crate::error::AppResult;
 use crate::markdown::{parse::parse, serialize::serialize};
 use crate::model::{doc::Doc, workspace::{NodeKind, Workspace}};
@@ -56,10 +56,8 @@ pub fn copy_into_area(book_dir: &Path, src: &Path, id: &str) -> AppResult<(Strin
     Ok((rel, NodeKind::for_extension(&ext)))
 }
 
-pub fn remove_area_file(book_dir: &Path, rel: &str) -> AppResult<()> {
-    match fs::remove_file(area_path(book_dir, rel)?) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e.into()),
-    }
+/// Removes the file of a node of `kind`; a missing file is fine. Chapters resolve from the
+/// book folder, every other kind from `area/`.
+pub fn remove_file_at(book_dir: &Path, kind: NodeKind, rel: &str) -> AppResult<()> {
+    if kind == NodeKind::Chapter { delete_at(book_dir, rel) } else { delete_at(&book_dir.join(AREA_DIR), rel) }
 }

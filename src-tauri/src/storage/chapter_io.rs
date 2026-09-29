@@ -27,12 +27,17 @@ pub fn write_chapter(dir: &Path, entry: &ChapterEntry, doc: &Doc) -> AppResult<(
     Ok(())
 }
 
-pub fn delete_chapter_file(dir: &Path, entry: &ChapterEntry) -> AppResult<()> {
-    match fs::remove_file(safe_join(dir, &entry.file)?) {
+/// Removes the file at `rel` under `dir`; a missing file is fine.
+pub fn delete_at(dir: &Path, rel: &str) -> AppResult<()> {
+    match fs::remove_file(safe_join(dir, rel)?) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e.into()),
     }
+}
+
+pub fn delete_chapter_file(dir: &Path, entry: &ChapterEntry) -> AppResult<()> {
+    delete_at(dir, &entry.file)
 }
 
 #[cfg(test)]

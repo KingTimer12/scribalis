@@ -1,4 +1,5 @@
 pub mod doc;
+pub mod manuscript;
 pub mod marks;
 pub mod metadata;
 pub mod para_attrs;

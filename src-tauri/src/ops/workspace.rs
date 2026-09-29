@@ -15,7 +15,7 @@ use crate::ops::chapter;
 use crate::storage::{
     chapter_io::{read_chapter, write_chapter},
     metadata_io::write_metadata,
-    workspace_io::{area_path, copy_into_area, read_node_doc, read_workspace, remove_area_file, write_node_doc, write_workspace},
+    workspace_io::{area_path, copy_into_area, read_node_doc, read_workspace, remove_file_at, write_node_doc, write_workspace},
 };
 use crate::text::words::doc_words;
 
@@ -39,9 +39,9 @@ fn edit(dir: &Path, f: impl FnOnce(&mut Vec<Node>) -> AppResult<()>) -> AppResul
 }
 
 /// Discards files the tree no longer references; the tree is already saved.
-fn discard(dir: &Path, files: &[String]) {
-    for rel in files {
-        if let Err(e) = remove_area_file(dir, rel) {
+fn discard(dir: &Path, files: &[(NodeKind, String)]) {
+    for (kind, rel) in files {
+        if let Err(e) = remove_file_at(dir, *kind, rel) {
             eprintln!("could not remove workspace file {rel}: {e}");
         }
     }
@@ -157,7 +157,7 @@ pub fn to_chapter(dir: &Path, meta: &mut Metadata, id: &str) -> AppResult<Vec<No
     meta.updated_at = now_ms();
     write_metadata(dir, meta)?;
     let items = edit(dir, |items| remove(items, id).map(|_| ()).ok_or_else(not_found))?;
-    discard(dir, &[file]);
+    discard(dir, &[(NodeKind::Text, file)]);
     Ok(items)
 }
 

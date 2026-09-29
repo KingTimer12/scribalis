@@ -1,10 +1,14 @@
-//! The book's workspace tree (`area/area.json`): folders, texts, images and attachments.
+//! The book's tree (`area/area.json`): the Manuscrito with its chapters, then folders, texts,
+//! images and attachments.
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use super::{manuscript::MANUSCRIPT_TITLE, metadata::Status};
 use crate::error::{AppError, AppResult};
 
-pub const WORKSPACE_VERSION: u32 = 1;
+pub const WORKSPACE_VERSION: u32 = 2;
+/// Trees written before the Manuscrito existed (chapters lived in `metadata.json`).
+pub const LEGACY_WORKSPACE_VERSION: u32 = 1;
 const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "gif"];
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -26,7 +30,9 @@ impl Default for Workspace {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum NodeKind {
+    Manuscript,
     Folder,
+    Chapter,
     Text,
     Image,
     File,
@@ -35,6 +41,11 @@ pub enum NodeKind {
 impl NodeKind {
     pub fn for_extension(ext: &str) -> NodeKind {
         if IMAGE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()) { NodeKind::Image } else { NodeKind::File }
+    }
+
+    /// Kinds that hold children.
+    pub fn is_container(self) -> bool {
+        matches!(self, NodeKind::Manuscript | NodeKind::Folder)
     }
 }
 
@@ -46,9 +57,15 @@ pub struct Node {
     pub title: String,
     #[serde(default)]
     pub notes: String,
-    /// Path relative to `area/`; only non-folders have one.
+    /// Chapters: relative to the book folder (`capitulos/…`). Other leaves: relative to `area/`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
+    /// Chapters only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<Status>,
+    /// Chapters only: words in the chapter file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<Node>,
     #[serde(flatten)]
@@ -57,15 +74,36 @@ pub struct Node {
 
 impl Node {
     pub fn folder(id: String, title: &str) -> Node {
-        Node { id, kind: NodeKind::Folder, title: title.to_string(), notes: String::new(), file: None, children: Vec::new(), extra: Map::new() }
+        Node {
+            id,
+            kind: NodeKind::Folder,
+            title: title.to_string(),
+            notes: String::new(),
+            file: None,
+            status: None,
+            words: None,
+            children: Vec::new(),
+            extra: Map::new(),
+        }
     }
     pub fn leaf(id: String, kind: NodeKind, title: &str, file: &str) -> Node {
         Node { file: Some(file.to_string()), kind, ..Node::folder(id, title) }
+    }
+    /// An empty draft chapter; `file` is relative to the book folder.
+    pub fn chapter(id: String, title: &str, file: &str) -> Node {
+        Node { status: Some(Status::Rascunho), words: Some(0), ..Node::leaf(id, NodeKind::Chapter, title, file) }
+    }
+    pub fn manuscript(id: String) -> Node {
+        Node { kind: NodeKind::Manuscript, ..Node::folder(id, MANUSCRIPT_TITLE) }
     }
 }
 
 fn not_found() -> AppError {
     AppError::msg("Item não encontrado")
+}
+
+fn not_a_container() -> AppError {
+    AppError::msg("Só dá para guardar itens dentro de pastas")
 }
 
 pub fn find<'a>(items: &'a [Node], id: &str) -> Option<&'a Node> {
@@ -96,8 +134,8 @@ pub fn insert(items: &mut Vec<Node>, parent: Option<&str>, index: usize, node: N
         None => items,
         Some(pid) => {
             let p = find_mut(items, pid).ok_or_else(not_found)?;
-            if p.kind != NodeKind::Folder {
-                return Err(AppError::msg("Só dá para guardar itens dentro de pastas"));
+            if !p.kind.is_container() {
+                return Err(not_a_container());
             }
             &mut p.children
         }
@@ -115,17 +153,17 @@ pub fn move_node(items: &mut Vec<Node>, id: &str, parent: Option<&str>, index: u
             return Err(AppError::msg("Não dá para mover uma pasta para dentro dela mesma"));
         }
         let p = find(items, pid).ok_or_else(not_found)?;
-        if p.kind != NodeKind::Folder {
-            return Err(AppError::msg("Só dá para guardar itens dentro de pastas"));
+        if !p.kind.is_container() {
+            return Err(not_a_container());
         }
     }
     let node = remove(items, id).ok_or_else(not_found)?;
     insert(items, parent, index, node)
 }
 
-/// Files of a node and all its descendants.
-pub fn subtree_files(node: &Node) -> Vec<String> {
-    let mut out: Vec<String> = node.file.iter().cloned().collect();
+/// Files of a node and all its descendants, with the kind that says how to resolve each path.
+pub fn subtree_files(node: &Node) -> Vec<(NodeKind, String)> {
+    let mut out: Vec<(NodeKind, String)> = node.file.iter().map(|f| (node.kind, f.clone())).collect();
     for c in &node.children {
         out.extend(subtree_files(c));
     }
@@ -162,7 +200,23 @@ mod tests {
         assert_eq!(back["futuro"], true);
         assert_eq!(back["items"][0]["children"][0]["cor"], "azul");
         assert!(back["items"][0].get("file").is_none());
+        assert!(back["items"][0].get("status").is_none());
         assert!(back["items"][0]["children"][0].get("children").is_none());
+        assert!(back["items"][0]["children"][0].get("words").is_none());
+    }
+
+    #[test]
+    fn chapter_and_manuscript_json_shape() {
+        let mut m = Node::manuscript("m".into());
+        m.children = vec![Node::chapter("c".into(), "Início", "capitulos/c.md")];
+        let v = serde_json::to_value(&m).unwrap();
+        assert_eq!(v["kind"], "manuscript");
+        assert_eq!(v["title"], "Manuscrito");
+        assert_eq!(v["children"][0]["kind"], "chapter");
+        assert_eq!(v["children"][0]["status"], "rascunho");
+        assert_eq!(v["children"][0]["words"], 0);
+        let back: Node = serde_json::from_value(v).unwrap();
+        assert_eq!(back, m);
     }
 
     #[test]
@@ -181,6 +235,14 @@ mod tests {
         assert_eq!(t[0].id, "h");
         assert!(insert(&mut t, Some("b"), 0, Node::folder("i".into(), "x")).is_err());
         assert!(insert(&mut t, Some("zz"), 0, Node::folder("j".into(), "x")).is_err());
+    }
+
+    #[test]
+    fn the_manuscript_is_a_container() {
+        let mut t = vec![Node::manuscript("m".into())];
+        insert(&mut t, Some("m"), 0, Node::chapter("c".into(), "", "capitulos/c.md")).unwrap();
+        assert_eq!(ids(&t[0].children), vec!["c"]);
+        assert!(insert(&mut t, Some("c"), 0, Node::folder("x".into(), "x")).is_err());
     }
 
     #[test]
@@ -207,7 +269,10 @@ mod tests {
     fn remove_returns_subtree_and_lists_its_files() {
         let mut t = tree();
         let a = remove(&mut t, "a").unwrap();
-        assert_eq!(subtree_files(&a), vec!["b.md".to_string(), "arquivos/c.png".to_string()]);
+        assert_eq!(
+            subtree_files(&a),
+            vec![(NodeKind::Text, "b.md".to_string()), (NodeKind::Image, "arquivos/c.png".to_string())]
+        );
         assert_eq!(ids(&t), vec!["d", "f"]);
         assert!(remove(&mut t, "a").is_none());
     }
