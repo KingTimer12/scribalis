@@ -10,7 +10,7 @@ import { focusTarget } from "../focus";
 import { flushAll, settleDocSave, swapDocument } from "../saving";
 import { currentChapter } from "../selectors/book";
 import { setState, state } from "../state";
-import { expand, reveal, toggleExpanded } from "./expanded";
+import { reveal, toggleExpanded } from "./expanded";
 import { run } from "./run";
 import { flash } from "./ui";
 
@@ -34,10 +34,10 @@ export function loadNodeDoc(bookId: string, node: AreaNode): Promise<DocJSON> {
 /** First chapter in reading order whose file is still on disk. */
 const firstChapter = (items: AreaNode[]) => chapterOrder(items).find((c) => !c.missing) ?? null;
 
-/** Where a book opens: the remembered node when it still exists (a folder shows its board), else the first chapter that is not missing. */
+/** Where a book opens: the remembered node when it still exists and is not a folder, else the first chapter that is not missing. */
 export function initialNode(items: AreaNode[], open: string | null): AreaNode | null {
   const n = open ? findNode(items, open) : null;
-  if (n && !n.missing) return n;
+  if (n && !isContainer(n.kind) && !n.missing) return n;
   return firstChapter(items);
 }
 
@@ -48,21 +48,16 @@ function remember(bookId: string, id: string) {
 }
 
 /**
- * Opens a node in the main pane; a folder or the Manuscrito opens as its board of index
- * cards (a second open of the board's own folder folds or unfolds it in the tree).
- * `focusBody` moves the caret into an opened chapter or text, or the focus onto the board;
- * mouse clicks in the tree pass false so a double click can still reach the rename field.
+ * Opens a node in the main pane (a folder or the Manuscrito toggles instead). `focusBody`
+ * moves the caret into an opened chapter or text; mouse clicks in the tree pass false so a
+ * double click can still reach the rename field.
  */
 export function openNode(id: string, focusBody = true) {
   const b = state.book;
   const node = findNode(state.area, id);
   if (!b || !node) return;
   selectNode(id);
-  const board = isContainer(node.kind);
-  if (board) {
-    if (state.areaOpen === id) return toggleExpanded(id);
-    expand(id);
-  }
+  if (isContainer(node.kind)) return toggleExpanded(id);
   const key = keyOf(b.id, node);
   if (!key) {
     // The editor unmounts: land any pending text first, or its save would find no editor.
@@ -70,10 +65,8 @@ export function openNode(id: string, focusBody = true) {
       await flushAll();
       await settleDocSave();
       if (state.book?.id !== b.id) return;
-      // Index cards hold no text being written: focus mode ends with the board.
-      setState({ areaOpen: id, tripleHint: false, ...(board ? { focus: false } : {}) });
+      setState({ areaOpen: id, tripleHint: false });
       remember(b.id, id);
-      if (board && focusBody) focusTarget("board");
     });
   }
   if (state.areaOpen === id && sameKey(currentDocKey(), key)) {

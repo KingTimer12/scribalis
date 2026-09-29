@@ -1,4 +1,3 @@
-import { isContainer } from "../../lib/tree";
 import type { Panel } from "../../lib/types";
 import { focusTarget, type FocusTarget } from "../focus";
 import { openAreaNode } from "../selectors/workspace";
@@ -39,9 +38,6 @@ export function openPanel(name: Panel) {
 
 export function toggleFocusMode() {
   const on = !state.focus;
-  // A board of index cards has no text being written: focus mode does not apply.
-  const open = openAreaNode();
-  if (on && open && isContainer(open.kind)) return;
   setState("focus", on);
   flash(on ? "Modo foco" : "Modo foco desligado");
 }

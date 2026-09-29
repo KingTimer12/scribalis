@@ -12,10 +12,6 @@ describe("initialNode", () => {
     expect(initialNode(items, null)?.id).toBe("b");
   });
 
-  it("reopens a remembered folder or Manuscrito board", () => {
-    expect(initialNode(items, "m")?.id).toBe("m");
-  });
-
   it("gives nothing when every chapter is missing", () => {
     expect(initialNode([{ ...items[0], children: [ch("a", true)] }], "a")).toBeNull();
   });
