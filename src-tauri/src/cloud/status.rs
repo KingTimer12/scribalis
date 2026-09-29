@@ -43,6 +43,9 @@ pub struct BookCloud {
     /// Comment threads already copied into the notes whose resolution the server has not confirmed.
     #[serde(default)]
     pub pending_resolve: Vec<String>,
+    /// When "Buscar comentários" last ran for this book (ms), shown next to the button.
+    #[serde(default)]
+    pub last_comments_at: Option<u64>,
 }
 
 impl CloudFile {

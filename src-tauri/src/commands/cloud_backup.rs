@@ -18,6 +18,8 @@ pub struct BookCloudView {
     pub last_backup_at: Option<u64>,
     /// Why automatic backups stopped this session, if they did.
     pub paused: Option<String>,
+    /// When "Buscar comentários" last ran for this book, shown next to the button.
+    pub last_comments_at: Option<u64>,
 }
 
 fn view(cloud: &CloudState, book_id: &str) -> AppResult<BookCloudView> {
@@ -27,6 +29,7 @@ fn view(cloud: &CloudState, book_id: &str) -> AppResult<BookCloudView> {
         enabled: b.is_some_and(|b| b.enabled),
         last_backup_at: b.and_then(|b| b.last_backup_at),
         paused: g.paused.clone(),
+        last_comments_at: b.and_then(|b| b.last_comments_at),
     })
 }
 
@@ -87,7 +90,7 @@ pub async fn cloud_forget_book(cloud: State<'_, CloudState>, book_id: String) ->
 /// Called by the webview while the window closes: at most 10 seconds of backup.
 #[tauri::command]
 pub async fn cloud_backup_on_close(app: AppHandle) -> AppResult<()> {
-    let _ = tokio::time::timeout(Duration::from_secs(10), backup::run_all_changed(&app)).await;
+    let _ = tokio::time::timeout(Duration::from_secs(10), backup::run_all_changed_on_close(&app)).await;
     Ok(())
 }
 

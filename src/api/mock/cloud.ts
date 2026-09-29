@@ -7,7 +7,7 @@ const overview = (): CloudOverview => ({ apiUrl: cloudDb.apiUrl, defaultApiUrl: 
 
 const bookState = (bookId: string): BookCloudView => {
   const b = cloudDb.books[bookId];
-  return { enabled: !!b?.enabled, lastBackupAt: b?.lastBackupAt ?? null, paused: null };
+  return { enabled: !!b?.enabled, lastBackupAt: b?.lastBackupAt ?? null, paused: null, lastCommentsAt: b?.lastCommentsAt ?? null };
 };
 
 function snapshot(bookId: string) {
@@ -114,6 +114,7 @@ export const cloud = {
       if (c) c.notes = (c.notes.trim() ? c.notes.trim() + "\n\n" : "") + "— Visitante · " + text;
     }
     cloudDb.comments[bookId] = [];
+    if (cloudDb.books[bookId]) cloudDb.books[bookId].lastCommentsAt = Date.now();
     return waiting.length;
   },
 };

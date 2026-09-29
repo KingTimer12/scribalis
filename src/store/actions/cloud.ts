@@ -174,6 +174,7 @@ export async function fetchComments(quiet: boolean) {
     } else if (!quiet) {
       flash("Nenhum comentário novo");
     }
+    void loadBookCloud(id);
   } catch (e) {
     if (!quiet) flashError(e);
   }

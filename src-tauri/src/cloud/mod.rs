@@ -37,6 +37,8 @@ pub struct CloudInner {
     pub retry_at: u64,
     pub running: HashSet<String>,
     pub rerun: HashSet<String>,
+    /// Books with a comment fetch in flight, so two clicks do not import the same comments twice.
+    pub fetching: HashSet<String>,
 }
 
 /// Cloud state managed by Tauri. Never hold the lock across an `.await`.
@@ -56,6 +58,7 @@ impl CloudState {
             retry_at: 0,
             running: HashSet::new(),
             rerun: HashSet::new(),
+            fetching: HashSet::new(),
         };
         Self { path, inner: Mutex::new(inner) }
     }

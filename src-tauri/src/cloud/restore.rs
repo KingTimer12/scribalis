@@ -59,19 +59,6 @@ fn verify_before_swap(root: &Path, book_id: &str, files: &[RemoteFile]) -> Cloud
     Ok(())
 }
 
-/// Turns the "backup of the current state" result into either "safe to swap" or a restore-stopping
-/// error. `Skipped` means another backup of this book was already running and did not actually run
-/// just now, so it is not the safe pre-restore backup the caller needs: that in-flight backup could be
-/// reading the folder mid-swap, or its snapshot could predate recent edits.
-fn require_fresh_backup(result: CloudResult<backup::Outcome>) -> CloudResult<()> {
-    match result? {
-        backup::Outcome::Skipped => {
-            Err(CloudError::new("backup_running", "Backup em andamento. Tente de novo em instantes."))
-        }
-        _ => Ok(()),
-    }
-}
-
 /// Replaces the book with the snapshot. Order matters: download and verify first, then back up the
 /// current state (which may push out the oldest snapshot, possibly the one being restored), then swap.
 pub async fn restore(app: &AppHandle, book_id: &str, snapshot_id: &str) -> CloudResult<(PathBuf, Metadata)> {
@@ -84,7 +71,7 @@ pub async fn restore(app: &AppHandle, book_id: &str, snapshot_id: &str) -> Cloud
         (lib.root.clone(), lib.dir_of(book_id)?)
     };
     let files = fetch_into_staging(&client, &root, book_id, snapshot_id).await?;
-    if let Err(e) = require_fresh_backup(backup::run(app, book_id, true).await) {
+    if let Err(e) = backup::require_fresh_backup(backup::run(app, book_id, true).await) {
         swap::abort(&root, book_id);
         return Err(e);
     }
@@ -148,20 +135,20 @@ mod tests {
 
     #[test]
     fn skipped_backup_stops_the_restore_with_a_clear_message() {
-        let err = require_fresh_backup(Ok(backup::Outcome::Skipped)).unwrap_err();
+        let err = backup::require_fresh_backup(Ok(backup::Outcome::Skipped)).unwrap_err();
         assert_eq!(err.code, "backup_running");
         assert_eq!(err.message, "Backup em andamento. Tente de novo em instantes.");
     }
 
     #[test]
     fn a_completed_backup_lets_the_restore_continue() {
-        assert!(require_fresh_backup(Ok(backup::Outcome::Sent)).is_ok());
-        assert!(require_fresh_backup(Ok(backup::Outcome::Unchanged)).is_ok());
+        assert!(backup::require_fresh_backup(Ok(backup::Outcome::Sent)).is_ok());
+        assert!(backup::require_fresh_backup(Ok(backup::Outcome::Unchanged)).is_ok());
     }
 
     #[test]
     fn a_backup_error_propagates_unchanged() {
-        let err = require_fresh_backup(Err(CloudError::network())).unwrap_err();
+        let err = backup::require_fresh_backup(Err(CloudError::network())).unwrap_err();
         assert_eq!(err.code, super::super::error::NETWORK);
     }
 }

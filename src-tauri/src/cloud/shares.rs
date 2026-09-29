@@ -53,10 +53,14 @@ fn last_snapshot(cloud: &CloudState, book_id: &str) -> CloudResult<Option<String
 }
 
 /// Links need a backup: the book is enabled and backed up first, so the link shows the current text.
+/// The backup runs `manual`, like "Fazer backup agora", so it is never skipped for being paused or
+/// unchanged-this-session; if another backup of the book is already in flight, `require_fresh_backup`
+/// turns that `Skipped` into the same `backup_running` error restore uses, instead of creating a link
+/// that could point at a snapshot older than the text the author currently sees.
 pub async fn create(app: &AppHandle, input: ShareInput) -> CloudResult<Share> {
     let cloud = app.state::<CloudState>();
     cloud.edit(|f| f.book_mut(&input.book_id).enabled = true)?;
-    backup::run(app, &input.book_id, false).await?;
+    backup::require_fresh_backup(backup::run(app, &input.book_id, true).await)?;
     let snapshot_id = if input.freeze {
         last_snapshot(&cloud, &input.book_id)?.ok_or_else(no_snapshot)?
     } else {

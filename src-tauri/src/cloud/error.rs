@@ -73,6 +73,9 @@ impl CloudError {
 
 impl From<CloudError> for AppError {
     fn from(e: CloudError) -> Self {
+        if e.is("unauthorized") {
+            return AppError::msg("O servidor recusou a chave deste computador. Conectar a um cofre.");
+        }
         AppError::msg(e.message)
     }
 }
@@ -119,5 +122,11 @@ mod tests {
     fn converts_to_app_error_as_its_message() {
         let e: AppError = CloudError::network().into();
         assert_eq!(e.0, "Sem conexão com o servidor da nuvem.");
+    }
+
+    #[test]
+    fn unauthorized_shows_the_spec_wording_with_a_pointer_to_connect_a_vault() {
+        let e: AppError = CloudError::new("unauthorized", "server-specific message").into();
+        assert_eq!(e.0, "O servidor recusou a chave deste computador. Conectar a um cofre.");
     }
 }

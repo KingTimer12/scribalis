@@ -11,6 +11,16 @@ export function BookCloudSection() {
   const [armed, setArmed] = createSignal(false);
   const [refresh, setRefresh] = createSignal(0);
   const view = () => state.cloudBook;
+  const status = () => (state.cloudStatus?.bookId === state.book?.id ? state.cloudStatus : null);
+  const statusText = () => {
+    const s = status();
+    if (s?.state === "sending") {
+      const n = s.fileCount ?? 0;
+      return `Enviando ${n} arquivo${n === 1 ? "" : "s"}…`;
+    }
+    if (s?.state === "offline") return "Sem conexão, tenta de novo em alguns minutos";
+    return view()?.lastBackupAt ? "Último backup: " + ago(view()!.lastBackupAt!) : "Sem backup ainda";
+  };
   const shareChapter = () =>
     setState("shareDraft", { kind: "chapter", target: state.book!.chapters[state.book!.cur].id, label: "Capítulo " + pad(state.book!.cur + 1) });
   const shareArea = () => setState("shareDraft", { kind: "workspace", target: null, label: "Área de trabalho" });
@@ -24,7 +34,7 @@ export function BookCloudSection() {
       </label>
       <Show when={view()?.enabled}>
         <div class="ui">
-          {view()?.lastBackupAt ? "Último backup: " + ago(view()!.lastBackupAt!) : "Sem backup ainda"}
+          {statusText()}
           {view()?.paused ? " · backups automáticos parados: " + view()!.paused : ""}
         </div>
         <div class="cloud-row" style={{ "justify-content": "flex-start" }}>

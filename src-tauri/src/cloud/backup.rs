@@ -1,4 +1,6 @@
 //! Backup of one book: manifest → check → upload what is missing → close the snapshot.
+use std::time::Duration;
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -33,6 +35,8 @@ pub struct CloudStatus {
     pub state: &'static str,
     pub last_backup_at: Option<u64>,
     pub message: Option<String>,
+    /// Files still being uploaded, while `state` is "sending". `None` otherwise.
+    pub file_count: Option<usize>,
 }
 
 pub enum Outcome {
@@ -40,6 +44,17 @@ pub enum Outcome {
     Unchanged,
     /// Automatic backup paused, or another backup of the book already running.
     Skipped,
+}
+
+/// Turns a backup result into either "safe to proceed" or a stopping error. `Skipped` means another
+/// backup of this book was already running and did not actually run just now, so callers that need a
+/// fresh, current snapshot (restore, creating a share) cannot treat it as done: that in-flight backup
+/// could predate the state they need reflected.
+pub fn require_fresh_backup(result: CloudResult<Outcome>) -> CloudResult<()> {
+    match result? {
+        Outcome::Skipped => Err(CloudError::new("backup_running", "Backup em andamento. Tente de novo em instantes.")),
+        _ => Ok(()),
+    }
 }
 
 pub fn policy_for(e: &CloudError, now: u64) -> Policy {
@@ -96,7 +111,13 @@ pub async fn run(app: &AppHandle, book_id: &str, manual: bool) -> CloudResult<Ou
 }
 
 fn report(app: &AppHandle, cloud: &CloudState, book_id: &str, result: &CloudResult<Outcome>) {
-    let status = |state, message| CloudStatus { book_id: book_id.to_string(), state, last_backup_at: last_backup_at(cloud, book_id), message };
+    let status = |state, message| CloudStatus {
+        book_id: book_id.to_string(),
+        state,
+        last_backup_at: last_backup_at(cloud, book_id),
+        message,
+        file_count: None,
+    };
     match result {
         Ok(Outcome::Skipped) => {}
         Ok(_) => emit(app, status("ok", None)),
@@ -142,11 +163,20 @@ async fn run_once(app: &AppHandle, cloud: &CloudState, book_id: &str, manual: bo
         return Ok(Outcome::Unchanged);
     }
 
-    emit(app, CloudStatus { book_id: book_id.to_string(), state: "sending", last_backup_at: last_backup_at(cloud, book_id), message: None });
     let mut hashes: Vec<String> = entries.iter().map(|e| e.hash.clone()).collect();
     hashes.sort();
     hashes.dedup();
     let missing: Missing = client.post("/blobs/check", &HashesBody { hashes: &hashes }).await?;
+    emit(
+        app,
+        CloudStatus {
+            book_id: book_id.to_string(),
+            state: "sending",
+            last_backup_at: last_backup_at(cloud, book_id),
+            message: None,
+            file_count: Some(missing.missing.len()),
+        },
+    );
     upload(&client, &dir, &entries, &missing.missing).await?;
 
     let body = SnapshotBody { files: entries.iter().map(|e| FileRef { path: &e.path, hash: &e.hash }).collect() };
@@ -177,6 +207,28 @@ pub async fn run_all_changed(app: &AppHandle) {
     };
     for id in ids {
         if let Err(e) = run(app, &id, false).await {
+            eprintln!("cloud backup of {id} failed: {}", e.message);
+        }
+    }
+}
+
+/// Same as `run_all_changed`, but for a book whose backup is already running (the scheduler started
+/// it just before the window closed), it waits for that run — and its rerun, if the book changed again
+/// meanwhile — instead of returning right away. The caller wraps this in a timeout, so the wait is
+/// bounded by that same cap; never holds the `CloudState` lock across the sleep below.
+pub async fn run_all_changed_on_close(app: &AppHandle) {
+    let cloud = app.state::<CloudState>();
+    let ids = match cloud.lock() {
+        Ok(g) if g.file.has_vault() => g.file.enabled_books(),
+        _ => return,
+    };
+    for id in ids {
+        let already_running = cloud.lock().map(|g| g.running.contains(&id)).unwrap_or(false);
+        if already_running {
+            while cloud.lock().map(|g| g.running.contains(&id)).unwrap_or(false) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        } else if let Err(e) = run(app, &id, false).await {
             eprintln!("cloud backup of {id} failed: {}", e.message);
         }
     }

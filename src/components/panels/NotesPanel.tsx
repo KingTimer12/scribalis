@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { pad } from "../../lib/format";
+import { ago, pad } from "../../lib/format";
 import { setChapterNotes } from "../../store/actions/chapters";
 import { fetchComments } from "../../store/actions/cloud";
 import { focusRef } from "../../store/focus";
@@ -31,6 +31,9 @@ export function NotesPanel() {
             <button class="ui crumb" onClick={() => void fetchComments(false)}>
               Buscar comentários
             </button>
+            <Show when={state.cloudBook?.lastCommentsAt}>
+              <span class="ui crumb">{ago(state.cloudBook!.lastCommentsAt!)}</span>
+            </Show>
           </Show>
         </div>
       </div>

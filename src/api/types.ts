@@ -190,6 +190,7 @@ export interface BookCloudView {
   enabled: boolean;
   lastBackupAt: number | null;
   paused: string | null;
+  lastCommentsAt: number | null;
 }
 
 export type ShareKind = "chapter" | "workspace";
@@ -232,4 +233,5 @@ export interface CloudStatus {
   state: "sending" | "ok" | "offline" | "error";
   lastBackupAt: number | null;
   message: string | null;
+  fileCount: number | null;
 }

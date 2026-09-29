@@ -61,6 +61,7 @@ db.base = db.books.reduce((a, b) => a + b.chapters.reduce((x, c) => x + c.words,
 export interface MockCloudBook {
   enabled: boolean;
   lastBackupAt: number | null;
+  lastCommentsAt?: number | null;
   snapshots: Snapshot[];
 }
 
