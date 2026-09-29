@@ -6,6 +6,14 @@ export function NodeIcon(props: { kind: NodeKind }) {
   return (
     <svg class="ws-icon" viewBox="0 0 14 14" aria-hidden="true">
       <Switch>
+        <Match when={props.kind === "manuscript"}>
+          <path d="M2.5 2.5h6.5a2 2 0 0 1 2 2v7h-6.5a2 2 0 0 1-2-2z" />
+          <path d="M11 4.5h.5v7H5" />
+        </Match>
+        <Match when={props.kind === "chapter"}>
+          <path d="M3 1.5h5.5l2.5 2.5v8.5h-8z" />
+          <path d="M5 6h4M5 8h4M5 10h4" />
+        </Match>
         <Match when={props.kind === "folder"}>
           <path d="M1.5 3.5h4l1.2 1.4h5.8v6.6h-11z" />
         </Match>

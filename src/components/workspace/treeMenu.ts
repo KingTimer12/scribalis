@@ -1,13 +1,21 @@
 import type { AreaNode } from "../../api/types";
+import { pad } from "../../lib/format";
+import { chapterNumber, inManuscript, isContainer } from "../../lib/manuscript";
+import { openNode, selectNode } from "../../store/actions/open";
 import { openPanel } from "../../store/actions/ui";
-import {
-  addFiles, createNode, openFile, openNode, requestDelete, selectNode, sendToChapter, startNodeRename,
-} from "../../store/actions/workspace";
-import { setState } from "../../store/state";
+import { addFiles, createNode, openFile, requestDelete, startNodeRename } from "../../store/actions/workspace";
+import { setState, state } from "../../store/state";
 import type { MenuItem } from "../ui/ContextMenu";
 
 /** New items land in the selected folder (or at the root with nothing selected). */
-function creators(): MenuItem[] {
+function creators(inside = false): MenuItem[] {
+  // Inside the Manuscrito only chapters and folders fit; media and free texts stay outside.
+  if (inside) {
+    return [
+      { label: "Novo capítulo", act: () => void createNode("chapter") },
+      { label: "Nova pasta", act: () => void createNode("folder") },
+    ];
+  }
   return [
     { label: "Novo documento", act: () => void createNode("text") },
     { label: "Nova pasta", act: () => void createNode("folder") },
@@ -25,12 +33,18 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
   const share: MenuItem = {
     label: "Compartilhar…",
     act: () => {
-      setState("shareDraft", { kind: "workspace", target: id, label: node.title || "Item da área" });
+      // A chapter keeps the chapter share (its node id is the chapter id); the rest share as tree items.
+      const draft =
+        node.kind === "chapter"
+          ? { kind: "chapter" as const, target: id, label: "Capítulo " + pad(chapterNumber(state.area, id)) }
+          : { kind: "workspace" as const, target: id, label: node.title || "Item da área" };
+      setState("shareDraft", draft);
       openPanel("cloud");
     },
   };
-  if (node.kind === "folder") return [...creators(), rename, share, del];
-  if (node.kind === "text") return [open, rename, { label: "Enviar para capítulos", act: () => void sendToChapter(id) }, share, del];
+  if (node.kind === "manuscript") return creators(true);
+  if (isContainer(node.kind)) return [...creators(inManuscript(state.area, id)), rename, share, del];
+  if (node.kind === "text") return [open, rename, share, del];
   if (node.kind === "file") return [open, { label: "Abrir no app padrão", act: () => void openFile(id) }, rename, share, del];
   return [open, rename, share, del];
 }

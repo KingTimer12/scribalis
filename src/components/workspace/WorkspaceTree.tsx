@@ -13,7 +13,7 @@ interface MenuState {
   items: MenuItem[];
 }
 
-/** The workspace tree: keyboard, mouse, drag and drop and a context menu. */
+/** The book tree: keyboard, mouse, drag and drop and a context menu. */
 export function WorkspaceTree() {
   const rows = createMemo(() => visibleRows(state.area, new Set(state.areaExpanded)));
   const [menu, setMenu] = createSignal<MenuState | null>(null);
@@ -47,7 +47,7 @@ export function WorkspaceTree() {
       <div
         class="ws-tree"
         role="tree"
-        aria-label="Área de trabalho"
+        aria-label="Estrutura da obra"
         tabIndex={0}
         ref={focusRef("tree")}
         aria-activedescendant={state.areaSel && findNode(state.area, state.areaSel) ? rowId(state.areaSel) : undefined}
@@ -59,7 +59,7 @@ export function WorkspaceTree() {
       >
         <For each={rows()}>{(r) => <TreeRow row={r} onMenu={(x, y) => openMenu(r.node.id, x, y)} />}</For>
         <Show when={rows().length === 0}>
-          <p class="ws-tree-empty ui">Vazia. Aperte N para criar um documento.</p>
+          <p class="ws-tree-empty ui">Vazia. Aperte N para criar um item.</p>
         </Show>
       </div>
       <Show when={menu()}>{(m) => <ContextMenu x={m().x} y={m().y} items={m().items} onClose={closeMenu} />}</Show>

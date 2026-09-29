@@ -6,9 +6,7 @@ import type { CloudStatus } from "./api/types";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
 import { CloudPanel } from "./components/cloud/CloudPanel";
-import { Editor } from "./components/editor/Editor";
 import { Library } from "./components/library/Library";
-import { ChapterIndex } from "./components/panels/ChapterIndex";
 import { CommandPalette } from "./components/panels/CommandPalette";
 import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
@@ -61,32 +59,26 @@ export default function App() {
     window.removeEventListener("beforeunload", onUnload);
   });
 
-  const editor = () => state.view === "editor" && !!state.book;
-  const workspace = () => state.view === "workspace" && !!state.book;
-  /** A text open in the workspace: the formatting panels apply to it too. */
-  const areaText = () => workspace() && openAreaNode()?.kind === "text";
+  const inBook = () => state.view === "book" && !!state.book;
+  /** A chapter or a free text is open: notes and paragraph spacing apply to it. */
+  const writing = () => {
+    const kind = openAreaNode()?.kind;
+    return inBook() && (kind === "chapter" || kind === "text");
+  };
 
   return (
-    <div class={`app ${state.prefs.theme} w${state.prefs.width} f${state.prefs.font}` + (state.focus && editor() ? " focus" : "")}>
+    <div class={`app ${state.prefs.theme} w${state.prefs.width} f${state.prefs.font}` + (state.focus && inBook() ? " focus" : "")}>
       <TopBar />
-      <Switch fallback={<Library />}>
-        <Match when={editor()}>
-          <Editor />
-        </Match>
-        <Match when={workspace()}>
-          <Workspace />
-        </Match>
-      </Switch>
+      <Show when={inBook()} fallback={<Library />}>
+        <Workspace />
+      </Show>
       <BottomBar />
 
       <Switch>
-        <Match when={state.panel === "notes" && editor()}>
+        <Match when={state.panel === "notes" && writing()}>
           <NotesPanel />
         </Match>
-        <Match when={state.panel === "index" && editor()}>
-          <ChapterIndex />
-        </Match>
-        <Match when={state.panel === "spacing" && (editor() || areaText())}>
+        <Match when={state.panel === "spacing" && writing()}>
           <SpacingPanel />
         </Match>
         <Match when={state.panel === "palette"}>

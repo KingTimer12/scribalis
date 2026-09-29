@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { dropTarget, findNode, isContainer, type DropPos } from "../../lib/tree";
-import { moveNode, toggleExpanded } from "../../store/actions/workspace";
+import { toggleExpanded } from "../../store/actions/expanded";
+import { moveNode } from "../../store/actions/workspace";
 import { state } from "../../store/state";
 
 /**

@@ -1,7 +1,6 @@
 import { Match, Show, Switch } from "solid-js";
 import { plural } from "../../lib/format";
-import { openPanel } from "../../store/actions/ui";
-import { bookLabel } from "../../store/selectors/book";
+import { bookLabel, currentChapter } from "../../store/selectors/book";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 import { CloudIndicator } from "./CloudIndicator";
@@ -18,20 +17,12 @@ export function BottomBar() {
             <Hint keys="←→↑↓">escolher</Hint>
             <Hint keys="Enter">abrir</Hint>
           </Match>
-          <Match when={state.view === "editor"}>
-            <button
-              class="ui crumb flex gap-3.5"
-              onClick={() => openPanel("index")}
-              title="Índice de capítulos (Ctrl E)"
-            >
+          <Match when={!library()}>
+            <Show when={currentChapter()}>
               <span>{plural(state.liveWords, "palavra", "palavras")}</span>
               <span class="opacity-50">·</span>
-              <span>{bookLabel()}</span>
-            </button>
-          </Match>
-          <Match when={state.view === "workspace"}>
+            </Show>
             <span>{bookLabel()}</span>
-            <Hint keys="Ctrl 1">capítulos</Hint>
           </Match>
         </Switch>
       </div>

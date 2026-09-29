@@ -3,12 +3,12 @@ import { addFiles, createNode } from "../../store/actions/workspace";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
 
-/** Shown when nothing (or a folder) is open: the ways to start filling the workspace. */
+/** Shown when nothing (or a folder) is open: the ways to start filling the tree. */
 export function EmptyArea() {
   return (
     <div class="ws-empty">
-      <div class="ws-empty-title">Área de trabalho</div>
-      <p class="ws-empty-text">Pesquisa, fichas de personagens, imagens de referência: tudo o que não é capítulo.</p>
+      <div class="ws-empty-title">Nada aberto</div>
+      <p class="ws-empty-text">Escolha um capítulo ou um documento na árvore, ou crie um novo.</p>
       <div class="ws-actions">
         <button type="button" class="sp-btn" onClick={() => void createNode("text")}>
           Novo documento

@@ -22,7 +22,7 @@ export function CommandPalette() {
       () => state.q,
       (q) => {
         const book = state.book;
-        if (!q.trim() || !book || state.view !== "editor") return setState("hits", []);
+        if (!q.trim() || !book || state.view !== "book") return setState("hits", []);
         const timer = setTimeout(() => {
           searchChapters(book.id, q).then((hits) => state.q === q && setState("hits", hits)).catch(() => setState("hits", []));
         }, SEARCH_DELAY);
@@ -51,7 +51,7 @@ export function CommandPalette() {
           onInput={(e) => onInput(e.currentTarget.value)}
           onKeyDown={(e) => paletteKey(e, items())}
           ref={focusRef("palette")}
-          placeholder={state.prompt ? state.prompt.label + "…" : state.view !== "editor" ? "Comando ou obra…" : "Comando, capítulo ou obra…"}
+          placeholder={state.prompt ? state.prompt.label + "…" : state.view !== "book" ? "Comando ou obra…" : "Comando, capítulo ou obra…"}
           autocomplete="off"
         />
         <Show

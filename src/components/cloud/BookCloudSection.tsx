@@ -1,6 +1,7 @@
 import { createSignal, Show } from "solid-js";
 import { ago, pad } from "../../lib/format";
 import { backupNow, fetchComments, forgetBook, setBookBackup } from "../../store/actions/cloud";
+import { currentChapter, currentNumber } from "../../store/selectors/book";
 import { setState, state } from "../../store/state";
 import { ShareForm } from "./ShareForm";
 import { ShareList } from "./ShareList";
@@ -21,8 +22,10 @@ export function BookCloudSection() {
     if (s?.state === "offline") return "Sem conexão, tenta de novo em alguns minutos";
     return view()?.lastBackupAt ? "Último backup: " + ago(view()!.lastBackupAt!) : "Sem backup ainda";
   };
-  const shareChapter = () =>
-    setState("shareDraft", { kind: "chapter", target: state.book!.chapters[state.book!.cur].id, label: "Capítulo " + pad(state.book!.cur + 1) });
+  const shareChapter = () => {
+    const c = currentChapter();
+    if (c) setState("shareDraft", { kind: "chapter", target: c.id, label: "Capítulo " + pad(currentNumber()) });
+  };
   const shareArea = () => setState("shareDraft", { kind: "workspace", target: null, label: "Área de trabalho" });
 
   return (
@@ -47,7 +50,7 @@ export function BookCloudSection() {
         when={state.shareDraft}
         fallback={
           <div class="cloud-row" style={{ "justify-content": "flex-start" }}>
-            <button class="cloud-btn" onClick={shareChapter}>Compartilhar capítulo atual</button>
+            <button class="cloud-btn" disabled={!currentChapter()} onClick={shareChapter}>Compartilhar capítulo aberto</button>
             <button class="cloud-btn" onClick={shareArea}>Compartilhar área de trabalho</button>
           </div>
         }

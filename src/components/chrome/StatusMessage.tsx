@@ -1,10 +1,11 @@
 import { Show } from "solid-js";
+import { currentChapter } from "../../store/selectors/book";
 import { state } from "../../store/state";
 import { Kbd } from "../ui/Kbd";
 
 /** Bottom bar center: toast or the third-Enter hint. */
 export function StatusMessage() {
-  const showTriple = () => state.tripleHint && !state.toast && state.view === "editor";
+  const showTriple = () => state.tripleHint && !state.toast && !!currentChapter();
   return (
     <>
       {/* keyed: each new toast remounts and restarts the animation */}

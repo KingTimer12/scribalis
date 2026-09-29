@@ -1,7 +1,7 @@
 import { Match, Show, Switch } from "solid-js";
 import type { AreaNode } from "../../api/types";
 import { bookAsset } from "../../lib/assets";
-import { openFile, setNodeNotes } from "../../store/actions/workspace";
+import { openFile } from "../../store/actions/workspace";
 import { focusTarget } from "../../store/focus";
 import { openAreaNode } from "../../store/selectors/workspace";
 import { state } from "../../store/state";
@@ -16,7 +16,7 @@ const extOf = (node: AreaNode) => {
   return dot < 0 ? "" : name.slice(dot + 1).toLowerCase();
 };
 
-/** A workspace text: read-only title, the shared editor and the node's notes. */
+/** A free text: read-only title and the shared editor (its notes live in the drawer, Ctrl ;). */
 function TextView(props: { node: AreaNode }) {
   return (
     <div class="col ws-doc flex h-full flex-col gap-3.5 pt-16">
@@ -24,19 +24,6 @@ function TextView(props: { node: AreaNode }) {
       <FormatBar />
       <div class="ed-scroll" onClick={(e) => e.target === e.currentTarget && focusTarget("body", "end")}>
         <RichEditor scope="area" />
-      </div>
-      <div class="ws-notes">
-        <label class="ui cap" for="area-notes">
-          Notas
-        </label>
-        <textarea
-          id="area-notes"
-          class="notes-ta"
-          rows={3}
-          value={props.node.notes}
-          onChange={(e) => void setNodeNotes(props.node.id, e.currentTarget.value)}
-          placeholder="Anotações sobre este documento…"
-        />
       </div>
     </div>
   );

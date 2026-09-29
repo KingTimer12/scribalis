@@ -1,6 +1,8 @@
 import { Show } from "solid-js";
+import { displayTitle, isContainer } from "../../lib/manuscript";
 import type { Row } from "../../lib/tree";
-import { cancelNodeRename, commitNodeRename, openNode, startNodeRename } from "../../store/actions/workspace";
+import { openNode } from "../../store/actions/open";
+import { cancelNodeRename, commitNodeRename, startNodeRename } from "../../store/actions/workspace";
 import { focusTarget } from "../../store/focus";
 import { setState, state } from "../../store/state";
 import { consumeDragClick, drag, pointerDownOnRow } from "./dragMove";
@@ -50,7 +52,7 @@ function RenameField(props: { id: string }) {
 export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => void }) {
   const node = () => props.row.node;
   const id = () => node().id;
-  const folder = () => node().kind === "folder";
+  const folder = () => isContainer(node().kind);
   const expanded = () => state.areaExpanded.includes(id());
   const dropHere = () => {
     const d = drag();
@@ -93,8 +95,19 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
         </Show>
       </span>
       <NodeIcon kind={node().kind} />
-      <Show when={state.areaRenaming === id()} fallback={<span class="ws-t">{node().title}</span>}>
+      <Show
+        when={state.areaRenaming === id()}
+        fallback={<span class="ws-t">{displayTitle(state.area, node())}</span>}
+      >
         <RenameField id={id()} />
+      </Show>
+      {/* The chapter's file is gone from disk: Rust flags it, the row warns. */}
+      <Show when={node().missing}>
+        <svg class="ws-warn" viewBox="0 0 14 14" role="img" aria-label="Arquivo não encontrado">
+          <title>Arquivo não encontrado</title>
+          <path d="M7 1.8l5.5 9.7h-11z" />
+          <path d="M7 5.6v2.6M7 9.9v.1" />
+        </svg>
       </Show>
     </div>
   );
