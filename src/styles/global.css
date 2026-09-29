@@ -386,6 +386,17 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  .ws-words {
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .ws-row .dot {
+    flex-shrink: 0;
+    margin-left: 6px;
+  }
   .ws-row:hover {
     background: var(--soft);
   }
@@ -458,6 +469,9 @@
     stroke: var(--muted);
     stroke-width: 1.1;
     stroke-linejoin: round;
+  }
+  .ws-words + .ws-warn {
+    margin-left: 6px;
   }
   .ws-warn {
     width: 14px;

@@ -1,10 +1,13 @@
 import { Show } from "solid-js";
+import { fmt } from "../../lib/format";
 import { displayTitle } from "../../lib/manuscript";
 import { isContainer, type Row } from "../../lib/tree";
 import { openNode } from "../../store/actions/open";
 import { cancelNodeRename, commitNodeRename, startNodeRename } from "../../store/actions/workspace";
 import { focusTarget } from "../../store/focus";
+import { bookWordsLive } from "../../store/selectors/book";
 import { setState, state } from "../../store/state";
+import { StatusDot } from "../ui/StatusDot";
 import { consumeDragClick, drag, pointerDownOnRow } from "./dragMove";
 import { NodeIcon } from "./NodeIcon";
 
@@ -80,7 +83,7 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
       style={{ "padding-left": 8 + props.row.depth * 16 + "px" }}
       onPointerDown={(e) => pointerDownOnRow(e, id())}
       onClick={() => !consumeDragClick() && void openNode(id(), false)}
-      onDblClick={() => startNodeRename(id())}
+      onDblClick={() => node().kind !== "manuscript" && startNodeRename(id())}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -100,6 +103,13 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
         fallback={<span class="ws-t">{displayTitle(state.area, node())}</span>}
       >
         <RenameField id={id()} />
+      </Show>
+      <Show when={node().kind === "chapter"}>
+        <StatusDot status={node().status ?? "rascunho"} />
+        <span class="ws-words">{fmt(id() === state.areaOpen ? state.liveWords : (node().words ?? 0))}</span>
+      </Show>
+      <Show when={node().kind === "manuscript"}>
+        <span class="ws-words" title="Palavras na obra">{fmt(bookWordsLive())}</span>
       </Show>
       {/* The chapter's file is gone from disk: Rust flags it, the row warns. */}
       <Show when={node().missing}>

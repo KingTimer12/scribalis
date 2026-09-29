@@ -1,9 +1,9 @@
 import * as api from "../../api/workspace";
 import type { AreaNode } from "../../api/types";
 import { currentDocKey } from "../../editor/bridge";
-import { pad } from "../../lib/format";
-import { chapterNumber } from "../../lib/manuscript";
-import { dropTarget, findNode, isContainer, locate, type DropPos } from "../../lib/tree";
+import { pad, plural } from "../../lib/format";
+import { chapterCount, chapterNumber, displayTitle, inManuscript } from "../../lib/manuscript";
+import { dropTarget, findNode, isContainer, locate, manuscriptOf, type DropPos } from "../../lib/tree";
 import { focusTarget } from "../focus";
 import { cancelDocSave, flushAll, holdDocSaves, releaseDocSaves, settleDocSave } from "../saving";
 import { editNode, setState, state } from "../state";
@@ -123,6 +123,8 @@ export function flushNodeNotes() {
 }
 
 export function deleteNode(id: string) {
+  // The Manuscrito cannot be deleted: never arm a confirmation for it.
+  if (findNode(state.area, id)?.kind === "manuscript") return;
   if (state.areaConfirm !== id) {
     setState("areaConfirm", id);
     return;
@@ -141,13 +143,17 @@ export function deleteNode(id: string) {
   });
 }
 
-/** Delete with confirmation: the first request arms it and says how to confirm, the second deletes. */
+/** Delete with confirmation: the first request arms it and says how to confirm (and how many chapters go along), the second deletes. */
 export function requestDelete(id: string) {
   const node = findNode(state.area, id);
-  if (!node) return;
+  if (!node || node.kind === "manuscript") return;
   if (state.areaConfirm === id) return deleteNode(id);
   void deleteNode(id);
-  flash("Aperte Delete de novo para excluir «" + node.title + "»");
+  const chapters = node.kind === "folder" ? chapterCount(node) : 0;
+  flash(
+    "Aperte Delete de novo para excluir «" + displayTitle(state.area, node) + "»" +
+      (chapters ? " e " + plural(chapters, "capítulo", "capítulos") : ""),
+  );
 }
 
 /**
@@ -189,10 +195,26 @@ export function moveNode(dragId: string, targetId: string, pos: DropPos) {
   return moveTo(dragId, target.parent, target.index);
 }
 
+/** "Mover para o Manuscrito": the text becomes the last chapter. */
+export async function moveIntoManuscript(id: string) {
+  const m = manuscriptOf(state.area);
+  if (!m) return;
+  await moveTo(id, m.id, m.children?.length ?? 0);
+  if (findNode(state.area, id)?.kind === "chapter") flash("Agora é o capítulo " + pad(chapterNumber(state.area, id)));
+}
+
+/** "Mover para fora do Manuscrito": the chapter becomes a text at the end of the tree. */
+export async function moveOutOfManuscript(id: string) {
+  const title = findNode(state.area, id)?.title.trim() || "Sem título";
+  await moveTo(id, null, state.area.length);
+  if (findNode(state.area, id)?.kind === "text") flash("«" + title + "» saiu do Manuscrito");
+}
+
 export function addFiles() {
   const b = state.book;
   if (!b) return;
-  const parent = parentForNewItem();
+  // Images and attachments cannot enter the Manuscrito: from inside it they go to the root.
+  const parent = state.areaSel && inManuscript(state.area, state.areaSel) ? null : parentForNewItem();
   return run(async () => {
     const items = await api.areaPickFiles(b.id, parent);
     if (items) setState("area", items);

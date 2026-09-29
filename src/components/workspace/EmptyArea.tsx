@@ -1,4 +1,6 @@
+import { inManuscript } from "../../lib/manuscript";
 import { startScrivenerImport } from "../../store/actions/scrivener";
+import { createChapterHere, createTextHere } from "../../store/actions/newItem";
 import { addFiles, createNode } from "../../store/actions/workspace";
 import { state } from "../../store/state";
 import { Hint } from "../ui/Hint";
@@ -10,8 +12,11 @@ export function EmptyArea() {
       <div class="ws-empty-title">Nada aberto</div>
       <p class="ws-empty-text">Escolha um capítulo ou um documento na árvore, ou crie um novo.</p>
       <div class="ws-actions">
-        <button type="button" class="sp-btn" onClick={() => void createNode("text")}>
-          Novo documento
+        <button type="button" class="sp-btn" onClick={() => void createChapterHere()}>
+          Novo capítulo
+        </button>
+        <button type="button" class="sp-btn" onClick={() => void createTextHere()}>
+          Novo texto
         </button>
         <button type="button" class="sp-btn" onClick={() => void createNode("folder")}>
           Nova pasta
@@ -30,7 +35,7 @@ export function EmptyArea() {
       <div class="ws-help">
         <Hint keys="↑↓">escolher</Hint>
         <Hint keys="Enter">abrir</Hint>
-        <Hint keys="N">documento</Hint>
+        <Hint keys="N">{state.areaSel && inManuscript(state.area, state.areaSel) ? "capítulo" : "texto"}</Hint>
         <Hint keys="Shift N">pasta</Hint>
         <Hint keys="F2">renomear</Hint>
         <Hint keys="Del">excluir</Hint>

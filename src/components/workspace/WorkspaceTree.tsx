@@ -47,7 +47,7 @@ export function WorkspaceTree() {
       <div
         class="ws-tree"
         role="tree"
-        aria-label="Estrutura da obra"
+        aria-label="Árvore da obra"
         tabIndex={0}
         ref={focusRef("tree")}
         aria-activedescendant={state.areaSel && findNode(state.area, state.areaSel) ? rowId(state.areaSel) : undefined}

@@ -9,7 +9,10 @@ import { chapterOrder } from "../../lib/manuscript";
 import { findNode } from "../../lib/tree";
 import { setState, state } from "../state";
 import { openNode } from "./open";
-import { commitNodeRename, createNode, deleteNode, flushNodeNotes, moveNode, moveTo, scheduleNodeNotes, setNodeNotes } from "./workspace";
+import {
+  commitNodeRename, createNode, deleteNode, flushNodeNotes, moveIntoManuscript, moveNode, moveOutOfManuscript, moveTo,
+  requestDelete, scheduleNodeNotes, setNodeNotes,
+} from "./workspace";
 
 // Lets a test type into the editor in the middle of the move IPC.
 let duringMove: (() => void) | null = null;
@@ -197,5 +200,40 @@ describe("tree actions (mock)", () => {
     expect(state.toast).toBe("Nada pode ficar antes do Manuscrito");
     expect(findNode(state.area, id)?.kind).toBe("text");
     expect(await mockInvoke("workspace_load_doc", { bookId: book.id, id })).toEqual(para("digitado e recusado"));
+  });
+
+  it("Mover para o Manuscrito / para fora convert the node and say so", async () => {
+    await newBook();
+    await createNode("text");
+    const t = outside()[0].id;
+    await moveIntoManuscript(t);
+    expect(findNode(state.area, t)?.kind).toBe("chapter");
+    const order = chapterOrder(state.area);
+    expect(order[order.length - 1].id).toBe(t);
+    expect(state.toast).toBe("Agora é o capítulo 02");
+    await moveOutOfManuscript(t);
+    expect(findNode(state.area, t)?.kind).toBe("text");
+    expect(state.area[state.area.length - 1].id).toBe(t);
+    expect(state.toast).toBe("«Novo documento» saiu do Manuscrito");
+  });
+
+  it("deleting a Manuscrito folder says how many chapters go with it", async () => {
+    await newBook();
+    setState("areaSel", manuscriptId());
+    await createNode("folder");
+    const part = state.areaSel!;
+    await createNode("chapter");
+    await createNode("chapter");
+    expect(findNode(state.area, part)?.children).toHaveLength(2);
+    await requestDelete(part);
+    expect(state.toast).toBe("Aperte Delete de novo para excluir «Nova pasta» e 2 capítulos");
+    expect(findNode(state.area, part)).not.toBeNull();
+  });
+
+  it("the Manuscrito row never arms a delete confirmation", async () => {
+    await newBook();
+    await requestDelete(manuscriptId());
+    expect(state.areaConfirm).toBeNull();
+    expect(state.toast).toBe("");
   });
 });
