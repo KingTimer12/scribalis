@@ -17,3 +17,6 @@ export const HOUR = 3600000;
 export const DAY = 86400000;
 
 export const DEFAULT_PREFS: Prefs = { theme: "light", goal: 2000, width: 1, font: 1, sidebarClosed: [] };
+
+/** Longest synopsis, in characters (Rust cuts at the same length). */
+export const SYNOPSIS_MAX = 2000;

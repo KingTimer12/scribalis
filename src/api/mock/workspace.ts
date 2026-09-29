@@ -1,4 +1,5 @@
 import type { AreaNode, Created, DocJSON, NodeKind } from "../types";
+import { SYNOPSIS_MAX } from "../../lib/constants";
 import { inManuscript, manuscriptWords } from "../../lib/manuscript";
 import { isContainer } from "../../lib/tree";
 import { db, EMPTY, findBook, mockId, touch } from "./db";
@@ -110,6 +111,16 @@ export const workspace = {
     const node = find(b.area, id);
     if (!node) notFound();
     node.notes = notes;
+    touch(b);
+    return b.area;
+  },
+
+  workspace_set_synopsis: ({ bookId, id, synopsis }: Ids & { synopsis: string }): AreaNode[] => {
+    const b = findBook(bookId);
+    const node = find(b.area, id);
+    if (!node) notFound();
+    // By code point, like Rust's `chars().take(..)`.
+    node.synopsis = Array.from(synopsis).slice(0, SYNOPSIS_MAX).join("");
     touch(b);
     return b.area;
   },

@@ -68,6 +68,8 @@ export interface AreaNode {
   kind: NodeKind;
   title: string;
   notes: string;
+  /** Index card summary; absent when empty. */
+  synopsis?: string;
   /** Chapters: relative to the book folder. Other leaves: relative to `area/`. */
   file?: string;
   /** Chapters only. */

@@ -18,6 +18,10 @@ export const areaRename = (bookId: string, id: string, title: string) => call<Ar
 export const areaSetNotes = (bookId: string, id: string, notes: string) =>
   call<AreaNode[]>("workspace_set_notes", { bookId, id, notes });
 
+/** Index card summary of any node (the Manuscrito included); Rust cuts it at `SYNOPSIS_MAX`. */
+export const areaSetSynopsis = (bookId: string, id: string, synopsis: string) =>
+  call<AreaNode[]>("workspace_set_synopsis", { bookId, id, synopsis });
+
 /** Moves `id` under `parent` at `index` (position after removing it); crossing the Manuscrito converts text <-> chapter. */
 export const areaMove = (bookId: string, id: string, parent: string | null, index: number) =>
   call<AreaNode[]>("workspace_move", { bookId, id, parent, index });
