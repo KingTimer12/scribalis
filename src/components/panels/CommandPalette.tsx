@@ -37,7 +37,7 @@ export function CommandPalette() {
 
   const value = () => (state.prompt ? state.prompt.value : state.q);
   const onInput = (v: string) =>
-    state.prompt ? setState("prompt", "value", v) : setState({ q: v, pIdx: 0, confirmDel: false });
+    state.prompt ? setState("prompt", "value", v) : setState({ q: v, pIdx: 0 });
 
   return (
     <>

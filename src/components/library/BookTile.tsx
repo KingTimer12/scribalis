@@ -10,7 +10,6 @@ import { RenameInput } from "./RenameInput";
 export function BookTile(props: { book: BookSummary; selected: boolean }) {
   const title = () => props.book.title || "Obra sem título";
   const renaming = () => state.renaming === props.book.id;
-  const confirming = () => state.libConfirm === props.book.id;
   const meta = () => {
     const b = props.book;
     return fmt(b.chapters) + " cap. · " + fmt(b.words) + " pal. · " + fmt(b.ready) + (b.ready === 1 ? " pronto" : " prontos");
@@ -27,18 +26,11 @@ export function BookTile(props: { book: BookSummary; selected: boolean }) {
       <Show when={!renaming()} fallback={<RenameInput label="Novo nome da obra" />}>
         <div class="flex flex-col gap-1.5">
           <div class="tile-title">{title()}</div>
-          <Show
-            when={confirming()}
-            fallback={
-              <div class="ui leading-normal">
-                {meta()}
-                <br />
-                editada {ago(props.book.updatedAt)}
-              </div>
-            }
-          >
-            <div class="ui warn leading-normal">Del de novo exclui · Esc cancela</div>
-          </Show>
+          <div class="ui leading-normal">
+            {meta()}
+            <br />
+            editada {ago(props.book.updatedAt)}
+          </div>
         </div>
       </Show>
     </div>

@@ -70,7 +70,6 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
       classList={{
         sel: state.areaSel === id(),
         open: state.areaOpen === id(),
-        confirm: state.areaConfirm === id(),
         dragging: drag()?.dragId === id(),
         "drop-before": dropHere() === "before",
         "drop-after": dropHere() === "after",

@@ -14,9 +14,9 @@ import { reveal, toggleExpanded } from "./expanded";
 import { run } from "./run";
 import { flash } from "./ui";
 
-/** Selects a node; a deletion armed for another node is dropped. */
+/** Selects a node. */
 export function selectNode(id: string | null) {
-  setState({ areaSel: id, areaConfirm: state.areaConfirm === id ? id : null });
+  setState({ areaSel: id });
 }
 
 /** The editor key of a chapter or text; null for everything else. */

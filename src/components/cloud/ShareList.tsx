@@ -1,7 +1,8 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createResource, For, Show } from "solid-js";
 import { cloudShareChange, cloudShareRevoke, cloudShares } from "../../api/cloud";
 import type { Share } from "../../api/types";
 import { ago } from "../../lib/format";
+import { askConfirm } from "../../store/confirm";
 import { flash, flashError } from "../../store/actions/ui";
 import { state } from "../../store/state";
 
@@ -11,10 +12,9 @@ function describe(s: Share) {
   return `${what} · ${s.views} visitas · ${s.allowComments ? "com" : "sem"} comentários${until}`;
 }
 
-/** Links of the open book: copy, toggle comments, revoke (second click confirms). */
+/** Links of the open book: copy, toggle comments, revoke (asks first). */
 export function ShareList(props: { refresh: number }) {
   const [list, { mutate, refetch }] = createResource(() => props.refresh + 1, () => cloudShares(state.book!.id));
-  const [armed, setArmed] = createSignal<string | null>(null);
 
   const toggleComments = async (s: Share) => {
     try {
@@ -23,6 +23,15 @@ export function ShareList(props: { refresh: number }) {
     } catch (e) {
       flashError(e);
     }
+  };
+  const confirmRevoke = async (s: Share) => {
+    const ok = await askConfirm({
+      title: "Revogar este link?",
+      message: "Quem tiver o link deixa de conseguir abrir o conteúdo compartilhado.",
+      confirmLabel: "Revogar",
+      danger: true,
+    });
+    if (ok) await revoke(s);
   };
   const revoke = async (s: Share) => {
     try {
@@ -47,11 +56,9 @@ export function ShareList(props: { refresh: number }) {
                 <button class="cloud-btn" onClick={() => void toggleComments(s)}>{s.allowComments ? "Desligar comentários" : "Ligar comentários"}</button>
                 <button
                   class="cloud-btn danger"
-                  classList={{ armed: armed() === s.id }}
-                  onClick={() => (armed() === s.id ? void revoke(s) : setArmed(s.id))}
-                  onBlur={() => armed() === s.id && setArmed(null)}
+                  onClick={() => void confirmRevoke(s)}
                 >
-                  {armed() === s.id ? "Confirmar" : "Revogar"}
+                  Revogar
                 </button>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import { COLS } from "../../lib/constants";
 import { clearCover, pickCover } from "../actions/images";
-import { cancelRename, commitRename, deleteBook, openBook, startNew, startRename } from "../actions/library";
+import { cancelRename, commitRename, openBook, requestDeleteBook, startNew, startRename } from "../actions/library";
 import { focusTarget } from "../focus";
 import { libList, libSelIndex } from "../selectors/library";
 import { setState, state } from "../state";
@@ -17,7 +17,6 @@ export function libKey(e: KeyboardEvent, gridEl: HTMLElement) {
   const cur = list[sel];
   const k = e.key;
   const isDel = k === "Delete" || k === "Backspace";
-  if (!isDel && state.libConfirm && k !== "Shift") setState("libConfirm", null);
 
   const step = ({ ArrowRight: 1, ArrowLeft: -1, ArrowDown: COLS, ArrowUp: -COLS } as Record<string, number>)[k];
   if (step) {
@@ -41,15 +40,14 @@ export function libKey(e: KeyboardEvent, gridEl: HTMLElement) {
     startRename(cur.id);
   } else if (isDel && cur) {
     e.preventDefault();
-    if (state.libConfirm === cur.id) deleteBook(cur.id);
-    else setState("libConfirm", cur.id);
+    void requestDeleteBook(cur.id);
   } else if (k === "/") {
     e.preventDefault();
     focusTarget("libq", "end");
-  } else if (k === "Escape" && (state.libConfirm || state.libQ)) {
+  } else if (k === "Escape" && state.libQ) {
     e.preventDefault();
     e.stopPropagation();
-    setState({ libConfirm: null, libQ: "" });
+    setState("libQ", "");
   }
 }
 

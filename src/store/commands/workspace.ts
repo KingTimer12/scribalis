@@ -2,7 +2,7 @@ import { goLibrary } from "../actions/library";
 import { startScrivenerImport } from "../actions/scrivener";
 import { sidebarOpen, toggleSidebar } from "../actions/sidebar";
 import { createChapterHere, createTextHere } from "../actions/newItem";
-import { addFiles, createNode, deleteNode, moveIntoManuscript, moveOutOfManuscript, startNodeRename } from "../actions/workspace";
+import { addFiles, createNode, moveIntoManuscript, moveOutOfManuscript, requestDelete, startNodeRename } from "../actions/workspace";
 import { focusTarget } from "../focus";
 import { openAreaNode, selectedAreaNode } from "../selectors/workspace";
 import { state } from "../state";
@@ -31,11 +31,7 @@ export function workspaceCommands(): Command[] {
     list.push({ label: "Renomear «" + sel.title + "»", hint: "F2", act: () => startNodeRename(id) });
     if (sel.kind === "text") list.push({ label: "Mover para o Manuscrito", hint: "", act: () => void moveIntoManuscript(id) });
     if (sel.kind === "chapter") list.push({ label: "Mover para fora do Manuscrito", hint: "", act: () => void moveOutOfManuscript(id) });
-    list.push(
-      state.areaConfirm === id
-        ? { label: "Confirmar: excluir «" + sel.title + "»?", hint: "Enter", danger: true, act: () => void deleteNode(id) }
-        : { label: "Excluir «" + sel.title + "»", hint: "Del", danger: true, keep: true, act: () => void deleteNode(id) },
-    );
+    list.push({ label: "Excluir «" + sel.title + "»", hint: "Del", danger: true, act: () => void requestDelete(id) });
   }
   list.push({ label: "Renomear obra", hint: "", act: () => focusTarget("book", "end") });
   list.push({ label: "Voltar às obras", hint: "Ctrl O", act: goLibrary });

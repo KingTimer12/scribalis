@@ -1,6 +1,7 @@
 import * as api from "../../api/cloud";
 import type { CloudStatus, ShareInput } from "../../api/types";
 import { areaTree } from "../../api/workspace";
+import { askConfirm } from "../confirm";
 import { flushAll } from "../saving";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
@@ -190,4 +191,37 @@ export function applyCloudStatus(s: CloudStatus) {
   setState("cloudStatus", s);
   if (s.lastBackupAt) setState("library", (list) => list.map((b) => (b.id === s.bookId ? { ...b, cloud: true } : b)));
   if (state.book?.id === s.bookId && state.cloudBook) setState("cloudBook", "lastBackupAt", s.lastBackupAt);
+}
+
+/** "Apagar cofre" behind a confirmation dialog. */
+export async function confirmDeleteVault() {
+  const ok = await askConfirm({
+    title: "Apagar o cofre?",
+    message: "Todas as obras e links do servidor serão apagados. Não dá para desfazer.",
+    confirmLabel: "Apagar",
+    danger: true,
+  });
+  if (ok) await deleteVault();
+}
+
+/** "Apagar da nuvem" behind a confirmation dialog; the local book stays. */
+export async function confirmForgetBook() {
+  const ok = await askConfirm({
+    title: "Apagar a obra da nuvem?",
+    message: "As cópias e os links dela no servidor serão apagados. A obra continua neste computador.",
+    confirmLabel: "Apagar",
+    danger: true,
+  });
+  if (ok) await forgetBook();
+}
+
+/** "Restaurar" behind a confirmation dialog. */
+export async function confirmRestoreSnapshot(snapshotId: string) {
+  const ok = await askConfirm({
+    title: "Restaurar esta cópia?",
+    message: "A obra atual será substituída por esta cópia.",
+    confirmLabel: "Restaurar",
+    danger: true,
+  });
+  if (ok) await restoreSnapshot(snapshotId);
 }

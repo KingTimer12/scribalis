@@ -4,6 +4,7 @@ import * as api from "../../api/library";
 import { statsToday } from "../../api/prefs";
 import { areaTree } from "../../api/workspace";
 import { docWords } from "../../lib/doc";
+import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
 import { expandedFor } from "./expanded";
 import { initialNode, keyOf, loadNodeDoc } from "./open";
@@ -38,10 +39,10 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
       batch(() => {
         setState({
           book, curId: id, view: "book", panel: null, q: "", tripleHint: false, focus: false,
-          libConfirm: null, renaming: null, liveWords: node?.kind === "chapter" && doc ? docWords(doc) : 0,
+          renaming: null, liveWords: node?.kind === "chapter" && doc ? docWords(doc) : 0,
           // the tree's screen state belongs to the previous book
           area: items, areaExpanded: expandedFor(id, items, node?.id ?? null), areaSel: node?.id ?? null,
-          areaOpen: node?.id ?? null, areaRenaming: null, areaRenameVal: "", areaConfirm: null,
+          areaOpen: node?.id ?? null, areaRenaming: null, areaRenameVal: "",
         });
       });
     if (doc && key) await swapDocument(doc, key, apply);
@@ -72,7 +73,7 @@ export async function goLibrary() {
   focusTarget("lib");
   setState({
     view: "library", book: null, panel: null, focus: false, libSel: idx, libQ: "",
-    libConfirm: null, renaming: null, tripleHint: false,
+    renaming: null, tripleHint: false,
   });
   if (prev) backupAuto(prev);
   setState("cloudBook", null);
@@ -82,14 +83,14 @@ export async function goLibrary() {
 export function startNew() {
   session.newId = "n" + Date.now().toString(36);
   focusTarget("rename", 0);
-  setState({ view: "library", panel: null, renaming: "new", renameVal: "", libConfirm: null });
+  setState({ view: "library", panel: null, renaming: "new", renameVal: "" });
 }
 
 export function startRename(id: string) {
   const b = state.library.find((x) => x.id === id);
   if (!b) return;
   focusTarget("rename", "end");
-  setState({ renaming: id, renameVal: b.title, libConfirm: null });
+  setState({ renaming: id, renameVal: b.title });
 }
 
 export function cancelRename() {
@@ -128,13 +129,25 @@ export async function deleteBook(id: string) {
     focusTarget("lib");
     setState({
       curId: state.curId === id ? null : state.curId,
-      libConfirm: null,
       libSel: Math.max(0, Math.min(state.libSel, state.library.length - 1)),
     });
     flash('"' + (gone ? gone.title : "Obra") + '" excluída');
   } catch (e) {
     flashError(e);
   }
+}
+
+/** Delete with a confirmation dialog. */
+export async function requestDeleteBook(id: string) {
+  const book = state.library.find((b) => b.id === id);
+  if (!book) return;
+  const ok = await askConfirm({
+    title: "Excluir o livro “" + (book.title || "Obra sem título") + "”?",
+    message: "O livro e todos os capítulos serão apagados deste computador.",
+    confirmLabel: "Excluir",
+    danger: true,
+  });
+  if (ok) await deleteBook(id);
 }
 
 export async function restoreSamples() {

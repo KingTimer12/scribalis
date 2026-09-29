@@ -2,8 +2,9 @@ import * as api from "../../api/workspace";
 import type { AreaNode } from "../../api/types";
 import { currentDocKey } from "../../editor/bridge";
 import { pad, plural } from "../../lib/format";
-import { chapterCount, chapterNumber, displayTitle, inManuscript } from "../../lib/manuscript";
+import { chapterNumber, descendantCount, displayTitle, inManuscript } from "../../lib/manuscript";
 import { dropTarget, findNode, isContainer, locate, manuscriptOf, type DropPos } from "../../lib/tree";
+import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
 import { cancelDocSave, flushAll, holdDocSaves, registerFlusher, releaseDocSaves, settleDocSave } from "../saving";
 import { editNode, setState, state } from "../state";
@@ -58,7 +59,7 @@ export function createNode(kind: "folder" | "text" | "chapter", at?: { parent: s
   const title = kind === "folder" ? "Nova pasta" : kind === "text" ? "Novo documento" : "";
   return run(async () => {
     const { id, items } = await api.areaCreate(b.id, parent, index, kind, title);
-    setState({ area: items, areaSel: id, areaConfirm: null });
+    setState({ area: items, areaSel: id });
     if (parent) expand(parent);
     if (kind !== "chapter") return startNodeRename(id);
     await openNode(id, false);
@@ -125,16 +126,12 @@ export function flushNodeNotes() {
 }
 registerFlusher(flushNodeNotes);
 
+/** Deletes the node for good (no question asked: `requestDelete` is the user-facing entry). */
 export function deleteNode(id: string) {
-  // The Manuscrito cannot be deleted: never arm a confirmation for it.
+  // The Manuscrito cannot be deleted.
   if (findNode(state.area, id)?.kind === "manuscript") return;
-  if (state.areaConfirm !== id) {
-    setState("areaConfirm", id);
-    return;
-  }
   const b = state.book;
   if (!b) return;
-  setState("areaConfirm", null);
   const node = findNode(state.area, id);
   return run(async () => {
     await flushAll();
@@ -146,17 +143,28 @@ export function deleteNode(id: string) {
   });
 }
 
-/** Delete with confirmation: the first request arms it and says how to confirm (and how many chapters go along), the second deletes. */
-export function requestDelete(id: string) {
+/** Delete with a confirmation dialog; the Manuscrito only gets a message. */
+export async function requestDelete(id: string) {
   const node = findNode(state.area, id);
-  if (!node || node.kind === "manuscript") return;
-  if (state.areaConfirm === id) return deleteNode(id);
-  void deleteNode(id);
-  const chapters = node.kind === "folder" ? chapterCount(node) : 0;
-  flash(
-    "Aperte Delete de novo para excluir «" + displayTitle(state.area, node) + "»" +
-      (chapters ? " e " + plural(chapters, "capítulo", "capítulos") : ""),
-  );
+  if (!node) return;
+  if (node.kind === "manuscript") return flash("O Manuscrito não pode ser excluído.");
+  const inside = descendantCount(node);
+  const message = isContainer(node.kind)
+    ? inside
+      ? "A pasta e os " + plural(inside, "item", "itens") + " dentro dela serão excluídos."
+      : "A pasta vazia será excluída."
+    : node.kind === "chapter"
+      ? "O capítulo e o texto dele serão excluídos."
+      : node.kind === "text"
+        ? "O texto será excluído."
+        : "O arquivo será excluído.";
+  const ok = await askConfirm({
+    title: "Excluir “" + displayTitle(state.area, node) + "”?",
+    message,
+    confirmLabel: "Excluir",
+    danger: true,
+  });
+  if (ok) await deleteNode(id);
 }
 
 /**

@@ -5,6 +5,7 @@ import { isTauri } from "./api/invoke";
 import type { CloudStatus } from "./api/types";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
+import { ConfirmDialog } from "./components/ui/ConfirmDialog";
 import { CloudPanel } from "./components/cloud/CloudPanel";
 import { Library } from "./components/library/Library";
 import { CommandPalette } from "./components/panels/CommandPalette";
@@ -94,6 +95,7 @@ export default function App() {
       <Show when={state.scrivener}>
         <ScrivenerImport />
       </Show>
+      <ConfirmDialog />
     </div>
   );
 }

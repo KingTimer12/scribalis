@@ -3,11 +3,11 @@ import { isContainer, visibleRows, type Row } from "../../lib/tree";
 import { toggleExpanded } from "../actions/expanded";
 import { openNode, selectNode } from "../actions/open";
 import { createNode, requestDelete, startNodeRename } from "../actions/workspace";
-import { setState, state } from "../state";
+import { state } from "../state";
 
 /**
  * Workspace tree (focused, no Ctrl/Alt): arrows walk the visible rows, Enter opens,
- * F2 renames, Delete twice deletes, N / Shift N create. `openMenu` shows the context
+ * F2 renames, Delete asks to delete, N / Shift N create. `openMenu` shows the context
  * menu of the selected row (menu key or Shift F10).
  */
 export function treeKey(e: KeyboardEvent, openMenu: () => void) {
@@ -55,9 +55,8 @@ export function treeKey(e: KeyboardEvent, openMenu: () => void) {
       if (row) void requestDelete(row.node.id);
       break;
     case "Escape":
-      // Only a pending deletion is ours; otherwise the global Esc runs.
-      if (state.areaConfirm) setState("areaConfirm", null);
-      else handled = false;
+      // Esc belongs to the global handler.
+      handled = false;
       break;
     case "ContextMenu":
       openMenu();

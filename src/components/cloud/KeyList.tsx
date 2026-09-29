@@ -1,13 +1,13 @@
 import { createResource, createSignal, For, Show } from "solid-js";
 import { cloudAddKey, cloudKeys, cloudRevokeKey } from "../../api/cloud";
 import type { NewKey } from "../../api/types";
+import { askConfirm } from "../../store/confirm";
 import { flash, flashError } from "../../store/actions/ui";
 
 /** Device keys; a new one is shown once, to paste on the other computer. */
 export function KeyList() {
   const [keys, { mutate }] = createResource(cloudKeys);
   const [fresh, setFresh] = createSignal<NewKey | null>(null);
-  const [armed, setArmed] = createSignal<string | null>(null);
 
   const add = async () => {
     try {
@@ -16,6 +16,15 @@ export function KeyList() {
     } catch (e) {
       flashError(e);
     }
+  };
+  const confirmRevoke = async (id: string, label: string) => {
+    const ok = await askConfirm({
+      title: "Revogar a chave “" + label + "”?",
+      message: "Esse computador perde o acesso ao cofre. Para voltar, ele precisa de um código novo.",
+      confirmLabel: "Revogar",
+      danger: true,
+    });
+    if (ok) await revoke(id);
   };
   const revoke = async (id: string) => {
     try {
@@ -36,11 +45,9 @@ export function KeyList() {
             <Show when={!k.current}>
               <button
                 class="cloud-btn danger"
-                classList={{ armed: armed() === k.id }}
-                onClick={() => (armed() === k.id ? void revoke(k.id) : setArmed(k.id))}
-                onBlur={() => armed() === k.id && setArmed(null)}
+                onClick={() => void confirmRevoke(k.id, k.label)}
               >
-                {armed() === k.id ? "Confirmar" : "Revogar"}
+                Revogar
               </button>
             </Show>
           </div>

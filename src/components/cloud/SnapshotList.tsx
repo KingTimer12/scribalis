@@ -1,15 +1,14 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createResource, For, Show } from "solid-js";
 import { cloudSnapshots } from "../../api/cloud";
 import { ago } from "../../lib/format";
-import { restoreSnapshot } from "../../store/actions/cloud";
+import { confirmRestoreSnapshot } from "../../store/actions/cloud";
 import { state } from "../../store/state";
 
 const mb = (bytes: number) => (bytes / 1_048_576).toFixed(1).replace(".", ",") + " MB";
 
-/** The book's backups on the server; "Restaurar" needs a second click to run. */
+/** The book's backups on the server; "Restaurar" asks for confirmation first. */
 export function SnapshotList() {
   const [list] = createResource(() => state.cloudBook?.lastBackupAt ?? 0, () => cloudSnapshots(state.book!.id));
-  const [armed, setArmed] = createSignal<string | null>(null);
 
   return (
     <div class="cloud-sec">
@@ -23,11 +22,9 @@ export function SnapshotList() {
               </span>
               <button
                 class="cloud-btn danger"
-                classList={{ armed: armed() === s.id }}
-                onClick={() => (armed() === s.id ? void restoreSnapshot(s.id) : setArmed(s.id))}
-                onBlur={() => armed() === s.id && setArmed(null)}
+                onClick={() => void confirmRestoreSnapshot(s.id)}
               >
-                {armed() === s.id ? "Confirmar: substituir a obra" : "Restaurar"}
+                Restaurar
               </button>
             </div>
           )}

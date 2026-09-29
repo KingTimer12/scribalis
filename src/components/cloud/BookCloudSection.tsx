@@ -1,6 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import { ago, pad } from "../../lib/format";
-import { backupNow, fetchComments, forgetBook, setBookBackup } from "../../store/actions/cloud";
+import { backupNow, confirmForgetBook, fetchComments, setBookBackup } from "../../store/actions/cloud";
 import { currentChapter, currentNumber } from "../../store/selectors/book";
 import { setState, state } from "../../store/state";
 import { ShareForm } from "./ShareForm";
@@ -9,7 +9,6 @@ import { SnapshotList } from "./SnapshotList";
 
 /** "Esta obra": backup toggle and state, backups, links, comments, removal from the server. */
 export function BookCloudSection() {
-  const [armed, setArmed] = createSignal(false);
   const [refresh, setRefresh] = createSignal(0);
   const view = () => state.cloudBook;
   const status = () => (state.cloudStatus?.bookId === state.book?.id ? state.cloudStatus : null);
@@ -59,11 +58,9 @@ export function BookCloudSection() {
       <Show when={view()?.lastBackupAt}>
         <button
           class="cloud-btn danger"
-          classList={{ armed: armed() }}
-          onClick={() => (armed() ? void forgetBook() : setArmed(true))}
-          onBlur={() => setArmed(false)}
+          onClick={() => void confirmForgetBook()}
         >
-          {armed() ? "Confirmar: apagar da nuvem (os links param)" : "Apagar da nuvem"}
+          Apagar da nuvem
         </button>
       </Show>
     </div>

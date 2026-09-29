@@ -1,12 +1,14 @@
 import type { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockInvoke } from "../../api/mock";
+import * as workspaceApi from "../../api/workspace";
 import { db } from "../../api/mock/db";
 import type { AreaNode, BookMeta, BookSummary, DocJSON } from "../../api/types";
 import { setEditor } from "../../editor/bridge";
 import { flushAll, scheduleDocSave, settleDocSave } from "../saving";
 import { chapterOrder } from "../../lib/manuscript";
 import { findNode } from "../../lib/tree";
+import { answerConfirm, pendingConfirm } from "../confirm";
 import { setState, state } from "../state";
 import { openNode } from "./open";
 import {
@@ -47,7 +49,7 @@ async function newBook(): Promise<BookMeta> {
   const area = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: book.id });
   setState({
     book, area, areaSel: null, areaOpen: null, areaExpanded: [],
-    areaRenaming: null, areaRenameVal: "", areaConfirm: null, toast: "",
+    areaRenaming: null, areaRenameVal: "", toast: "",
   });
   return book;
 }
@@ -92,14 +94,11 @@ describe("tree actions (mock)", () => {
     expect(findNode(state.area, first)?.children?.map((n) => n.id)).toEqual([second]);
   });
 
-  it("deletes only on the second call; the open node gives way to the first chapter", async () => {
+  it("deletes the node; the open node gives way to the first chapter", async () => {
     await newBook();
     await createNode("folder");
     const id = outside()[0].id;
     setState("areaOpen", id);
-    deleteNode(id);
-    expect(state.areaConfirm).toBe(id);
-    expect(outside()).toHaveLength(1);
     await deleteNode(id);
     expect(outside()).toHaveLength(0);
     expect(state.areaOpen).toBe(chapterOrder(state.area)[0].id);
@@ -229,23 +228,40 @@ describe("tree actions (mock)", () => {
     expect(state.toast).toBe("«Novo documento» saiu do Manuscrito");
   });
 
-  it("deleting a Manuscrito folder says how many chapters go with it", async () => {
+  it("requestDelete asks first and deletes only after the user confirms", async () => {
     await newBook();
     setState("areaSel", manuscriptId());
     await createNode("folder");
     const part = state.areaSel!;
     await createNode("chapter");
     await createNode("chapter");
-    expect(findNode(state.area, part)?.children).toHaveLength(2);
-    await requestDelete(part);
-    expect(state.toast).toBe("Aperte Delete de novo para excluir «Nova pasta» e 2 capítulos");
+    const done = requestDelete(part);
+    expect(pendingConfirm()?.title).toBe("Excluir “Nova pasta”?");
+    expect(pendingConfirm()?.message).toBe("A pasta e os 2 itens dentro dela serão excluídos.");
     expect(findNode(state.area, part)).not.toBeNull();
+    answerConfirm(true);
+    await done;
+    expect(findNode(state.area, part)).toBeNull();
   });
 
-  it("the Manuscrito row never arms a delete confirmation", async () => {
+  it("requestDelete keeps the node when the user cancels", async () => {
+    await newBook();
+    await createNode("folder");
+    const id = outside()[0].id;
+    const spy = vi.spyOn(workspaceApi, "areaDelete");
+    const done = requestDelete(id);
+    expect(pendingConfirm()).not.toBeNull();
+    answerConfirm(false);
+    await done;
+    expect(spy).not.toHaveBeenCalled();
+    expect(findNode(state.area, id)).not.toBeNull();
+    spy.mockRestore();
+  });
+
+  it("the Manuscrito shows a message and no dialog", async () => {
     await newBook();
     await requestDelete(manuscriptId());
-    expect(state.areaConfirm).toBeNull();
-    expect(state.toast).toBe("");
+    expect(pendingConfirm()).toBeNull();
+    expect(state.toast).toBe("O Manuscrito não pode ser excluído.");
   });
 });

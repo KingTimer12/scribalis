@@ -1,7 +1,7 @@
 import { chapterOrder } from "../../lib/manuscript";
 import { fmt, norm, pad } from "../../lib/format";
 import { clearCover, pickCover } from "../actions/images";
-import { openBook, restoreSamples, startNew, startRename } from "../actions/library";
+import { openBook, requestDeleteBook, restoreSamples, startNew, startRename } from "../actions/library";
 import { reveal } from "../actions/expanded";
 import { openNode } from "../actions/open";
 import { toggleTheme } from "../actions/prefs";
@@ -47,7 +47,7 @@ function libraryCommands(): Command[] {
     if (cur.cover) out.push({ label: "Remover capa (volta a letra)", hint: "Shift C", act: () => clearCover(cur.id) });
     out.push({
       label: 'Excluir "' + cur.title + '"', hint: "Del", danger: true,
-      act: () => { focusTarget("lib"); setState("libConfirm", cur.id); },
+      act: () => void requestDeleteBook(cur.id),
     });
   }
   return [...out, ...commonCommands(), { label: "Restaurar obras de exemplo", hint: "", act: restoreSamples }];
@@ -90,6 +90,6 @@ export function paletteItems(): Command[] {
 export function runCommand(cmd: Command) {
   if (cmd.keep) return cmd.act();
   focusTarget(homeTarget());
-  setState({ panel: null, q: "", pIdx: 0, confirmDel: false, hits: [] });
+  setState({ panel: null, q: "", pIdx: 0, hits: [] });
   cmd.act();
 }

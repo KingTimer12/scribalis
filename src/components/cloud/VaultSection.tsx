@@ -1,6 +1,6 @@
 import { createEffect, createResource, createSignal, For, on, Show } from "solid-js";
 import { cloudRemoteBooks, cloudVaultInfo } from "../../api/cloud";
-import { activateCloud, connectCloud, deleteVault, downloadBook, setApiUrl } from "../../store/actions/cloud";
+import { activateCloud, confirmDeleteVault, connectCloud, downloadBook, setApiUrl } from "../../store/actions/cloud";
 import { state } from "../../store/state";
 import { KeyList } from "./KeyList";
 
@@ -12,7 +12,6 @@ export function VaultSection() {
   // The overview may arrive after the panel opens (and changes after saving).
   createEffect(on(() => state.cloud?.apiUrl, (u) => u && setUrl(u)));
   const [code, setCode] = createSignal("");
-  const [armed, setArmed] = createSignal(false);
   const connected = () => !!state.cloud?.connected;
   const [info] = createResource(() => connected() || null, () => cloudVaultInfo().catch(() => null));
   const [remote, { refetch }] = createResource(() => connected() || null, () => cloudRemoteBooks().catch(() => []));
@@ -50,11 +49,9 @@ export function VaultSection() {
         </For>
         <button
           class="cloud-btn danger"
-          classList={{ armed: armed() }}
-          onClick={() => (armed() ? void deleteVault() : setArmed(true))}
-          onBlur={() => setArmed(false)}
+          onClick={() => void confirmDeleteVault()}
         >
-          {armed() ? "Confirmar: apagar todas as obras e links do servidor" : "Apagar cofre"}
+          Apagar cofre
         </button>
       </Show>
     </div>

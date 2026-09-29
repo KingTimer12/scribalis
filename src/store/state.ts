@@ -44,7 +44,6 @@ export interface AppState {
   // palette
   q: string;
   pIdx: number;
-  confirmDel: boolean;
   hits: SearchHit[];
   prompt: PromptState | null;
   // bottom bar
@@ -59,7 +58,6 @@ export interface AppState {
   /** id of the book being renamed, or "new" for a new book. */
   renaming: string | null;
   renameVal: string;
-  libConfirm: string | null;
   // updater
   /** Newer release found at startup, or null. */
   update: UpdateInfo | null;
@@ -74,8 +72,6 @@ export interface AppState {
   areaExpanded: string[];
   areaRenaming: string | null;
   areaRenameVal: string;
-  /** Id armed for deletion; a second call to `deleteNode` with the same id confirms it. */
-  areaConfirm: string | null;
   /** Open Scrivener import dialog, or null. */
   scrivener: ScrivenerImportState | null;
   // cloud
@@ -99,7 +95,6 @@ export const [state, setState] = createStore<AppState>({
   panel: null,
   q: "",
   pIdx: 0,
-  confirmDel: false,
   hits: [],
   prompt: null,
   toast: "",
@@ -111,7 +106,6 @@ export const [state, setState] = createStore<AppState>({
   libQ: "",
   renaming: null,
   renameVal: "",
-  libConfirm: null,
   update: null,
   updating: false,
   area: [],
@@ -120,7 +114,6 @@ export const [state, setState] = createStore<AppState>({
   areaExpanded: [],
   areaRenaming: null,
   areaRenameVal: "",
-  areaConfirm: null,
   scrivener: null,
   cloud: null,
   cloudBook: null,

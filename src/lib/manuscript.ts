@@ -38,6 +38,11 @@ export function chapterCount(node: AreaNode): number {
   return (node.kind === "chapter" ? 1 : 0) + (node.children ?? []).reduce((a, c) => a + chapterCount(c), 0);
 }
 
+/** Nodes below `node` (children, grandchildren, ...), itself excluded. */
+export function descendantCount(node: AreaNode): number {
+  return (node.children ?? []).reduce((a, c) => a + 1 + descendantCount(c), 0);
+}
+
 /** Saved word total of the chapters. */
 export function manuscriptWords(items: AreaNode[]): number {
   return chapterOrder(items).reduce((a, c) => a + (c.words ?? 0), 0);

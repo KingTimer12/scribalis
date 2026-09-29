@@ -30,7 +30,7 @@ export function LibraryHeader() {
             id="lib-q"
             class="lib-q"
             value={state.libQ}
-            onInput={(e) => setState({ libQ: e.currentTarget.value, libSel: 0, libConfirm: null })}
+            onInput={(e) => setState({ libQ: e.currentTarget.value, libSel: 0 })}
             onKeyDown={libQKey}
             ref={focusRef("libq")}
             placeholder="Buscar obra"
