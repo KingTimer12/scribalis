@@ -34,6 +34,8 @@ struct Ctx<'a> {
     chapter_items: &'a HashSet<String>,
     chapters: Vec<Node>,
     attachments: Vec<Node>,
+    /// Items with a synopsis, as board cards (title, text), in binder order.
+    cards: Vec<(String, String)>,
     items: usize,
     warnings: usize,
 }
@@ -58,6 +60,14 @@ fn can_be_chapter(item: &BinderItem) -> bool {
 }
 
 impl Ctx<'_> {
+    /// Queues a board card for `item` when it has a synopsis.
+    fn note_card(&mut self, item: &BinderItem) {
+        let synopsis = self.project.synopsis(&item.key);
+        if !synopsis.is_empty() {
+            self.cards.push((title_of(item), synopsis));
+        }
+    }
+
     fn text(&mut self, key: &str) -> Doc {
         self.project.text(key).unwrap_or_else(|_| {
             self.warnings += 1;
@@ -109,6 +119,7 @@ impl Ctx<'_> {
             self.emit_chapter(item)?;
             return Ok(None);
         }
+        self.note_card(item);
         match item.kind {
             ItemKind::Image | ItemKind::File if item.children.is_empty() => self.media_node(item),
             ItemKind::Text if item.children.is_empty() => {
@@ -167,6 +178,7 @@ impl Ctx<'_> {
         if item.kind == ItemKind::Trash {
             return Ok(());
         }
+        self.note_card(item);
         if matches!(item.kind, ItemKind::Image | ItemKind::File) {
             if let Some(n) = self.media_node(item)? {
                 self.attachments.push(n);
@@ -223,7 +235,7 @@ pub fn import_into(
     wrap: Option<&str>,
 ) -> AppResult<Outcome> {
     let binder = project.binder()?;
-    let mut ctx = Ctx { project, dir, chapter_items, chapters: Vec::new(), attachments: Vec::new(), items: 0, warnings: 0 };
+    let mut ctx = Ctx { project, dir, chapter_items, chapters: Vec::new(), attachments: Vec::new(), cards: Vec::new(), items: 0, warnings: 0 };
     let mut nodes = Vec::new();
     for item in &binder {
         if let Some(n) = ctx.node(item)? {
@@ -253,6 +265,7 @@ pub fn import_into(
         m.children.extend(ctx.chapters);
     }
     write_workspace(dir, &ws)?;
+    crate::ops::board::append(dir, std::mem::take(&mut ctx.cards))?;
     meta.chapters = mirror(&ws.items);
     meta.updated_at = now_ms();
     write_metadata(dir, meta)?;
@@ -299,6 +312,7 @@ mod tests {
     use crate::model::doc::Block;
     use crate::model::manuscript::chapters;
     use crate::model::workspace::NodeKind;
+    use crate::ops::board;
     use crate::ops::library::create_book;
     use crate::storage::{chapter_io::read_at, workspace_io::read_workspace};
     use crate::text::words::doc_text;
@@ -309,6 +323,14 @@ mod tests {
             .iter()
             .map(|c| (c.title.clone(), c.notes.clone(), c.file.clone().unwrap()))
             .collect()
+    }
+
+    /// Board cards of a book as (title, text).
+    fn board_cards(dir: &Path) -> Vec<(String, String)> {
+        board::list(dir).unwrap().into_iter().map(|c| {
+            let text = board::load_text(dir, &c.id).unwrap();
+            (c.title, text)
+        }).collect()
     }
 
     const BINDER: &str = r#"<ScrivenerProject><Binder>
@@ -457,6 +479,34 @@ mod tests {
         assert_eq!(research.children[1].kind, NodeKind::File);
         assert_eq!(ws.items[2].children[0].kind, NodeKind::Image);
         assert!(!ws.items.iter().any(|n| n.title == "Lixeira"));
+    }
+
+    #[test]
+    fn synopses_become_board_cards_in_binder_order() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (dir, _meta, _out) = import_new_book(&root, &p, &folders(&["C1", "C2"])).unwrap();
+        let expected = vec![
+            ("Capítulo 1".to_string(), "Chegada ao porto".to_string()),
+            ("Cena 1".to_string(), "Abertura".to_string()),
+            ("Ana".to_string(), "A heroína".to_string()),
+        ];
+        assert_eq!(board_cards(&dir), expected);
+        // The synopsis field keeps its guide role.
+        assert_eq!(chapters(&read_workspace(&dir).unwrap().items)[0].synopsis, "Chegada ao porto");
+    }
+
+    #[test]
+    fn import_into_an_open_book_appends_to_its_board() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
+        board::create(&dir, 0, "Meu cartão").unwrap();
+        import_into(&p, &folders(&["C1"]), &dir, &mut meta, Some("Livro")).unwrap();
+        let titles: Vec<String> = board_cards(&dir).into_iter().map(|c| c.0).collect();
+        assert_eq!(titles, vec!["Meu cartão", "Capítulo 1", "Cena 1", "Ana"]);
     }
 
     #[test]
