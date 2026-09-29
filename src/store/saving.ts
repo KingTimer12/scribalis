@@ -40,7 +40,8 @@ async function saveDocNow(key: DocKey) {
     return;
   }
   const saved = await chapterApi.saveChapter(key.bookId, key.docId, doc);
-  if (state.book?.id === key.bookId) editNode(key.docId, (n) => (n.words = saved.words));
+  // The save recreated the file if it was gone, so the warning flag no longer applies.
+  if (state.book?.id === key.bookId) editNode(key.docId, (n) => ((n.words = saved.words), (n.missing = false)));
   setState("today", (await statsToday()).today);
 }
 
@@ -131,11 +132,18 @@ export function scheduleBookPatch(patch: BookPatch) {
   bookPatch = { timer: setTimeout(() => { bookPatch = null; run(); }, META_DELAY), run, patch: merged };
 }
 
+const extraFlushers: (() => Promise<unknown> | void)[] = [];
+
+/** Lets another module (free-text notes) join `flushAll`, without saving.ts importing it. */
+export function registerFlusher(flush: () => Promise<unknown> | void) {
+  extraFlushers.push(flush);
+}
+
 /** Runs every pending save now. Call before switching chapter/book or closing. */
 export async function flushAll() {
   const all: (Pending<unknown> | null)[] = [docSave, chapterPatch, bookPatch];
   const pending = all.filter((p): p is Pending<unknown> => !!p);
   docSave = chapterPatch = bookPatch = null;
   for (const p of pending) clearTimeout(p.timer);
-  await Promise.all(pending.map((p) => p.run()));
+  await Promise.all([...pending.map((p) => p.run()), ...extraFlushers.map((f) => f())]);
 }

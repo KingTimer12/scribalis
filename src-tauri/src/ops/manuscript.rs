@@ -29,8 +29,12 @@ pub fn sync_mirror(dir: &Path, meta: &mut Metadata) -> AppResult<usize> {
     }
     let mirror = manuscript::mirror(&ws.items);
     if meta.chapters != mirror {
-        meta.chapters = mirror;
-        write_metadata(dir, meta)?;
+        // Assign only after the write: a failed write must not leave the cache claiming the new
+        // mirror (the next sync would then see no drift and never retry).
+        let mut next = meta.clone();
+        next.chapters = mirror;
+        write_metadata(dir, &next)?;
+        meta.chapters = next.chapters;
     }
     Ok(words)
 }
@@ -132,6 +136,18 @@ mod tests {
         let (dir, _meta) = create_book(root.path(), "Obra").unwrap();
         open_book(&dir).unwrap();
         (root, dir)
+    }
+
+    #[test]
+    fn a_failed_mirror_write_leaves_the_cached_mirror_untouched() {
+        let (_root, dir) = book();
+        let mut meta = open_book(&dir).unwrap();
+        meta.chapters.clear();
+        // A directory where the file should be makes the atomic rename fail.
+        fs::remove_file(dir.join(crate::storage::paths::META_FILE)).unwrap();
+        fs::create_dir(dir.join(crate::storage::paths::META_FILE)).unwrap();
+        assert!(sync_mirror(&dir, &mut meta).is_err());
+        assert!(meta.chapters.is_empty());
     }
 
     fn manuscript_id(dir: &Path) -> String {

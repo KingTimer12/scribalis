@@ -4,11 +4,13 @@ use std::path::Path;
 
 use super::api::Comment;
 use crate::error::AppResult;
-use crate::ids::new_id;
+use crate::ids::{new_id, now_ms};
 use crate::model::{
     doc::Doc,
+    metadata::Metadata,
     workspace::{find_mut, Node, NodeKind, Workspace},
 };
+use crate::storage::metadata_io::write_metadata;
 use crate::storage::workspace_io::{read_workspace, write_node_doc, write_workspace};
 
 pub const INBOX_TITLE: &str = "Comentários recebidos";
@@ -111,7 +113,7 @@ fn inbox<'a>(dir: &Path, ws: &'a mut Workspace) -> AppResult<&'a mut Node> {
 }
 
 /// Appends each thread to its node's notes (chapter or not) and saves; returns the root ids written.
-pub fn apply(dir: &Path, threads: &[Thread], utc_offset_min: i32) -> AppResult<Vec<String>> {
+pub fn apply(dir: &Path, meta: &mut Metadata, threads: &[Thread], utc_offset_min: i32) -> AppResult<Vec<String>> {
     if threads.is_empty() {
         return Ok(Vec::new());
     }
@@ -129,6 +131,9 @@ pub fn apply(dir: &Path, threads: &[Thread], utc_offset_min: i32) -> AppResult<V
         done.push(t.root.id.clone());
     }
     write_workspace(dir, &ws)?;
+    // New visitor comments count as a change of the book (library ordering).
+    meta.updated_at = now_ms();
+    write_metadata(dir, meta)?;
     Ok(done)
 }
 
@@ -202,7 +207,8 @@ mod tests {
         use crate::model::workspace::find;
         let root = tempfile::tempdir().unwrap();
         let (dir, _meta) = create_book(root.path(), "A").unwrap();
-        crate::storage::migrate::open_book(&dir).unwrap();
+        let mut meta = crate::storage::migrate::open_book(&dir).unwrap();
+        meta.updated_at = 1;
         let chapter = crate::model::manuscript::chapters(&read_workspace(&dir).unwrap().items)[0].id.clone();
         let node = workspace::create(&dir, None, 1, NodeKind::Text, "Ficha").unwrap().id;
         let list = vec![
@@ -210,8 +216,9 @@ mod tests {
             comment("r2", None, &node, "na ficha", 2),
             comment("r3", None, "apagado", "sem destino", 3),
         ];
-        let done = apply(&dir, &threads(&list, &[]), 0).unwrap();
+        let done = apply(&dir, &mut meta, &threads(&list, &[]), 0).unwrap();
         assert_eq!(done, vec!["r1", "r2", "r3"]);
+        assert!(meta.updated_at > 1);
         let ws = read_workspace(&dir).unwrap();
         assert!(find(&ws.items, &chapter).unwrap().notes.contains("no capítulo"));
         assert!(find(&ws.items, &node).unwrap().notes.contains("na ficha"));
@@ -222,7 +229,7 @@ mod tests {
         assert_eq!(ws.items[0].kind, NodeKind::Manuscript);
 
         let more = vec![comment("r4", None, "sumiu", "outro", 4)];
-        apply(&dir, &threads(&more, &[]), 0).unwrap();
+        apply(&dir, &mut meta, &threads(&more, &[]), 0).unwrap();
         let ws = read_workspace(&dir).unwrap();
         let inbox: Vec<&Node> = ws.items.iter().filter(|n| n.title == INBOX_TITLE).collect();
         assert_eq!(inbox.len(), 1);

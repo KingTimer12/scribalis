@@ -26,7 +26,6 @@ export function BookCloudSection() {
     const c = currentChapter();
     if (c) setState("shareDraft", { kind: "chapter", target: c.id, label: "Capítulo " + pad(currentNumber()) });
   };
-  const shareArea = () => setState("shareDraft", { kind: "workspace", target: null, label: "Área de trabalho" });
 
   return (
     <div class="cloud-sec">
@@ -51,7 +50,6 @@ export function BookCloudSection() {
         fallback={
           <div class="cloud-row" style={{ "justify-content": "flex-start" }}>
             <button class="cloud-btn" disabled={!currentChapter()} onClick={shareChapter}>Compartilhar capítulo aberto</button>
-            <button class="cloud-btn" onClick={shareArea}>Compartilhar área de trabalho</button>
           </div>
         }
       >

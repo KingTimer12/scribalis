@@ -27,7 +27,7 @@ vi.mock("../api/workspace", () => ({
 }));
 
 const { holdDocSaves, releaseDocSaves, scheduleDocSave, swapDocument } = await import("./saving");
-const { setState } = await import("./state");
+const { setState, state } = await import("./state");
 
 /** Just enough of an Editor for the bridge; `type` simulates the user editing. */
 function fakeEditor() {
@@ -148,5 +148,17 @@ describe("chapter text saves across a chapter switch", () => {
     releaseDocSaves();
     await vi.runAllTimersAsync();
     expect(saves).toEqual([{ chapterId: "old", text: text(para("ab")) }]);
+  });
+
+  it("saving into a chapter flagged missing clears the flag (the save recreated the file)", async () => {
+    const ed = fakeEditor();
+    setEditor(ed.editor);
+    setState({ book: { id: "b" } as never, area: [{ id: "old", kind: "chapter", title: "", notes: "", missing: true }] });
+    loadDoc(para("a"), OLD);
+    ed.type(para("ab"));
+    scheduleDocSave();
+    await vi.runAllTimersAsync();
+    expect(state.area[0].missing).toBe(false);
+    setState({ book: null, area: [] });
   });
 });

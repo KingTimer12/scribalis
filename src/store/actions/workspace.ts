@@ -5,7 +5,7 @@ import { pad, plural } from "../../lib/format";
 import { chapterCount, chapterNumber, displayTitle, inManuscript } from "../../lib/manuscript";
 import { dropTarget, findNode, isContainer, locate, manuscriptOf, type DropPos } from "../../lib/tree";
 import { focusTarget } from "../focus";
-import { cancelDocSave, flushAll, holdDocSaves, releaseDocSaves, settleDocSave } from "../saving";
+import { cancelDocSave, flushAll, holdDocSaves, registerFlusher, releaseDocSaves, settleDocSave } from "../saving";
 import { editNode, setState, state } from "../state";
 import { expand } from "./expanded";
 import { openFirstChapter, openNode } from "./open";
@@ -99,28 +99,31 @@ export function setNodeNotes(id: string, notes: string) {
   });
 }
 
-let pendingNotes: { id: string; notes: string; timer: ReturnType<typeof setTimeout> } | null = null;
+// The book is bound when the notes are typed: a book switch before the flush must not redirect them.
+let pendingNotes: { bookId: string; id: string; notes: string; timer: ReturnType<typeof setTimeout> } | null = null;
 
 /** Notes typed into a free text: shown at once, saved a moment later (or by `flushNodeNotes`). */
 export function scheduleNodeNotes(id: string, notes: string) {
-  if (pendingNotes && pendingNotes.id !== id) void flushNodeNotes();
+  const bookId = state.book?.id;
+  if (!bookId) return;
+  if (pendingNotes && (pendingNotes.id !== id || pendingNotes.bookId !== bookId)) void flushNodeNotes();
   if (pendingNotes) clearTimeout(pendingNotes.timer);
   editNode(id, (n) => (n.notes = notes));
-  pendingNotes = { id, notes, timer: setTimeout(() => void flushNodeNotes(), 300) };
+  pendingNotes = { bookId, id, notes, timer: setTimeout(() => void flushNodeNotes(), 300) };
 }
 
-/** Saves the pending notes now, if any. The drawer calls it on close, so nothing typed is lost. */
+/** Saves the pending notes now, if any. The drawer calls it on close and `flushAll` on window close. */
 export function flushNodeNotes() {
   const p = pendingNotes;
   pendingNotes = null;
-  const b = state.book;
-  if (!p || !b) return;
+  if (!p) return;
   clearTimeout(p.timer);
   // The tree already shows the text: only the write is left.
   return run(async () => {
-    await api.areaSetNotes(b.id, p.id, p.notes);
+    await api.areaSetNotes(p.bookId, p.id, p.notes);
   });
 }
+registerFlusher(flushNodeNotes);
 
 export function deleteNode(id: string) {
   // The Manuscrito cannot be deleted: never arm a confirmation for it.

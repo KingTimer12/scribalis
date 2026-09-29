@@ -2,8 +2,8 @@ use std::path::Path;
 
 use crate::error::AppResult;
 use crate::ids::{new_id, now_ms};
-use crate::model::{metadata::{Metadata, Separator}, patches::{BookPatch, ImageSlot}};
-use crate::storage::{images::{import_as, import_cover, remove_image}, metadata_io::write_metadata};
+use crate::model::{metadata::{Metadata, Separator}, patches::{BookPatch, ImageSlot}, workspace::find};
+use crate::storage::{images::{import_as, import_cover, remove_image}, metadata_io::write_metadata, workspace_io::read_workspace};
 
 /// Deletes an image the metadata no longer references. The change is already
 /// saved, so a failure here (e.g. a locked file) only leaves an orphan behind.
@@ -32,8 +32,11 @@ pub fn update(dir: &Path, meta: &mut Metadata, patch: BookPatch) -> AppResult<()
         meta.separator = Separator::Text { text };
         touched = true;
     }
+    // An id that is not in the tree is ignored: a stale or bogus id must never be persisted.
     if let Some(open) = patch.open {
-        meta.open = Some(open);
+        if read_workspace(dir).is_ok_and(|ws| find(&ws.items, &open).is_some()) {
+            meta.open = Some(open);
+        }
     }
     if touched {
         meta.updated_at = now_ms();
@@ -149,9 +152,20 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let (dir, mut meta) = create_book(root.path(), "Obra").unwrap();
         meta.updated_at = 5;
-        update(&dir, &mut meta, BookPatch { open: Some("n1".into()), ..Default::default() }).unwrap();
-        assert_eq!((meta.open.as_deref(), meta.updated_at), (Some("n1"), 5));
-        assert_eq!(crate::storage::metadata_io::read_metadata(&dir).unwrap().open.as_deref(), Some("n1"));
+        let id = crate::model::manuscript::chapters(&read_workspace(&dir).unwrap().items)[0].id.clone();
+        update(&dir, &mut meta, BookPatch { open: Some(id.clone()), ..Default::default() }).unwrap();
+        assert_eq!((meta.open.as_deref(), meta.updated_at), (Some(id.as_str()), 5));
+        assert_eq!(crate::storage::metadata_io::read_metadata(&dir).unwrap().open.as_deref(), Some(id.as_str()));
+    }
+
+    #[test]
+    fn open_ignores_ids_that_are_not_in_the_tree() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, mut meta) = create_book(root.path(), "Obra").unwrap();
+        let before = meta.open.clone();
+        update(&dir, &mut meta, BookPatch { open: Some("ghost".into()), ..Default::default() }).unwrap();
+        assert_eq!(meta.open, before);
+        assert_eq!(crate::storage::metadata_io::read_metadata(&dir).unwrap().open, before);
     }
 
     #[test]

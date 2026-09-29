@@ -4,7 +4,7 @@ import { mockInvoke } from "../../api/mock";
 import { db } from "../../api/mock/db";
 import type { AreaNode, BookMeta, BookSummary, DocJSON } from "../../api/types";
 import { setEditor } from "../../editor/bridge";
-import { scheduleDocSave, settleDocSave } from "../saving";
+import { flushAll, scheduleDocSave, settleDocSave } from "../saving";
 import { chapterOrder } from "../../lib/manuscript";
 import { findNode } from "../../lib/tree";
 import { setState, state } from "../state";
@@ -153,6 +153,18 @@ describe("tree actions (mock)", () => {
     await flushNodeNotes();
     const tree = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: state.book!.id });
     expect(findNode(tree, id)?.notes).toBe("digitado");
+  });
+
+  it("flushAll saves pending notes to the book they were typed in, even after a book switch", async () => {
+    const first = await newBook();
+    await createNode("folder");
+    const id = outside()[0].id;
+    scheduleNodeNotes(id, "nao perder");
+    await newBook();
+    expect(state.book!.id).not.toBe(first.id);
+    await flushAll();
+    const tree = await mockInvoke<AreaNode[]>("workspace_tree", { bookId: first.id });
+    expect(findNode(tree, id)?.notes).toBe("nao perder");
   });
 
   it("the open text reopens as a chapter after crossing into the Manuscrito", async () => {

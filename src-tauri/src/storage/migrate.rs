@@ -75,10 +75,16 @@ pub fn open_book(dir: &Path) -> AppResult<Metadata> {
     if !needs_upgrade(&ws) {
         // A stop between the migration's two writes leaves a v2 tree next to metadata that still
         // has `cur`: the open node is the chapter at that index in the Manuscrito's order.
-        if meta.open.is_none() && meta.cur > 0 {
+        // The backup file only exists once a migration started, so it tells this apart from a
+        // fresh v2 book that was simply never opened (cur == 0 is a valid index too).
+        let interrupted = meta.cur > 0 || dir.join(BACKUP_META_FILE).exists();
+        if meta.open.is_none() && interrupted {
             meta.open = manuscript::chapters(&ws.items).get(meta.cur).map(|c| c.id.clone());
-            meta.cur = 0;
-            write_metadata(dir, &meta)?;
+            // Nothing to derive and nothing to clear: skip the write on every open.
+            if meta.open.is_some() || meta.cur > 0 {
+                meta.cur = 0;
+                write_metadata(dir, &meta)?;
+            }
         }
         return Ok(meta);
     }
@@ -241,6 +247,20 @@ mod tests {
         let meta = open_book(dir.path()).unwrap();
         assert_eq!((meta.open.as_deref(), meta.cur), (Some("c2"), 0));
         assert_eq!(read_metadata(dir.path()).unwrap().open.as_deref(), Some("c2"));
+    }
+
+    #[test]
+    fn a_stop_between_the_two_writes_keeps_the_first_chapter_open_too() {
+        let dir = v1_book(true);
+        let mut v1 = read_metadata(dir.path()).unwrap();
+        v1.cur = 0;
+        write_metadata(dir.path(), &v1).unwrap();
+        // The migration got as far as its backup and the tree before stopping.
+        keep_original(dir.path()).unwrap();
+        let (_, ws) = upgrade(&v1, &read_workspace(dir.path()).unwrap(), "m".into());
+        write_workspace(dir.path(), &ws).unwrap();
+        let meta = open_book(dir.path()).unwrap();
+        assert_eq!(meta.open.as_deref(), Some("c1"));
     }
 
     #[test]
