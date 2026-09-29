@@ -15,6 +15,7 @@ export type FocusTarget =
   | "libq"
   | "rename"
   | "tree"
+  | "board"
   | "cloud";
 
 export type Caret = number | "end" | null;
