@@ -49,6 +49,7 @@ export function RichEditor(props: RichEditorProps) {
             onFormat: (ed) => setFormatState(readFormat(ed)),
             onHint: () => {},
             onExitTop: () => {},
+            separatorKey: false,
             ariaLabel: "Texto do documento",
             placeholder: "Escreva aqui…",
           });

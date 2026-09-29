@@ -6,6 +6,8 @@ import { splitAtCursor } from "./split";
 export interface WriterKeysOptions {
   /** Null disables the Enter x3 split entirely: a third Enter is then a plain Enter. */
   onSplit: ((before: DocJSON, after: DocJSON) => void) | null;
+  /** False leaves Ctrl Enter alone (free texts have no scene separator). */
+  separatorKey: boolean;
   onHint: (show: boolean) => void;
   onExitTop: () => void;
 }
@@ -18,7 +20,7 @@ export const WriterKeys = Extension.create<WriterKeysOptions>({
   priority: 1000,
 
   addOptions() {
-    return { onSplit: null, onHint: () => {}, onExitTop: () => {} };
+    return { onSplit: null, separatorKey: true, onHint: () => {}, onExitTop: () => {} };
   },
 
   addProseMirrorPlugins() {
@@ -36,6 +38,7 @@ export const WriterKeys = Extension.create<WriterKeysOptions>({
           handleKeyDown(view, event) {
             const mod = event.ctrlKey || event.metaKey;
             if (event.key === "Enter" && mod && !event.altKey) {
+              if (!opts.separatorKey) return false;
               reset();
               // The trailing paragraph keeps a place to type after the separator.
               editor.chain().focus().insertContent([{ type: "separator" }, { type: "paragraph" }]).run();

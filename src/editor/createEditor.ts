@@ -13,7 +13,7 @@ import { SeparatorNode, type SeparatorView } from "./separator";
 import { ParagraphSpacing } from "./spacing";
 import { WriterKeys, type WriterKeysOptions } from "./writerKeys";
 
-export interface WriterEditorOptions extends Omit<WriterKeysOptions, "onSplit"> {
+export interface WriterEditorOptions extends Omit<WriterKeysOptions, "onSplit" | "separatorKey"> {
   element: HTMLElement;
   separator: () => SeparatorView;
   resolveImage: (src: string) => string | null;
@@ -21,6 +21,8 @@ export interface WriterEditorOptions extends Omit<WriterKeysOptions, "onSplit"> 
   onFormat: (editor: Editor) => void;
   /** Absent disables Enter x3: the 3rd Enter becomes a plain Enter, with no streak or hint. */
   onSplit?: (before: DocJSON, after: DocJSON) => void;
+  /** False: Ctrl Enter inserts no separator (free texts). Defaults to true. */
+  separatorKey?: boolean;
   ariaLabel: string;
   placeholder: string;
 }
@@ -38,7 +40,7 @@ export function createWriterEditor(o: WriterEditorOptions): Editor {
       Placeholder.configure({ placeholder: o.placeholder }),
       SeparatorNode.configure({ view: o.separator }),
       BookImageNode.configure({ resolve: o.resolveImage }),
-      WriterKeys.configure({ onSplit: o.onSplit ?? null, onHint: o.onHint, onExitTop: o.onExitTop }),
+      WriterKeys.configure({ onSplit: o.onSplit ?? null, separatorKey: o.separatorKey ?? true, onHint: o.onHint, onExitTop: o.onExitTop }),
       Bold,
       Italic,
       TextAlign.configure({ types: ["paragraph"], alignments: ["left", "center", "right", "justify"] }),
