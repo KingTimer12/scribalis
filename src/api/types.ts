@@ -63,16 +63,25 @@ export interface SearchHit {
   chapterId: string;
 }
 
-export type NodeKind = "folder" | "text" | "image" | "file";
+export type NodeKind = "manuscript" | "folder" | "chapter" | "text" | "image" | "file";
 
-/** A node of a book's workspace ("area") tree: folders, texts, images and attachments. */
+/**
+ * A node of the book's tree. The first root item is the Manuscrito, holding chapters and
+ * folders of chapters; the rest are folders, free texts, images and attachments.
+ */
 export interface AreaNode {
   id: string;
   kind: NodeKind;
   title: string;
   notes: string;
-  /** Path relative to the book's `area/` folder; only non-folders have one. */
+  /** Chapters: relative to the book folder. Other leaves: relative to `area/`. */
   file?: string;
+  /** Chapters only. */
+  status?: Status;
+  /** Chapters only: saved word count. */
+  words?: number;
+  /** Chapters only, view-only: the chapter file is gone from disk. */
+  missing?: boolean;
   children?: AreaNode[];
 }
 

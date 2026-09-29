@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AreaNode } from "../api/types";
-import { dropTarget, locate, visibleRows } from "./tree";
+import { ancestors, dropTarget, locate, visibleRows } from "./tree";
 
 const n = (id: string, kind: AreaNode["kind"], children?: AreaNode[]): AreaNode => ({ id, kind, title: id, notes: "", children });
 const items: AreaNode[] = [n("a", "folder", [n("b", "text"), n("c", "image")]), n("d", "folder", [n("e", "folder")]), n("f", "file")];
@@ -29,5 +29,29 @@ describe("workspace tree helpers", () => {
     expect(dropTarget(items, "d", "e", "inside")).toBeNull();
     expect(dropTarget(items, "d", "e", "before")).toBeNull();
     expect(dropTarget(items, "f", "b", "inside")).toBeNull();
+  });
+});
+
+describe("drop rules around the Manuscrito", () => {
+  const tree: AreaNode[] = [
+    n("m", "manuscript", [n("c1", "chapter"), n("c2", "chapter")]),
+    n("f", "folder", [n("t", "text")]),
+  ];
+
+  it("never drags the Manuscrito, never drops before it at the root", () => {
+    expect(dropTarget(tree, "m", "f", "after")).toBeNull();
+    expect(dropTarget(tree, "t", "m", "before")).toBeNull();
+    expect(dropTarget(tree, "f", "m", "after")).toEqual({ parent: null, index: 1 });
+  });
+
+  it("drops inside the Manuscrito like inside a folder", () => {
+    expect(dropTarget(tree, "t", "m", "inside")).toEqual({ parent: "m", index: 2 });
+    expect(dropTarget(tree, "t", "c1", "inside")).toBeNull();
+  });
+
+  it("lists a node's ancestors, nearest last", () => {
+    expect(ancestors(tree, "t")).toEqual(["f"]);
+    expect(ancestors(tree, "c2")).toEqual(["m"]);
+    expect(ancestors(tree, null)).toEqual([]);
   });
 });
