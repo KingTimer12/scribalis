@@ -3,15 +3,21 @@ use std::{collections::HashSet, fs, path::{Path, PathBuf}};
 use crate::error::AppResult;
 use crate::ids::{new_id, now_ms};
 use crate::markdown::parse::parse;
-use crate::model::{doc::Doc, manuscript, metadata::{ChapterEntry, Metadata}, views::BookSummary};
+use crate::model::{
+    doc::Doc,
+    manuscript,
+    metadata::Metadata,
+    views::BookSummary,
+    workspace::{Node, Workspace},
+};
+use crate::ops::manuscript::new_chapter;
 use crate::samples::sample_books;
 use crate::storage::{
-    chapter_io::write_chapter,
     metadata_io::{read_metadata, write_metadata},
     migrate::peek_tree,
     paths::{slugify, unique_dir, CHAPTERS_DIR, IMAGES_DIR},
+    workspace_io::write_workspace,
 };
-use crate::text::words::doc_words;
 
 pub struct Scan {
     pub books: Vec<(PathBuf, Metadata)>,
@@ -76,14 +82,25 @@ pub fn summarize(dir: &Path, meta: &Metadata) -> (BookSummary, usize) {
     (BookSummary::from_tree(dir, meta, &items), manuscript::total_words(&items))
 }
 
-/// Creates the folder tree, an empty first chapter and the metadata.
+/// Writes a v2 book: the tree (a Manuscrito holding `chapters`) first, then the metadata with
+/// its chapter mirror, opened on chapter `open` (or the first one).
+fn write_new_book(dir: &Path, meta: &mut Metadata, chapters: Vec<Node>, open: usize) -> AppResult<()> {
+    meta.open = chapters.get(open).or(chapters.first()).map(|c| c.id.clone());
+    let mut m = Node::manuscript(new_id());
+    m.children = chapters;
+    let ws = Workspace { items: vec![m], ..Workspace::default() };
+    meta.chapters = manuscript::mirror(&ws.items);
+    write_workspace(dir, &ws)?;
+    write_metadata(dir, meta)
+}
+
+/// Creates the folder tree, a Manuscrito with one empty chapter, and the metadata.
 pub fn create_book(root: &Path, title: &str) -> AppResult<(PathBuf, Metadata)> {
     let dir = unique_dir(root, &slugify(title));
     init_book_dirs(&dir)?;
-    let chapter = ChapterEntry::new(new_id());
-    write_chapter(&dir, &chapter, &Doc::default())?;
-    let meta = Metadata::new(new_id(), title, vec![chapter]);
-    write_metadata(&dir, &meta)?;
+    let chapter = new_chapter(&dir, "", &Doc::default())?;
+    let mut meta = Metadata::new(new_id(), title, vec![]);
+    write_new_book(&dir, &mut meta, vec![chapter], 0)?;
     Ok((dir, meta))
 }
 
@@ -100,19 +117,14 @@ pub fn write_samples(root: &Path) -> AppResult<()> {
         init_book_dirs(&dir)?;
         let mut chapters = Vec::new();
         for c in &sample.chapters {
-            let mut entry = ChapterEntry::new(new_id());
-            let doc = parse(c.body);
-            entry.title = c.title.to_string();
-            entry.status = c.status;
-            entry.notes = c.notes.to_string();
-            entry.words = doc_words(&doc);
-            write_chapter(&dir, &entry, &doc)?;
-            chapters.push(entry);
+            let mut node = new_chapter(&dir, c.title, &parse(c.body))?;
+            node.status = Some(c.status);
+            node.notes = c.notes.to_string();
+            chapters.push(node);
         }
-        let mut meta = Metadata::new(new_id(), sample.title, chapters);
-        meta.cur = sample.cur;
+        let mut meta = Metadata::new(new_id(), sample.title, vec![]);
         meta.updated_at = now_ms().saturating_sub(sample.age_hours * 3_600_000);
-        write_metadata(&dir, &meta)?;
+        write_new_book(&dir, &mut meta, chapters, sample.cur)?;
     }
     Ok(())
 }
@@ -120,6 +132,8 @@ pub fn write_samples(root: &Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{manuscript::chapters, metadata::ChapterEntry};
+    use crate::storage::workspace_io::read_workspace;
 
     #[test]
     fn listing_a_v1_book_writes_nothing() {
@@ -139,13 +153,29 @@ mod tests {
     #[test]
     fn create_then_scan() {
         let root = tempfile::tempdir().unwrap();
-        let (dir, meta) = create_book(root.path(), "Meu Livro").unwrap();
+        let (dir, _meta) = create_book(root.path(), "Meu Livro").unwrap();
         assert!(dir.ends_with("meu-livro"));
         assert!(dir.join("imagens").is_dir());
-        assert!(dir.join(&meta.chapters[0].file).is_file());
+        let items = read_workspace(&dir).unwrap().items;
+        assert!(dir.join(chapters(&items)[0].file.as_ref().unwrap()).is_file());
         let scan = scan(root.path()).unwrap();
         assert_eq!(scan.books.len(), 1);
         assert!(scan.warnings.is_empty());
+    }
+
+    #[test]
+    fn new_books_are_born_v2() {
+        let root = tempfile::tempdir().unwrap();
+        let (dir, meta) = create_book(root.path(), "Nova").unwrap();
+        let ws = read_workspace(&dir).unwrap();
+        assert_eq!(ws.version, 2);
+        assert_eq!(ws.items.len(), 1);
+        let only = chapters(&ws.items);
+        assert_eq!(only.len(), 1);
+        assert_eq!(meta.open.as_deref(), Some(only[0].id.as_str()));
+        // Born with the mirror, for the cloud server and older app versions.
+        assert_eq!(read_metadata(&dir).unwrap().chapters, manuscript::mirror(&ws.items));
+        assert!(!dir.join(crate::storage::paths::BACKUP_META_FILE).exists());
     }
 
     #[test]
@@ -226,7 +256,12 @@ mod tests {
         write_samples(root.path()).unwrap();
         let scan = scan(root.path()).unwrap();
         assert_eq!(scan.books.len(), 3);
-        assert!(scan.books.iter().all(|(_, m)| m.total_words() > 0));
+        assert!(scan.books.iter().all(|(d, _)| manuscript::total_words(&read_workspace(d).unwrap().items) > 0));
+        // Each sample opens on its `cur` chapter.
+        assert!(scan.books.iter().all(|(d, m)| {
+            let items = read_workspace(d).unwrap().items;
+            m.open.as_deref().is_some_and(|id| chapters(&items).iter().any(|c| c.id == id))
+        }));
         delete_book(&scan.books[0].0).unwrap();
         assert_eq!(super::scan(root.path()).unwrap().books.len(), 2);
     }

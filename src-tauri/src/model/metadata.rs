@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+#[cfg(test)]
 use crate::storage::paths::CHAPTERS_DIR;
 
 pub const METADATA_VERSION: u32 = 1;
@@ -99,13 +100,11 @@ impl Metadata {
             extra: Map::new(),
         }
     }
-
-    pub fn total_words(&self) -> usize {
-        self.chapters.iter().map(|c| c.words).sum()
-    }
 }
 
 impl ChapterEntry {
+    /// Test fixtures only: the app itself reads entries (migration) or derives them (mirror).
+    #[cfg(test)]
     pub fn new(id: String) -> Self {
         Self {
             file: format!("{CHAPTERS_DIR}/{id}.md"),

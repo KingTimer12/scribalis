@@ -1,23 +1,23 @@
-//! Brings a Scrivener project into a book: each chosen binder item becomes one chapter
-//! (its text plus its descendants'), everything else lands in the workspace.
+//! Brings a Scrivener project into a book: each chosen binder item becomes one chapter of the
+//! Manuscrito (its text plus its descendants'), everything else lands in the rest of the tree.
 //! One document in memory at a time.
 use std::{collections::HashSet, path::{Path, PathBuf}};
 
 use super::{binder::{BinderItem, ItemKind}, project::Project};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::ids::{new_id, now_ms};
 use crate::model::{
     doc::{Block, Doc},
-    metadata::{ChapterEntry, Metadata},
-    workspace::{Node, NodeKind},
+    manuscript::{chapters, manuscript_mut, mirror},
+    metadata::Metadata,
+    workspace::{remove, Node, NodeKind},
 };
-use crate::ops::library::{create_book, delete_book};
+use crate::ops::{library::{create_book, delete_book}, manuscript::new_chapter};
 use crate::storage::{
-    chapter_io::{delete_chapter_file, write_chapter},
+    chapter_io::delete_at,
     metadata_io::write_metadata,
     workspace_io::{copy_into_area, read_workspace, write_node_doc, write_workspace},
 };
-use crate::text::words::doc_words;
 
 pub struct Outcome {
     pub chapters: usize,
@@ -32,7 +32,7 @@ struct Ctx<'a> {
     dir: &'a Path,
     /// Keys of the items that become chapters.
     chapter_items: &'a HashSet<String>,
-    chapters: Vec<ChapterEntry>,
+    chapters: Vec<Node>,
     attachments: Vec<Node>,
     items: usize,
     warnings: usize,
@@ -127,7 +127,9 @@ impl Ctx<'_> {
             }
             _ => {
                 let title = title_of(item);
-                let mut folder = Node::folder(new_id(), &title);
+                // The Draft's leftovers must not look like the book's own Manuscrito.
+                let folder_title = if item.kind == ItemKind::Draft { format!("{title} (Scrivener)") } else { title.clone() };
+                let mut folder = Node::folder(new_id(), &folder_title);
                 self.items += 1;
                 let doc = self.text(&item.key);
                 let notes = self.project.notes(&item.key);
@@ -181,23 +183,19 @@ impl Ctx<'_> {
         Ok(())
     }
 
-    /// One chapter from `item`: its text and every descendant's, in binder order.
+    /// One chapter node from `item`: its text and every descendant's, in binder order.
     fn emit_chapter(&mut self, item: &BinderItem) -> AppResult<()> {
         let (mut blocks, mut notes) = (Vec::new(), Vec::new());
         self.gather(item, &mut blocks, &mut notes)?;
-        let doc = Doc::new(blocks);
-        let mut entry = ChapterEntry::new(new_id());
-        entry.title = title_of(item);
-        entry.notes = notes.join("\n\n");
-        entry.words = doc_words(&doc);
-        write_chapter(self.dir, &entry, &doc)?;
-        self.chapters.push(entry);
+        let mut node = new_chapter(self.dir, &title_of(item), &Doc::new(blocks))?;
+        node.notes = notes.join("\n\n");
+        self.chapters.push(node);
         Ok(())
     }
 }
 
-/// Imports into an existing book: chapters go after the current ones; workspace
-/// items go into a new folder named `wrap` (or the root when `None`).
+/// Imports into an existing (v2) book: chapters go to the end of the Manuscrito, in binder
+/// order; the other items go into a new folder named `wrap` (or the root when `None`).
 pub fn import_into(
     project: &Project,
     chapter_items: &HashSet<String>,
@@ -219,8 +217,8 @@ pub fn import_into(
         ctx.items += 1;
         nodes.push(folder);
     }
+    let mut ws = read_workspace(dir)?;
     if !nodes.is_empty() {
-        let mut ws = read_workspace(dir)?;
         match wrap {
             Some(title) => {
                 let mut folder = Node::folder(new_id(), &normalize_title(title));
@@ -229,13 +227,17 @@ pub fn import_into(
             }
             None => ws.items.extend(nodes),
         }
-        write_workspace(dir, &ws)?;
     }
-    let chapters = ctx.chapters.len();
-    meta.chapters.extend(ctx.chapters);
+    let chapter_count = ctx.chapters.len();
+    if chapter_count > 0 {
+        let m = manuscript_mut(&mut ws.items).ok_or_else(|| AppError::msg("Obra sem Manuscrito"))?;
+        m.children.extend(ctx.chapters);
+    }
+    write_workspace(dir, &ws)?;
+    meta.chapters = mirror(&ws.items);
     meta.updated_at = now_ms();
     write_metadata(dir, meta)?;
-    Ok(Outcome { chapters, items: ctx.items, warnings: ctx.warnings })
+    Ok(Outcome { chapters: chapter_count, items: ctx.items, warnings: ctx.warnings })
 }
 
 /// Creates a book named after the project and imports into it; if anything fails after
@@ -254,14 +256,19 @@ pub fn import_new_book(root: &Path, project: &Project, chapter_items: &HashSet<S
 }
 
 fn fill_new_book(project: &Project, chapter_items: &HashSet<String>, dir: &Path, meta: &mut Metadata) -> AppResult<Outcome> {
-    let starter = meta.chapters.remove(0);
+    let starter = chapters(&read_workspace(dir)?.items).first().map(|c| (*c).clone());
     let outcome = import_into(project, chapter_items, dir, meta, None)?;
-    if meta.chapters.is_empty() {
-        // Nothing became a chapter: keep the empty starter so the book stays valid.
-        meta.chapters.push(starter);
+    // Imported chapters replace the empty starter; with none, it stays so the book is valid.
+    if let (Some(starter), true) = (starter, outcome.chapters > 0) {
+        let mut ws = read_workspace(dir)?;
+        remove(&mut ws.items, &starter.id);
+        meta.open = chapters(&ws.items).first().map(|c| c.id.clone());
+        meta.chapters = mirror(&ws.items);
+        write_workspace(dir, &ws)?;
         write_metadata(dir, meta)?;
-    } else {
-        delete_chapter_file(dir, &starter)?;
+        if let Some(file) = &starter.file {
+            delete_at(dir, file)?;
+        }
     }
     Ok(outcome)
 }
@@ -271,10 +278,19 @@ mod tests {
     use super::*;
     use std::fs;
     use crate::model::doc::Block;
+    use crate::model::manuscript::chapters;
     use crate::model::workspace::NodeKind;
     use crate::ops::library::create_book;
-    use crate::storage::{chapter_io::read_chapter, workspace_io::read_workspace};
+    use crate::storage::{chapter_io::read_at, workspace_io::read_workspace};
     use crate::text::words::doc_text;
+
+    /// Chapters of a book in reading order, as (title, notes, file).
+    fn chapter_list(dir: &Path) -> Vec<(String, String, String)> {
+        chapters(&read_workspace(dir).unwrap().items)
+            .iter()
+            .map(|c| (c.title.clone(), c.notes.clone(), c.file.clone().unwrap()))
+            .collect()
+    }
 
     const BINDER: &str = r#"<ScrivenerProject><Binder>
       <BinderItem UUID="D" Type="DraftFolder"><Title>Manuscrito</Title><Children>
@@ -363,11 +379,12 @@ mod tests {
 
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (book, meta, out) = import_new_book(&root, &project, &folders(&["P1"])).unwrap();
+        let (book, _meta, out) = import_new_book(&root, &project, &folders(&["P1"])).unwrap();
         // "Vazio" has no content.rtf: an empty scene, not a warning.
         assert_eq!((out.chapters, out.warnings), (1, 0));
-        assert_eq!(meta.chapters[0].title, "Parte I & II");
-        let doc = read_chapter(&book, &meta.chapters[0]).unwrap();
+        let list = chapter_list(&book);
+        assert_eq!(list[0].0, "Parte I & II");
+        let doc = read_at(&book, &list[0].2).unwrap();
         let text = doc_text(&doc);
         assert!(text.starts_with("Ela chegou à cidade — cansada."), "{text:?}");
         assert!(text.contains("Ninguém a esperava."), "{text:?}");
@@ -379,7 +396,7 @@ mod tests {
         assert_eq!(attrs.text_align, None);
 
         let ws = read_workspace(&book).unwrap();
-        let place = &ws.items[0].children[0].children[0];
+        let place = &ws.items[1].children[0].children[0];
         assert_eq!(place.title, "Porto de Ilen");
         let place_doc = crate::storage::workspace_io::read_node_doc(&book, place.file.as_deref().unwrap()).unwrap();
         assert!(doc_text(&place_doc).starts_with("Coração do porto"), "{:?}", doc_text(&place_doc));
@@ -394,22 +411,27 @@ mod tests {
         let (dir, meta, out) = import_new_book(&root, &p, &folders(&["C1", "C2"])).unwrap();
         assert_eq!(meta.title, "Livro");
         assert_eq!((out.chapters, out.warnings), (2, 1));
-        assert_eq!(meta.chapters.len(), 2);
-        let c1 = &meta.chapters[0];
-        assert_eq!((c1.title.as_str(), c1.notes.as_str()), ("Capítulo 1", "Abertura"));
-        let d1 = read_chapter(&dir, c1).unwrap();
+        let list = chapter_list(&dir);
+        // The imported chapters replace the empty starter.
+        assert_eq!(list.len(), 2);
+        assert_eq!((list[0].0.as_str(), list[0].1.as_str()), ("Capítulo 1", "Abertura"));
+        let d1 = read_at(&dir, &list[0].2).unwrap();
         assert_eq!(d1.content.len(), 3);
         assert_eq!(d1.content[1], Block::Separator);
         assert_eq!(doc_text(&d1), "Primeira cena.\n\nSegunda cena.");
-        assert_eq!(meta.chapters[1].title, "Capítulo 2");
+        assert_eq!(list[1].0, "Capítulo 2");
         let ws = read_workspace(&dir).unwrap();
+        assert_eq!(meta.open.as_deref(), Some(chapters(&ws.items)[0].id.as_str()));
+        // The metadata mirror lists exactly the imported chapters, starter gone.
+        assert_eq!(meta.chapters, crate::model::manuscript::mirror(&ws.items));
         let titles: Vec<&str> = ws.items.iter().map(|n| n.title.as_str()).collect();
-        assert_eq!(titles, vec!["Pesquisa", "Anexos do manuscrito"]);
-        let research = &ws.items[0];
+        assert_eq!(titles, vec!["Manuscrito", "Pesquisa", "Anexos do manuscrito"]);
+        assert_eq!(ws.items[0].kind, NodeKind::Manuscript);
+        let research = &ws.items[1];
         assert_eq!(research.children.len(), 2); // "Sumiu" has no file: warning, no node
         assert_eq!((research.children[0].kind, research.children[0].notes.as_str()), (NodeKind::Text, "Protagonista"));
         assert_eq!(research.children[1].kind, NodeKind::File);
-        assert_eq!(ws.items[1].children[0].kind, NodeKind::Image);
+        assert_eq!(ws.items[2].children[0].kind, NodeKind::Image);
         assert!(!ws.items.iter().any(|n| n.title == "Lixeira"));
     }
 
@@ -420,11 +442,14 @@ mod tests {
         let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
         let out = import_into(&p, &folders(&["C1", "C2"]), &dir, &mut meta, Some("Livro")).unwrap();
         assert_eq!(out.chapters, 2);
-        assert_eq!(meta.chapters.len(), 3);
+        let list = chapter_list(&dir);
+        assert_eq!(list.len(), 3);
+        assert_eq!((list[1].0.as_str(), list[2].0.as_str()), ("Capítulo 1", "Capítulo 2"));
         let ws = read_workspace(&dir).unwrap();
-        assert_eq!(ws.items.len(), 1);
-        assert_eq!(ws.items[0].title, "Livro");
-        assert_eq!(ws.items[0].children[0].title, "Pesquisa");
+        assert_eq!(ws.items.len(), 2);
+        assert_eq!(ws.items[1].title, "Livro");
+        assert_eq!(ws.items[1].children[0].title, "Pesquisa");
+        assert_eq!(meta.chapters.len(), 3);
     }
 
     #[test]
@@ -434,12 +459,12 @@ mod tests {
         let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
         import_into(&p, &folders(&["C1", "C2"]), &dir, &mut meta, Some("  Livro  ")).unwrap();
         let ws = read_workspace(&dir).unwrap();
-        assert_eq!(ws.items[0].title, "Livro");
+        assert_eq!(ws.items[1].title, "Livro");
 
         let (dir2, mut meta2) = create_book(tmp.path(), "Outra").unwrap();
         import_into(&p, &folders(&["C1", "C2"]), &dir2, &mut meta2, Some("   ")).unwrap();
         let ws2 = read_workspace(&dir2).unwrap();
-        assert_eq!(ws2.items[0].title, "Sem título");
+        assert_eq!(ws2.items[1].title, "Sem título");
     }
 
     #[test]
@@ -477,7 +502,7 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let (book_dir, _meta, _out) = import_new_book(&root, &p, &HashSet::new()).unwrap();
         let ws = read_workspace(&book_dir).unwrap();
-        let pesquisa = &ws.items[0];
+        let pesquisa = &ws.items[1];
         assert_eq!(pesquisa.title, "Pesquisa");
         let mapa = &pesquisa.children[0];
         assert_eq!((mapa.kind, mapa.title.as_str()), (NodeKind::Folder, "Mapa"));
@@ -511,13 +536,13 @@ mod tests {
 
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (book_dir, meta, out) = import_new_book(&root, &p, &folders(&["C1"])).unwrap();
+        let (book_dir, _meta, out) = import_new_book(&root, &p, &folders(&["C1"])).unwrap();
         assert_eq!(out.chapters, 1);
-        let doc = read_chapter(&book_dir, &meta.chapters[0]).unwrap();
+        let doc = read_at(&book_dir, &chapter_list(&book_dir)[0].2).unwrap();
         assert_eq!(doc_text(&doc), "Primeira cena.\n\nTexto da legenda.");
         let ws = read_workspace(&book_dir).unwrap();
-        assert_eq!(ws.items[0].title, "Anexos do manuscrito");
-        assert_eq!((ws.items[0].children[0].kind, ws.items[0].children[0].title.as_str()), (NodeKind::Image, "Foto"));
+        assert_eq!(ws.items[1].title, "Anexos do manuscrito");
+        assert_eq!((ws.items[1].children[0].kind, ws.items[1].children[0].title.as_str()), (NodeKind::Image, "Foto"));
     }
 
     #[test]
@@ -527,20 +552,22 @@ mod tests {
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
         // One scene alone, and a research text: the rest of the manuscript stays in the workspace.
-        let (dir, meta, out) = import_new_book(&root, &p, &folders(&["S2", "N1"])).unwrap();
+        let (dir, _meta, out) = import_new_book(&root, &p, &folders(&["S2", "N1"])).unwrap();
         assert_eq!(out.chapters, 2);
-        let titles: Vec<&str> = meta.chapters.iter().map(|c| c.title.as_str()).collect();
+        let list = chapter_list(&dir);
+        let titles: Vec<&str> = list.iter().map(|c| c.0.as_str()).collect();
         assert_eq!(titles, vec!["Cena 2", "Ana"]);
-        assert_eq!(meta.chapters[1].notes, "Protagonista");
+        assert_eq!(list[1].1, "Protagonista");
         let ws = read_workspace(&dir).unwrap();
-        let manuscript = &ws.items[0];
-        assert_eq!(manuscript.title, "Manuscrito");
-        let chapter1 = &manuscript.children[0];
+        // What was left of the Draft is a plain folder, named so it is not taken for the Manuscrito.
+        let leftover = &ws.items[1];
+        assert_eq!((leftover.kind, leftover.title.as_str()), (NodeKind::Folder, "Manuscrito (Scrivener)"));
+        let chapter1 = &leftover.children[0];
         assert_eq!(chapter1.title, "Capítulo 1");
         let left: Vec<&str> = chapter1.children.iter().map(|n| n.title.as_str()).collect();
         assert_eq!(left, vec!["Cena 1", "Esboço"]);
-        assert_eq!(manuscript.children[1].title, "Capítulo 2");
-        let research: Vec<&str> = ws.items[1].children.iter().map(|n| n.title.as_str()).collect();
+        assert_eq!(leftover.children[1].title, "Capítulo 2");
+        let research: Vec<&str> = ws.items[2].children.iter().map(|n| n.title.as_str()).collect();
         assert_eq!(research, vec!["Artigo"]);
     }
 
@@ -550,9 +577,9 @@ mod tests {
         let p = project(tmp.path());
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (_dir, meta, out) = import_new_book(&root, &p, &folders(&["IMG", "T", "X"])).unwrap();
+        let (dir, _meta, out) = import_new_book(&root, &p, &folders(&["IMG", "T", "X"])).unwrap();
         assert_eq!(out.chapters, 0);
-        assert_eq!(meta.chapters.len(), 1); // the empty starter stays
+        assert_eq!(chapter_list(&dir).len(), 1); // the empty starter stays
     }
 
     #[test]
@@ -561,14 +588,15 @@ mod tests {
         let p = project(tmp.path());
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (dir, meta, out) = import_new_book(&root, &p, &HashSet::new()).unwrap();
+        let (dir, _meta, out) = import_new_book(&root, &p, &HashSet::new()).unwrap();
         assert_eq!(out.chapters, 0);
         // The empty starter chapter stays, so the book is still valid.
-        assert_eq!(meta.chapters.len(), 1);
-        assert!(read_chapter(&dir, &meta.chapters[0]).is_ok());
+        let list = chapter_list(&dir);
+        assert_eq!(list.len(), 1);
+        assert!(read_at(&dir, &list[0].2).is_ok());
         let ws = read_workspace(&dir).unwrap();
-        assert_eq!(ws.items[0].title, "Manuscrito");
-        assert_eq!(ws.items[0].children[0].kind, NodeKind::Folder);
+        assert_eq!(ws.items[1].title, "Manuscrito (Scrivener)");
+        assert_eq!(ws.items[1].children[0].kind, NodeKind::Folder);
     }
 
     #[test]
