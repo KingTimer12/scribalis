@@ -2,6 +2,7 @@ import { render } from "solid-js/web";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PREFS } from "../../lib/constants";
 import { setState, state } from "../../store/state";
+import { newBook } from "../../test/newBook";
 import { SettingsPanel } from "./SettingsPanel";
 
 function mounted() {
@@ -55,6 +56,36 @@ describe("SettingsPanel", () => {
     const opt = Array.from(host.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((b) => b.textContent === "5.000")!;
     opt.click();
     expect(state.prefs.goal).toBe(5000);
+    done();
+  });
+
+  it("hides the Obra section when no book is open", () => {
+    setState("book", null);
+    const { host, done } = mounted();
+    expect(host.textContent).not.toContain("Obra");
+    done();
+  });
+
+  it("shows the Obra section with author, cover and image fields when a book is open", async () => {
+    await newBook();
+    const { host, done } = mounted();
+    expect(host.textContent).toContain("Obra");
+    expect(host.textContent).toContain("Autor");
+    expect(host.textContent).toContain("Capa");
+    expect(host.textContent).toContain("Separador de cena");
+    expect(host.textContent).toContain("Moldura superior");
+    expect(host.textContent).toContain("Moldura inferior");
+    done();
+  });
+
+  it("editing the author in the panel calls the same action as the palette (setBookAuthor)", async () => {
+    await newBook();
+    const { host, done } = mounted();
+    const input = host.querySelector<HTMLInputElement>("#set-author")!;
+    input.value = "Machado de Assis";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    input.dispatchEvent(new FocusEvent("blur"));
+    expect(state.book?.author).toBe("Machado de Assis");
     done();
   });
 });

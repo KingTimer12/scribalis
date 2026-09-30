@@ -1,10 +1,11 @@
 import { insertSeparator } from "../../editor/bridge";
 import { STATUS_LABEL, WIDTH_LABEL } from "../../lib/constants";
 import { fmt, pad } from "../../lib/format";
-import { setBookAuthor, setSeparatorText } from "../actions/book";
+import { setBookAuthor } from "../actions/book";
+import { changeBookCover, changeSeparatorText, removeBookCover } from "../actions/bookSettings";
 import { copyChapter, cycleStatus, moveChapterStep, newChapterAfterCurrent } from "../actions/chapters";
 import { backupNow, fetchComments } from "../actions/cloud";
-import { clearBookImage, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
+import { clearBookImage, insertChapterImage, pickBookImage } from "../actions/images";
 import { goChapterStep } from "../actions/open";
 import { cycleGoal, cycleWidth, textBigger, textSmaller } from "../actions/prefs";
 import { openPanel } from "../actions/ui";
@@ -22,7 +23,7 @@ export function bookSettingsCommands(): Command[] {
     { label: "Autor da obra" + (b.author ? ": " + b.author : "…"), hint: "", keep: true, act: () => promptFor("Autor", b.author, setBookAuthor) },
     {
       label: "Separador: texto" + (sep.type === "text" ? " (" + sep.text + ")" : "…"), hint: "", keep: true,
-      act: () => promptFor("Separador", sep.type === "text" ? sep.text : "* * *", setSeparatorText),
+      act: changeSeparatorText,
     },
     { label: "Separador: imagem…", hint: "", act: () => pickBookImage("separator") },
     { label: "Moldura superior: escolher imagem", hint: "", act: () => pickBookImage("header") },
@@ -31,7 +32,8 @@ export function bookSettingsCommands(): Command[] {
     ...(b.footer ? [{ label: "Moldura inferior: remover", hint: "", act: () => clearBookImage("footer") }] : []),
     { label: "Inserir imagem no capítulo", hint: "Ctrl Shift I", act: insertChapterImage },
     { label: "Inserir separador", hint: "Ctrl Enter", act: insertSeparator },
-    { label: "Capa da obra", hint: "", act: () => pickCover(b.id) },
+    { label: "Capa da obra", hint: "", act: () => void changeBookCover() },
+    ...(b.cover ? [{ label: "Remover capa da obra", hint: "", act: () => void removeBookCover() }] : []),
   ];
 }
 

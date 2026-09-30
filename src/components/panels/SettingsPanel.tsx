@@ -1,9 +1,11 @@
+import { Show } from "solid-js";
 import { GOALS, UI_SCALES, UI_SCALE_LABEL } from "../../lib/constants";
 import { fmt } from "../../lib/format";
 import { setGoal, setTheme, setUiScale, setWidth, textBigger, textReset, textSmaller } from "../../store/actions/prefs";
 import { closePanel } from "../../store/actions/ui";
 import { focusRef } from "../../store/focus";
 import { state } from "../../store/state";
+import { BookSettings } from "../settings/BookSettings";
 import { Hint } from "../ui/Hint";
 import { IconClose, IconMinus, IconPlus } from "../ui/icons";
 import { Scrim } from "../ui/Scrim";
@@ -81,6 +83,10 @@ export function SettingsPanel() {
               <Segmented label="Meta diária" value={state.prefs.goal} onChange={setGoal} options={GOAL_OPTIONS} />
             </div>
           </section>
+
+          <Show when={state.book}>
+            <BookSettings />
+          </Show>
         </div>
 
         <div class="drawer-foot">
