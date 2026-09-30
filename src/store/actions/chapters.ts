@@ -74,12 +74,11 @@ export function cycleStatus() {
   setStatus(c.id, STATUS[(STATUS.indexOf(cur) + 1) % STATUS.length]);
 }
 
-/** Alt Shift ↑ / ↓: moves the open chapter one place among its siblings. */
-export function moveChapterStep(dir: -1 | 1) {
+/** Moves chapter `id` one place among its siblings; used by the open chapter's shortcut and by tree row menus. */
+export function moveChapterStepFor(id: string, dir: -1 | 1) {
   const b = state.book;
-  const c = currentChapter();
-  const loc = c ? locate(state.area, c.id) : null;
-  if (!b || !c || !loc) return;
+  const loc = locate(state.area, id);
+  if (!b || !loc) return;
   const siblings = (loc.parent ? findNode(state.area, loc.parent)?.children : state.area) ?? [];
   const to = loc.index + dir;
   if (to < 0 || to >= siblings.length) {
@@ -88,9 +87,15 @@ export function moveChapterStep(dir: -1 | 1) {
   }
   return run(async () => {
     await flushAll();
-    setState("area", await areaMove(b.id, c.id, loc.parent, to));
-    flash("Agora é o capítulo " + pad(chapterNumber(state.area, c.id)));
+    setState("area", await areaMove(b.id, id, loc.parent, to));
+    flash("Agora é o capítulo " + pad(chapterNumber(state.area, id)));
   });
+}
+
+/** Alt Shift ↑ / ↓: moves the open chapter one place among its siblings. */
+export function moveChapterStep(dir: -1 | 1) {
+  const id = currentChapter()?.id;
+  if (id) return moveChapterStepFor(id, dir);
 }
 
 /** "Copiar para publicar": the heading plus the markdown of chapter `id` (the open one by default). */

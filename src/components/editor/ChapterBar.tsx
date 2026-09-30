@@ -39,8 +39,8 @@ function NavButton(props: { dir: -1 | 1 }) {
 function statusMenuItems(id: string, current: Status): MenuItem[] {
   return [
     ...STATUS.map((s): MenuItem => ({ label: STATUS_LABEL[s], disabled: s === current, act: () => setStatus(id, s) })),
-    { label: "Mover para cima (Alt Shift ↑)", act: () => void moveChapterStep(-1) },
-    { label: "Mover para baixo (Alt Shift ↓)", act: () => void moveChapterStep(1) },
+    { label: "Mover para cima", hint: "Alt Shift ↑", act: () => void moveChapterStep(-1) },
+    { label: "Mover para baixo", hint: "Alt Shift ↓", act: () => void moveChapterStep(1) },
   ];
 }
 

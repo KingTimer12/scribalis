@@ -5,6 +5,8 @@ export interface MenuItem {
   act: () => void;
   danger?: boolean;
   disabled?: boolean;
+  /** Shortcut shown right-aligned and muted (e.g. "F2", "Alt Shift ↑"). */
+  hint?: string;
 }
 
 export interface ContextMenuProps {
@@ -89,7 +91,8 @@ export function ContextMenu(props: ContextMenuProps) {
             onPointerEnter={() => !it.disabled && setIdx(i())}
             onClick={() => run(it)}
           >
-            {it.label}
+            <span class="ctx-label">{it.label}</span>
+            {it.hint && <span class="ctx-hint">{it.hint}</span>}
           </div>
         )}
       </For>

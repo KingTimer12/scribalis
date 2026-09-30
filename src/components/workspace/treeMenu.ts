@@ -2,7 +2,7 @@ import type { AreaNode } from "../../api/types";
 import { STATUS, STATUS_LABEL } from "../../lib/constants";
 import { pad } from "../../lib/format";
 import { chapterNumber, inManuscript } from "../../lib/manuscript";
-import { copyChapter, setStatus } from "../../store/actions/chapters";
+import { copyChapter, moveChapterStepFor, setStatus } from "../../store/actions/chapters";
 import { openNode, selectNode } from "../../store/actions/open";
 import { openPanel } from "../../store/actions/ui";
 import {
@@ -15,10 +15,10 @@ import type { MenuItem } from "../ui/ContextMenu";
 // items land in the selected folder: right click selects first, see `selectForMenu`. The
 // "Status" submenu is flattened into three items (the context menu has no submenus).
 
-const newChapter: MenuItem = { label: "Novo capítulo", act: () => void createNode("chapter") };
-const newFolder: MenuItem = { label: "Nova pasta", act: () => void createNode("folder") };
+const newChapter: MenuItem = { label: "Novo capítulo", hint: "N", act: () => void createNode("chapter") };
+const newFolder: MenuItem = { label: "Nova pasta", hint: "Shift N", act: () => void createNode("folder") };
 const outsideCreators = (): MenuItem[] => [
-  { label: "Novo texto", act: () => void createNode("text") },
+  { label: "Novo texto", hint: "N", act: () => void createNode("text") },
   newFolder,
   { label: "Adicionar imagem ou arquivo…", act: () => void addFiles() },
 ];
@@ -28,13 +28,13 @@ export function newMenu(): MenuItem[] {
   const sel = state.areaSel;
   if (sel && inManuscript(state.area, sel)) {
     return [
-      { label: "Capítulo", act: () => void createNode("chapter") },
-      { label: "Pasta", act: () => void createNode("folder") },
+      { label: "Capítulo", hint: "N", act: () => void createNode("chapter") },
+      { label: "Pasta", hint: "Shift N", act: () => void createNode("folder") },
     ];
   }
   return [
-    { label: "Texto", act: () => void createNode("text") },
-    { label: "Pasta", act: () => void createNode("folder") },
+    { label: "Texto", hint: "N", act: () => void createNode("text") },
+    { label: "Pasta", hint: "Shift N", act: () => void createNode("folder") },
     { label: "Imagem ou arquivo…", act: () => void addFiles() },
   ];
 }
@@ -58,8 +58,8 @@ function share(node: AreaNode): MenuItem {
 export function treeMenu(node: AreaNode | null): MenuItem[] {
   if (!node) return outsideCreators();
   const id = node.id;
-  const rename: MenuItem = { label: "Renomear", act: () => startNodeRename(id) };
-  const del: MenuItem = { label: "Excluir", danger: true, act: () => void requestDelete(id) };
+  const rename: MenuItem = { label: "Renomear", hint: "F2", act: () => startNodeRename(id) };
+  const del: MenuItem = { label: "Excluir", hint: "Del", danger: true, act: () => void requestDelete(id) };
   const open: MenuItem = { label: "Abrir", act: () => void openNode(id) };
   switch (node.kind) {
     case "manuscript":
@@ -76,6 +76,8 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
           disabled: (node.status ?? "rascunho") === s,
           act: () => setStatus(id, s),
         })),
+        { label: "Mover para cima", hint: "Alt Shift ↑", act: () => void moveChapterStepFor(id, -1) },
+        { label: "Mover para baixo", hint: "Alt Shift ↓", act: () => void moveChapterStepFor(id, 1) },
         share(node),
         { label: "Copiar para publicar", act: () => void copyChapter(id) },
         { label: "Mover para fora do Manuscrito", act: () => void moveOutOfManuscript(id) },

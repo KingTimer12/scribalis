@@ -5,6 +5,7 @@ describe("board menus", () => {
   it("has the card and background items", () => {
     expect(cardMenu("a").map((i) => i.label)).toEqual(["Novo cartão depois", "Duplicar", "Excluir"]);
     expect(cardMenu("a")[2].danger).toBe(true);
+    expect(cardMenu("a")[2].hint).toBe("Del");
     expect(backgroundMenu().map((i) => i.label)).toEqual(["Novo cartão"]);
   });
 });

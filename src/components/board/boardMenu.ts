@@ -10,7 +10,7 @@ export function cardMenu(id: string): MenuItem[] {
       act: () => void createCard(state.board.findIndex((c) => c.id === id) + 1),
     },
     { label: "Duplicar", act: () => void duplicateCard(id) },
-    { label: "Excluir", danger: true, act: () => void requestCardDelete(id) },
+    { label: "Excluir", hint: "Del", danger: true, act: () => void requestCardDelete(id) },
   ];
 }
 

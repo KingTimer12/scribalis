@@ -8,6 +8,7 @@ import { cancelNodeRename, commitNodeRename, startNodeRename } from "../../store
 import { focusTarget } from "../../store/focus";
 import { bookWordsLive } from "../../store/selectors/book";
 import { setState, state } from "../../store/state";
+import { IconMore } from "../ui/icons";
 import { StatusDot } from "../ui/StatusDot";
 import { consumeDragClick, drag, pointerDownOnRow } from "./dragMove";
 import { MissingIcon } from "./MissingIcon";
@@ -126,6 +127,22 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
       <Show when={node().missing}>
         <MissingIcon />
       </Show>
+      {/* Own pointerdown/click stay local: it must not start a drag, toggle the row or open it. */}
+      <button
+        type="button"
+        class="row-more"
+        aria-label={"Mais ações de " + displayTitle(state.area, node())}
+        title="Mais ações"
+        aria-haspopup="menu"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          props.onMenu(r.right, r.bottom + 4);
+        }}
+      >
+        <IconMore size={14} />
+      </button>
     </div>
   );
 }

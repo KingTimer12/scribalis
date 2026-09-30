@@ -20,7 +20,8 @@ describe("tree menus", () => {
     expect(labels(menuOf("m"))).toEqual(["Novo capítulo", "Nova pasta"]);
     expect(labels(menuOf("p"))).toEqual(["Novo capítulo", "Nova pasta", "Renomear", "Excluir"]);
     expect(labels(menuOf("c2"))).toEqual([
-      "Renomear", "Status: Rascunho", "Status: Revisão", "Status: Pronto", "Compartilhar…",
+      "Renomear", "Status: Rascunho", "Status: Revisão", "Status: Pronto",
+      "Mover para cima", "Mover para baixo", "Compartilhar…",
       "Copiar para publicar", "Mover para fora do Manuscrito", "Excluir",
     ]);
     expect(labels(menuOf("f"))).toEqual(["Novo texto", "Nova pasta", "Adicionar imagem ou arquivo…", "Renomear", "Compartilhar…", "Excluir"]);
@@ -28,6 +29,19 @@ describe("tree menus", () => {
     expect(labels(menuOf("i"))).toEqual(["Abrir", "Renomear", "Excluir"]);
     expect(labels(menuOf("a"))).toEqual(["Abrir", "Abrir no app padrão", "Renomear", "Excluir"]);
     expect(labels(treeMenu(null))).toEqual(["Novo texto", "Nova pasta", "Adicionar imagem ou arquivo…"]);
+  });
+
+  it("fills hints wherever a shortcut exists", () => {
+    setState({ area, areaSel: null });
+    const byLabel = (items: ReturnType<typeof menuOf>, label: string) => items.find((i) => i.label === label);
+    expect(byLabel(menuOf("p"), "Renomear")?.hint).toBe("F2");
+    expect(byLabel(menuOf("p"), "Excluir")?.hint).toBe("Del");
+    expect(byLabel(menuOf("f"), "Novo texto")?.hint).toBe("N");
+    expect(byLabel(menuOf("f"), "Nova pasta")?.hint).toBe("Shift N");
+    expect(byLabel(menuOf("c2"), "Mover para cima")?.hint).toBe("Alt Shift ↑");
+    expect(byLabel(menuOf("c2"), "Mover para baixo")?.hint).toBe("Alt Shift ↓");
+    setState("areaSel", "c1");
+    expect(byLabel(newMenu(), "Capítulo")?.hint).toBe("N");
   });
 
   it("marks the chapter's current status", () => {
