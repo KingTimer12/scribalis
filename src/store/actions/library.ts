@@ -6,6 +6,7 @@ import { areaTree } from "../../api/workspace";
 import { docWords } from "../../lib/doc";
 import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
+import { loadBoard } from "./board";
 import { expandedFor } from "./expanded";
 import { initialNode, keyOf, loadNodeDoc } from "./open";
 import { backupAuto, fetchComments, loadBookCloud, syncCloudBadges } from "./cloud";
@@ -43,6 +44,7 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
           // the tree's screen state belongs to the previous book
           area: items, areaExpanded: expandedFor(id, items, node?.id ?? null), areaSel: node?.id ?? null,
           areaOpen: node?.id ?? null, areaRenaming: null, areaRenameVal: "",
+          board: [], boardText: {}, boardSel: null,
         });
       });
     if (doc && key) await swapDocument(doc, key, apply);
@@ -52,6 +54,7 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
       apply();
     }
     if (prev && prev !== id) backupAuto(prev);
+    void loadBoard(id);
     setState("cloudBook", null);
     void loadBookCloud(id).then((view) => {
       if (view?.enabled) void fetchComments(true);

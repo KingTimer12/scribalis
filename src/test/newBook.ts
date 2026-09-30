@@ -10,6 +10,7 @@ export async function newBook(): Promise<BookMeta> {
   setState({
     book, area, areaSel: null, areaOpen: null, areaExpanded: [],
     areaRenaming: null, areaRenameVal: "", toast: "", focus: false,
+    board: [], boardText: {}, boardSel: null,
   });
   return book;
 }

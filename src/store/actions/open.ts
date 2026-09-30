@@ -12,6 +12,7 @@ import { currentChapter } from "../selectors/book";
 import { setState, state } from "../state";
 import { reveal, toggleExpanded } from "./expanded";
 import { run } from "./run";
+import { setMainTab } from "./tabs";
 import { flash } from "./ui";
 
 /** Selects a node. */
@@ -58,6 +59,8 @@ export function openNode(id: string, focusBody = true) {
   if (!b || !node) return;
   selectNode(id);
   if (isContainer(node.kind)) return toggleExpanded(id);
+  // Opening a document shows it: the main pane goes back to the Editor tab.
+  setMainTab("editor");
   const key = keyOf(b.id, node);
   if (!key) {
     // The editor unmounts: land any pending text first, or its save would find no editor.

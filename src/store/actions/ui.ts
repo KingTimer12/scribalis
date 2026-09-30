@@ -2,6 +2,7 @@ import type { Panel } from "../../lib/types";
 import { focusTarget, type FocusTarget } from "../focus";
 import { openAreaNode } from "../selectors/workspace";
 import { setState, state } from "../state";
+import { mainTab } from "./tabs";
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -37,6 +38,8 @@ export function openPanel(name: Panel) {
 }
 
 export function toggleFocusMode() {
+  // Focus mode is for writing: the board tab has no text being written.
+  if (!state.focus && mainTab() === "board") return;
   const on = !state.focus;
   setState("focus", on);
   flash(on ? "Modo foco" : "Modo foco desligado");
