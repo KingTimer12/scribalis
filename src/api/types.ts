@@ -86,6 +86,17 @@ export interface Created {
   items: AreaNode[];
 }
 
+/** A card of the book's board; its text is loaded apart (`boardLoadText`). */
+export interface BoardCard {
+  id: string;
+  title: string;
+}
+
+export interface BoardCreated {
+  id: string;
+  cards: BoardCard[];
+}
+
 export interface LibraryListing {
   books: BookSummary[];
   warnings: string[];
@@ -103,6 +114,10 @@ export interface Prefs {
   font: 0 | 1 | 2;
   /** Books whose tree sidebar is collapsed. */
   sidebarClosed: string[];
+  /** Books whose main pane shows the Quadro tab. */
+  boardTab: string[];
+  /** Board card size: 0 P, 1 M, 2 G. */
+  cardSize: 0 | 1 | 2;
 }
 
 export type BookPatch = Partial<{ title: string; author: string; open: string; separatorText: string }>;

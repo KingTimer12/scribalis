@@ -1,4 +1,4 @@
-import type { AreaNode, BookMeta, BookSummary, DocJSON, Prefs, Separator, Share, Snapshot, Status } from "../types";
+import type { AreaNode, BoardCard, BookMeta, BookSummary, DocJSON, Prefs, Separator, Share, Snapshot, Status } from "../types";
 import { docWords } from "../../lib/doc";
 import { chapterOrder, manuscriptWords } from "../../lib/manuscript";
 
@@ -17,6 +17,9 @@ export interface MockBook {
   area: AreaNode[];
   /** Documents of chapters and texts; ids never change on conversion, so neither do the keys. */
   docs: Record<string, DocJSON>;
+  /** The book's board (order + titles) and each card's text. */
+  board?: BoardCard[];
+  boardText?: Record<string, string>;
 }
 
 let seq = 0;
@@ -71,7 +74,11 @@ function samples(): MockBook[] {
 /** Saved words of a book's chapters. */
 export const bookWords = (b: MockBook) => manuscriptWords(b.area);
 
-export const db = { books: samples(), prefs: { theme: "light", goal: 2000, width: 1, font: 1, sidebarClosed: [] } as Prefs, base: 0 };
+export const db = {
+  books: samples(),
+  prefs: { theme: "light", goal: 2000, width: 1, font: 1, sidebarClosed: [], boardTab: [], cardSize: 1 } as Prefs,
+  base: 0,
+};
 db.base = db.books.reduce((a, b) => a + bookWords(b), 0);
 
 export interface MockCloudBook {
