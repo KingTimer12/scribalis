@@ -1,8 +1,12 @@
-import { For, type JSX } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
 import type { Align } from "../../api/types";
-import { formatState, setAlign, toggleBold, toggleItalic } from "../../editor/format";
+import { insertSeparator } from "../../editor/bridge";
+import { clearParagraphFormat, formatState, setAlign, toggleBold, toggleItalic } from "../../editor/format";
+import { insertChapterImage } from "../../store/actions/images";
 import { openPanel } from "../../store/actions/ui";
+import { currentChapter } from "../../store/selectors/book";
 import { state } from "../../store/state";
+import { IconEraser, IconImage, IconSeparator } from "../ui/icons";
 
 /** Line offsets (x1, x2) per row: four strokes drawn like the window buttons. */
 const ALIGN_ROWS: Record<Align, [number, number][]> = {
@@ -69,6 +73,19 @@ export function FormatBar() {
           </FmtButton>
         )}
       </For>
+      {/* Scene separator and image insertion only make sense inside a chapter (see WriterKeys' separatorKey). */}
+      <Show when={currentChapter()}>
+        <span class="fmt-sep" aria-hidden="true" />
+        <FmtButton label="Inserir imagem" title="Inserir imagem (Ctrl Shift I)" pressed={false} onClick={() => void insertChapterImage()}>
+          <IconImage />
+        </FmtButton>
+        <FmtButton label="Inserir separador" title="Inserir separador (Ctrl Enter)" pressed={false} onClick={insertSeparator}>
+          <IconSeparator />
+        </FmtButton>
+      </Show>
+      <FmtButton label="Limpar formatação do parágrafo" title="Limpar formatação do parágrafo" pressed={false} onClick={clearParagraphFormat}>
+        <IconEraser />
+      </FmtButton>
       <span class="fmt-sep" aria-hidden="true" />
       <FmtButton
         label="Espaçamento do parágrafo"

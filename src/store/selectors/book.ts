@@ -16,6 +16,13 @@ export const currentNumber = () => {
   return c ? chapterNumber(state.area, c.id) : 0;
 };
 
+/** Whether the open chapter has an earlier / later one in reading order (Alt ↑ / Alt ↓), for the chapter bar's nav buttons. */
+export const hasPrevChapter = () => currentNumber() > 1;
+export const hasNextChapter = () => {
+  const n = currentNumber();
+  return n > 0 && n < chapterOrder(state.area).length;
+};
+
 /** Book total, using the live count for the open chapter. */
 export const bookWordsLive = () =>
   chapterOrder(state.area).reduce((a, c) => a + (c.id === state.areaOpen ? state.liveWords : (c.words ?? 0)), 0);

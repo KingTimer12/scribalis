@@ -4,6 +4,7 @@ import { currentChapter } from "../../store/selectors/book";
 import { state } from "../../store/state";
 import { BoardView } from "../board/BoardView";
 import { Editor } from "../editor/Editor";
+import { FocusExitButton } from "../editor/FocusExitButton";
 import { NodeView } from "./NodeView";
 
 function Tab(props: { tab: MainTab; label: string }) {
@@ -43,6 +44,10 @@ export function MainTabs() {
         {/* Mounted only while shown, so card texts load only when the Quadro is open. */}
         <Show when={onBoard()}>
           <BoardView />
+        </Show>
+        {/* The only chrome that stays reachable once the rest has faded out. */}
+        <Show when={state.focus}>
+          <FocusExitButton />
         </Show>
       </div>
     </div>

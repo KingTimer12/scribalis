@@ -6,6 +6,7 @@ import { focusTarget } from "../../store/focus";
 import { openAreaNode } from "../../store/selectors/workspace";
 import { state } from "../../store/state";
 import { FormatBar } from "../editor/FormatBar";
+import { FocusButton, NotesButton } from "../editor/NotesFocusButtons";
 import { RichEditor } from "../editor/RichEditor";
 import { EmptyArea } from "./EmptyArea";
 
@@ -21,6 +22,10 @@ function TextView(props: { node: AreaNode }) {
   return (
     <div class="col ws-doc flex h-full flex-col gap-3.5 pt-16">
       <h2 class="ed-title ws-title">{props.node.title}</h2>
+      <div class="chapter-bar chrome flex items-center justify-end gap-2">
+        <NotesButton />
+        <FocusButton />
+      </div>
       <FormatBar />
       <div class="ed-scroll" onClick={(e) => e.target === e.currentTarget && focusTarget("body", "end")}>
         <RichEditor scope="area" />

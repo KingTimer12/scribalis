@@ -1,6 +1,6 @@
 import { focusTarget } from "../../store/focus";
 import { BookImage } from "./BookImage";
-import { ChapterLabel } from "./ChapterLabel";
+import { ChapterBar } from "./ChapterBar";
 import { ChapterTitle } from "./ChapterTitle";
 import { FormatBar } from "./FormatBar";
 import { RichEditor } from "./RichEditor";
@@ -13,7 +13,7 @@ export function Editor() {
       onClick={(e) => e.target === e.currentTarget && focusTarget("body")}
     >
       <div class="col flex h-full flex-col gap-3.5 pt-16">
-        <ChapterLabel />
+        <ChapterBar />
         <FormatBar />
         <div class="ed-scroll" onClick={(e) => e.target === e.currentTarget && focusTarget("body", "end")}>
           <ChapterTitle />
