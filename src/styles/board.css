@@ -10,6 +10,17 @@
     flex: 1;
     min-height: 0;
   }
+  /* The Editor tab's pane: laid out like .ws-main, and kept mounted (only hidden) behind the Quadro. */
+  .ws-pane {
+    position: relative;
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .ws-pane[hidden] {
+    display: none;
+  }
   .ws-tabs {
     display: flex;
     gap: 4px;

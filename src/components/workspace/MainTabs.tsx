@@ -23,6 +23,7 @@ function Tab(props: { tab: MainTab; label: string }) {
 
 /** Main pane of the book: the Editor tab (open chapter, text, image, file) or the book's Quadro. */
 export function MainTabs() {
+  const onBoard = () => mainTab() === "board";
   return (
     <div class="ws-main-col">
       <Show when={!state.focus}>
@@ -32,12 +33,15 @@ export function MainTabs() {
         </div>
       </Show>
       <div class="ws-main" role="tabpanel">
-        <Show when={mainTab() === "board"} fallback={
-          // Non-keyed: moving between chapters keeps the chapter editor mounted.
+        {/* Only hidden behind the Quadro: unmounting it would drop the open document and its pending save. */}
+        <div class="ws-pane" hidden={onBoard()}>
+          {/* Non-keyed: moving between chapters keeps the chapter editor mounted. */}
           <Show when={currentChapter()} fallback={<NodeView />}>
             <Editor />
           </Show>
-        }>
+        </div>
+        {/* Mounted only while shown, so card texts load only when the Quadro is open. */}
+        <Show when={onBoard()}>
           <BoardView />
         </Show>
       </div>

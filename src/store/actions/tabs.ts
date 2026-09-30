@@ -1,5 +1,7 @@
+import { flushAll } from "../saving";
 import { state } from "../state";
 import { updatePrefs } from "./prefs";
+import { flashError } from "./ui";
 
 export type MainTab = "editor" | "board";
 
@@ -9,6 +11,8 @@ export const mainTab = (): MainTab => (state.book && state.prefs.boardTab.includ
 export function setMainTab(tab: MainTab) {
   const id = state.book?.id;
   if (!id || mainTab() === tab) return;
+  // Land pending text and card edits before the other view takes over.
+  flushAll().catch(flashError);
   const others = state.prefs.boardTab.filter((x) => x !== id);
   updatePrefs({ boardTab: tab === "board" ? [...others, id] : others });
 }
