@@ -59,7 +59,7 @@ function StatusButton() {
         class="bar-btn"
         aria-haspopup="menu"
         aria-label={"Status: " + STATUS_LABEL[status()]}
-        title="Mudar status (Alt S)"
+        title="Status do capítulo (Alt S passa para o próximo)"
         onClick={open}
       >
         <StatusDot status={status()} />

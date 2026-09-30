@@ -32,3 +32,24 @@ describe("text size shortcuts", () => {
     expect(state.prefs.textPx).toBe(20);
   });
 });
+
+describe("Escape", () => {
+  it("exits focus mode when no panel is open to close instead", () => {
+    setState({ panel: null, focus: true });
+    expect(press("Escape", "Escape", { ctrlKey: false }).defaultPrevented).toBe(true);
+    expect(state.focus).toBe(false);
+  });
+
+  it("closes an open panel first, leaving focus mode alone", () => {
+    setState({ panel: "notes", focus: true });
+    press("Escape", "Escape", { ctrlKey: false });
+    expect(state.panel).toBeNull();
+    expect(state.focus).toBe(true);
+  });
+
+  it("does nothing focus-related with neither a panel nor focus mode open", () => {
+    setState({ panel: null, focus: false });
+    expect(press("Escape", "Escape", { ctrlKey: false }).defaultPrevented).toBe(true);
+    expect(state.focus).toBe(false);
+  });
+});

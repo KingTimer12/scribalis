@@ -45,8 +45,13 @@ export function rootKey(e: KeyboardEvent) {
     if (e.shiftKey) void moveChapterStep(dir);
     else void goChapterStep(dir);
   } else if (chapter && e.altKey && !mod && code === "KeyS") cycleStatus();
-  else if (e.key === "Escape") closePanel();
-  else handled = false;
+  else if (e.key === "Escape") {
+    // Panels/dialogs/menus that want Esc for themselves stop propagation before it gets here
+    // (ConfirmDialog, ContextMenu, rename fields...), so reaching this point with no panel open
+    // means focus mode (if on) is the only thing left for Esc to close.
+    if (!state.panel && state.focus) toggleFocusMode();
+    else closePanel();
+  } else handled = false;
 
   if (handled) {
     e.preventDefault();

@@ -20,17 +20,22 @@ export function FocusExitButton() {
     clearTimeout(timer);
     timer = setTimeout(() => setShow(false), HIDE_AFTER_MS);
   };
+  // Typing must not keep this on screen: only Tab (moving focus) and Escape (the way out) count
+  // as "the user is reaching for the chrome", not every keystroke.
+  const wakeOnKey = (e: KeyboardEvent) => {
+    if (e.key === "Tab" || e.key === "Escape") wake();
+  };
 
   onMount(() => {
     wake();
     window.addEventListener("mousemove", wake);
-    window.addEventListener("keydown", wake);
+    window.addEventListener("keydown", wakeOnKey);
     window.addEventListener("focusin", wake);
   });
   onCleanup(() => {
     clearTimeout(timer);
     window.removeEventListener("mousemove", wake);
-    window.removeEventListener("keydown", wake);
+    window.removeEventListener("keydown", wakeOnKey);
     window.removeEventListener("focusin", wake);
   });
 
