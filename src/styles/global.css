@@ -514,8 +514,11 @@
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
-  /* "⋯" at the row's right end: hidden until hover, selection or its own keyboard focus. */
+  /* "⋯" at the row's right end: hidden until hover, selection or its own keyboard focus. The
+     visible glyph stays small so the row height doesn't grow; ::before pads the hit area out
+     to the 32x32 minimum without affecting layout (it's out-of-flow, positioned on the button). */
   .row-more {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -530,6 +533,11 @@
     cursor: pointer;
     opacity: 0;
     transition: opacity 0.15s, background 0.15s, color 0.15s;
+  }
+  .row-more::before {
+    content: "";
+    position: absolute;
+    inset: -5px;
   }
   .ws-row:hover .row-more,
   .ws-row.sel .row-more,
@@ -828,23 +836,30 @@
     min-width: 0;
   }
   /* "⋯" over the cover's top-left corner (the cloud badge owns the top-right); hidden until
-     hover, selection or its own keyboard focus, but always present in the DOM and Tab-reachable. */
+     hover, selection or its own keyboard focus, but always present in the DOM and Tab-reachable.
+     32x32 hit area (design rule minimum): there is room here, so the visible box just matches it. */
   .tile-more {
     position: absolute;
     top: 6px;
     left: 6px;
     z-index: 2;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     background: var(--panel);
     opacity: 0;
     pointer-events: none;
+    transition: opacity 0.15s;
   }
   .tile:hover .tile-more,
   .tile.sel .tile-more,
   .tile-more:focus-visible {
     opacity: 1;
     pointer-events: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tile-more {
+      transition: none;
+    }
   }
   .cover-btn {
     position: relative;
