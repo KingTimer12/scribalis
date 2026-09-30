@@ -2,7 +2,7 @@ import { cycleStatus, moveChapterStep } from "../actions/chapters";
 import { insertChapterImage } from "../actions/images";
 import { goLibrary } from "../actions/library";
 import { goChapterStep } from "../actions/open";
-import { toggleTheme } from "../actions/prefs";
+import { textBigger, textReset, textSmaller, toggleTheme } from "../actions/prefs";
 import { toggleSidebar } from "../actions/sidebar";
 import { mainTab } from "../actions/tabs";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
@@ -27,6 +27,10 @@ export function rootKey(e: KeyboardEvent) {
 
   if (mod && (k === "k" || code === "KeyK")) openPanel("palette");
   else if (mod && !e.shiftKey && (k === "j" || code === "KeyJ")) toggleTheme();
+  // Text size; Alt is excluded so AltGr chords (Ctrl+Alt on Windows) still type their character.
+  else if (mod && !e.altKey && (k === "=" || k === "+" || code === "Equal" || code === "NumpadAdd")) textBigger();
+  else if (mod && !e.altKey && (k === "-" || code === "Minus" || code === "NumpadSubtract")) textSmaller();
+  else if (mod && !e.altKey && (k === "0" || code === "Digit0" || code === "Numpad0")) textReset();
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
   else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
   else if (inBook && mod && !e.shiftKey && (k === "e" || code === "KeyE")) toggleSidebar();

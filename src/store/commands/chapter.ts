@@ -1,12 +1,12 @@
 import { insertSeparator } from "../../editor/bridge";
-import { FONT_LABEL, STATUS_LABEL, WIDTH_LABEL } from "../../lib/constants";
+import { STATUS_LABEL, WIDTH_LABEL } from "../../lib/constants";
 import { fmt, pad } from "../../lib/format";
 import { setBookAuthor, setSeparatorText } from "../actions/book";
 import { copyChapter, cycleStatus, moveChapterStep, newChapterAfterCurrent } from "../actions/chapters";
 import { backupNow, fetchComments } from "../actions/cloud";
 import { clearBookImage, insertChapterImage, pickBookImage, pickCover } from "../actions/images";
 import { goChapterStep } from "../actions/open";
-import { cycleFont, cycleGoal, cycleWidth } from "../actions/prefs";
+import { cycleGoal, cycleWidth, textBigger, textSmaller } from "../actions/prefs";
 import { openPanel } from "../actions/ui";
 import { currentChapter, currentNumber } from "../selectors/book";
 import { setState, state } from "../state";
@@ -63,7 +63,8 @@ export function chapterCommands(): Command[] {
       : []),
     { label: "Meta diária: " + fmt(state.prefs.goal) + " palavras", hint: "", act: cycleGoal },
     { label: "Largura do texto: " + WIDTH_LABEL[state.prefs.width], hint: "", act: cycleWidth },
-    { label: "Tamanho da letra: " + FONT_LABEL[state.prefs.font], hint: "", act: cycleFont },
+    { label: "Aumentar texto (" + state.prefs.textPx + " px)", hint: "Ctrl +", keep: true, act: textBigger },
+    { label: "Diminuir texto (" + state.prefs.textPx + " px)", hint: "Ctrl −", keep: true, act: textSmaller },
     ...formatCommands(),
     ...bookSettingsCommands(),
   ];

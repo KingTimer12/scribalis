@@ -111,7 +111,12 @@ export interface Prefs {
   theme: "light" | "dark";
   goal: number;
   width: 0 | 1 | 2;
+  /** Legacy 3-step text size: Rust reads it only to derive `textPx` for old files. */
   font: 0 | 1 | 2;
+  /** Chapter text size in px (even, 14 to 32). */
+  textPx: number;
+  /** Interface size: 0 normal, 1 large, 2 larger (see UI_SCALES). */
+  uiScale: 0 | 1 | 2;
   /** Books whose tree sidebar is collapsed. */
   sidebarClosed: string[];
   /** Books whose main pane shows the Quadro tab. */

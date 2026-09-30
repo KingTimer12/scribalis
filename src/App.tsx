@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
+import { createEffect, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { isTauri } from "./api/invoke";
 import type { CloudStatus } from "./api/types";
 import { BottomBar } from "./components/chrome/BottomBar";
@@ -14,6 +14,8 @@ import { NotesPanel } from "./components/panels/NotesPanel";
 import { SpacingPanel } from "./components/panels/SpacingPanel";
 import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
 import { Workspace } from "./components/workspace/Workspace";
+import { TEXT_PX_DEFAULT, UI_SCALES } from "./lib/constants";
+import { applyUiZoom } from "./lib/uiZoom";
 import { applyCloudStatus, backupOnClose, loadCloud, syncCloudBadges } from "./store/actions/cloud";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
@@ -60,6 +62,11 @@ export default function App() {
     window.removeEventListener("beforeunload", onUnload);
   });
 
+  const zoom = () => UI_SCALES[state.prefs.uiScale] ?? 1;
+  createEffect(() => applyUiZoom(zoom()));
+  // The chapter text is sized against the zoom so it stays at `textPx` on screen.
+  const sizes = () => ({ "--text-scale": String(state.prefs.textPx / TEXT_PX_DEFAULT), "--ui-zoom": String(zoom()) });
+
   const inBook = () => state.view === "book" && !!state.book;
   /** A chapter or a free text is open: notes and paragraph spacing apply to it. */
   const writing = () => {
@@ -68,7 +75,7 @@ export default function App() {
   };
 
   return (
-    <div class={`app ${state.prefs.theme} w${state.prefs.width} f${state.prefs.font}` + (state.focus && inBook() ? " focus" : "")}>
+    <div class={`app ${state.prefs.theme} w${state.prefs.width}` + (state.focus && inBook() ? " focus" : "")} style={sizes()}>
       <TopBar />
       <Show when={inBook()} fallback={<Library />}>
         <Workspace />

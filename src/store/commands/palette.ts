@@ -1,10 +1,11 @@
+import { UI_SCALE_LABEL } from "../../lib/constants";
 import { chapterOrder } from "../../lib/manuscript";
 import { fmt, norm, pad } from "../../lib/format";
 import { clearCover, pickCover } from "../actions/images";
 import { openBook, requestDeleteBook, restoreSamples, startNew, startRename } from "../actions/library";
 import { reveal } from "../actions/expanded";
 import { openNode } from "../actions/open";
-import { toggleTheme } from "../actions/prefs";
+import { cycleUiScale, toggleTheme } from "../actions/prefs";
 import { homeTarget, openPanel } from "../actions/ui";
 import { startScrivenerImport } from "../actions/scrivener";
 import { installUpdate } from "../actions/update";
@@ -28,6 +29,7 @@ export interface Command {
 function commonCommands(): Command[] {
   return [
     { label: state.prefs.theme === "dark" ? "Tema claro" : "Tema escuro", hint: "Ctrl J", act: toggleTheme },
+    { label: "Tamanho da interface: " + UI_SCALE_LABEL[state.prefs.uiScale], hint: "", keep: true, act: cycleUiScale },
     { label: "Atalhos", hint: "Ctrl /", act: () => openPanel("help") },
     { label: "Nuvem", hint: "Ctrl Shift S", act: () => openPanel("cloud") },
     ...(state.update ? [{ label: "Instalar versão " + state.update.version + " (reinicia)", hint: "", act: () => void installUpdate() }] : []),

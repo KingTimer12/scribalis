@@ -76,7 +76,7 @@ export const bookWords = (b: MockBook) => manuscriptWords(b.area);
 
 export const db = {
   books: samples(),
-  prefs: { theme: "light", goal: 2000, width: 1, font: 1, sidebarClosed: [], boardTab: [], cardSize: 1 } as Prefs,
+  prefs: { theme: "light", goal: 2000, width: 1, font: 1, textPx: 20, uiScale: 0, sidebarClosed: [], boardTab: [], cardSize: 1 } as Prefs,
   base: 0,
 };
 db.base = db.books.reduce((a, b) => a + bookWords(b), 0);

@@ -46,6 +46,9 @@
     --on-danger: #fff;
     --scrim: rgba(29, 28, 26, 0.16);
     --shadow: 0 30px 70px -24px rgba(40, 30, 20, 0.28);
+    /* Set inline from prefs: text size relative to 20px, and the interface zoom. */
+    --text-scale: 1;
+    --ui-zoom: 1;
     position: fixed;
     inset: 0;
     overflow: hidden;
@@ -262,7 +265,7 @@
     margin: 0;
     width: 100%;
     font-family: inherit;
-    font-size: 40px;
+    font-size: calc(40px * var(--text-scale) / var(--ui-zoom));
     font-weight: 500;
     letter-spacing: -0.01em;
     color: var(--ink);
@@ -282,7 +285,7 @@
   }
   .ed-body {
     outline: 0;
-    font-size: 20px;
+    font-size: calc(20px * var(--text-scale) / var(--ui-zoom));
     line-height: 1.8;
     color: var(--ink);
     caret-color: var(--accent);
@@ -347,12 +350,6 @@
   }
   .book-footer {
     margin: 24px auto 0;
-  }
-  .f0 .ed-body {
-    font-size: 18px;
-  }
-  .f2 .ed-body {
-    font-size: 22px;
   }
   .ed-title::placeholder,
   .pal-in::placeholder,
