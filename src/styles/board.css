@@ -1,0 +1,187 @@
+/* The book's board: ruled index cards on cork. */
+@layer components {
+  .ws-main-col {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ws-main-col > .ws-main {
+    flex: 1;
+    min-height: 0;
+  }
+  .ws-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 6px 16px 0;
+    border-bottom: 1px solid var(--faint);
+  }
+  .ws-tab {
+    border: 0;
+    background: transparent;
+    padding: 6px 12px;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+  }
+  .ws-tab.on {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+  .board {
+    --card-w: 300px;
+    --card-h: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 16px 24px;
+    box-sizing: border-box;
+  }
+  .board[data-size="0"] {
+    --card-w: 220px;
+    --card-h: 132px;
+  }
+  .board[data-size="2"] {
+    --card-w: 380px;
+    --card-h: 228px;
+  }
+  .board-head,
+  .board-size {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .board-head {
+    justify-content: space-between;
+  }
+  .board-size .crumb.on {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .board-cork {
+    --cork: #c8a47a;
+    --cork-dot: rgba(90, 58, 26, 0.18);
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--card-w));
+    grid-auto-rows: var(--card-h);
+    gap: 20px;
+    align-content: start;
+    justify-content: center;
+    padding: 24px;
+    border-radius: 6px;
+    outline: none;
+    background-color: var(--cork);
+    background-image: radial-gradient(var(--cork-dot) 1px, transparent 1.4px),
+      radial-gradient(var(--cork-dot) 1px, transparent 1.4px);
+    background-size: 7px 7px, 11px 11px;
+    background-position: 0 0, 3px 5px;
+  }
+  .board-cork:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+  .board-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 0;
+    color: #3a2a18;
+  }
+  .bcard {
+    --rule: #b9d4ea;
+    --rule-red: #d9534f;
+    --paper: #fffdf7;
+    --paper-ink: #2a2a2a;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 8px 12px 10px;
+    box-sizing: border-box;
+    background: var(--paper);
+    color: var(--paper-ink);
+    border-radius: 2px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 10px rgba(0, 0, 0, 0.12);
+    user-select: none;
+  }
+  .bcard.sel {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .bcard.dragging {
+    opacity: 0.5;
+  }
+  .bcard.drop-before::before,
+  .bcard.drop-after::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .bcard.drop-before::before {
+    left: -12px;
+  }
+  .bcard.drop-after::after {
+    right: -12px;
+  }
+  .bcard-title {
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--paper-ink);
+    font: inherit;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 2px 0 6px;
+    border-bottom: 1.5px solid var(--rule-red);
+  }
+  .bcard-text {
+    flex: 1;
+    min-height: 0;
+    border: 0;
+    outline: 0;
+    resize: none;
+    padding: 0;
+    margin-top: 4px;
+    color: var(--paper-ink);
+    font: inherit;
+    font-size: 14px;
+    line-height: 22px;
+    background: transparent;
+    background-image: linear-gradient(transparent 21px, var(--rule) 21px, var(--rule) 22px);
+    background-size: 100% 22px;
+    background-attachment: local;
+  }
+  .bcard-title::placeholder,
+  .bcard-text::placeholder {
+    color: #6b6b6b;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .bcard {
+      transition: opacity 0.15s ease, outline-color 0.15s ease;
+    }
+  }
+}
+
+/* Dark theme: dark felt, cards stay paper but dimmer. */
+.dark .board-cork {
+  --cork: #3b3129;
+  --cork-dot: rgba(0, 0, 0, 0.35);
+}
+.dark .bcard {
+  --paper: #ece6d8;
+  --rule: #a9bccb;
+}
+.dark .board-empty {
+  color: #e8dccb;
+}

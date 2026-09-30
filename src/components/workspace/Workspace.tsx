@@ -1,9 +1,7 @@
 import { Show } from "solid-js";
 import { sidebarOpen, toggleSidebar } from "../../store/actions/sidebar";
-import { currentChapter } from "../../store/selectors/book";
 import { state } from "../../store/state";
-import { Editor } from "../editor/Editor";
-import { NodeView } from "./NodeView";
+import { MainTabs } from "./MainTabs";
 import { SidebarFoot } from "./SidebarFoot";
 import { WorkspaceTree } from "./WorkspaceTree";
 
@@ -31,12 +29,7 @@ export function Workspace() {
           </aside>
         </Show>
       </Show>
-      <div class="ws-main">
-        {/* Non-keyed: moving between chapters keeps the chapter editor mounted. */}
-        <Show when={currentChapter()} fallback={<NodeView />}>
-          <Editor />
-        </Show>
-      </div>
+      <MainTabs />
     </div>
   );
 }
