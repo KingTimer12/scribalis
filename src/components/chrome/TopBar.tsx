@@ -6,10 +6,10 @@ import { goLibrary } from "../../store/actions/library";
 import { focusRef } from "../../store/focus";
 import { bookTitleKey } from "../../store/keys/fields";
 import { state } from "../../store/state";
-import { Hint } from "../ui/Hint";
 import { SrLabel } from "../ui/SrLabel";
 import { AppBrand } from "./AppBrand";
 import { ThemeToggle } from "./ThemeToggle";
+import { TopActions } from "./TopActions";
 import { UpdateBadge } from "./UpdateBadge";
 import { WindowControls } from "./WindowControls";
 
@@ -49,8 +49,7 @@ export function TopBar() {
       <div class="flex items-center gap-[18px]">
         <ThemeToggle />
         <UpdateBadge />
-        <Hint keys="Ctrl K">comandos</Hint>
-        <Hint keys="Ctrl /">atalhos</Hint>
+        <TopActions />
         <Show when={ownButtons}>
           <WindowControls />
         </Show>

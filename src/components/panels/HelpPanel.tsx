@@ -15,16 +15,27 @@ export function HelpPanel() {
           <div class="text-[28px] font-medium">Atalhos</div>
           <Hint keys="Esc">fechar</Hint>
         </div>
+        <p class="ui help-note">Tudo aqui também tem botão ou menu; os atalhos são opcionais.</p>
         <div class="grid grid-cols-2 gap-x-10">
           <For each={SHORTCUTS}>
-            {(s) => (
-              <div class="help-row">
-                <span>{s.label}</span>
-                <span class="flex gap-1">
-                  <For each={s.keys}>{(k) => <Kbd>{k}</Kbd>}</For>
-                </span>
-              </div>
-            )}
+            {(s) => {
+              const row = (
+                <>
+                  <span>{s.label}</span>
+                  <span class="flex gap-1">
+                    <For each={s.keys}>{(k) => <Kbd>{k}</Kbd>}</For>
+                  </span>
+                </>
+              );
+              // A row with a `run` action can be triggered from here; the rest are shortcut-only.
+              return s.run ? (
+                <button type="button" class="help-row help-row-btn" onClick={s.run}>
+                  {row}
+                </button>
+              ) : (
+                <div class="help-row">{row}</div>
+              );
+            }}
           </For>
         </div>
       </div>
