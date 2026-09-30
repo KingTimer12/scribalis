@@ -1,0 +1,175 @@
+/* Ajustes drawer: appearance and writing preferences. */
+@layer components {
+  .set-close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .set-close:hover {
+    background: var(--soft);
+    color: var(--ink);
+  }
+  .set-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .set-scroll {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    scrollbar-width: none;
+  }
+  .set-sec {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .set-head {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--faint);
+  }
+  .set-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .set-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- segmented control (Segmented.tsx) ---------- */
+  .seg {
+    display: inline-flex;
+    align-self: flex-start;
+    border: 1px solid var(--faint);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg-btn {
+    height: 30px;
+    padding: 0 12px;
+    border: 0;
+    border-right: 1px solid var(--faint);
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .seg-btn:last-child {
+    border-right: 0;
+  }
+  .seg-btn:hover {
+    background: var(--soft);
+  }
+  .seg-btn[aria-checked="true"] {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .seg-btn:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .seg-btn {
+      transition: none;
+    }
+  }
+
+  /* ---------- text size control ---------- */
+  .set-textctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .set-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--faint);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .set-icon-btn:hover {
+    background: var(--soft);
+  }
+  .set-icon-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .set-textval {
+    min-width: 52px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .set-link {
+    margin-left: auto;
+    border: 0;
+    background: none;
+    padding: 4px 2px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .set-link:hover {
+    color: var(--ink);
+  }
+  .set-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .set-preview {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: calc(20px * var(--text-scale) / var(--ui-zoom));
+    line-height: 1.5;
+    color: var(--ink);
+  }
+
+  /* ---------- daily goal button in the bottom bar ---------- */
+  .goal-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.15s;
+  }
+  .goal-btn:hover {
+    color: var(--ink);
+  }
+  .goal-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}

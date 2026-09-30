@@ -30,6 +30,7 @@ function commonCommands(): Command[] {
   return [
     { label: state.prefs.theme === "dark" ? "Tema claro" : "Tema escuro", hint: "Ctrl J", act: toggleTheme },
     { label: "Tamanho da interface: " + UI_SCALE_LABEL[state.prefs.uiScale], hint: "", keep: true, act: cycleUiScale },
+    { label: "Ajustes…", hint: "Ctrl ,", act: () => openPanel("settings") },
     { label: "Atalhos", hint: "Ctrl /", act: () => openPanel("help") },
     { label: "Nuvem", hint: "Ctrl Shift S", act: () => openPanel("cloud") },
     ...(state.update ? [{ label: "Instalar versão " + state.update.version + " (reinicia)", hint: "", act: () => void installUpdate() }] : []),

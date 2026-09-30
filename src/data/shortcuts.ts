@@ -30,6 +30,7 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Texto no tamanho padrão", keys: ["Ctrl", "0"] },
   { label: "Tema claro / escuro", keys: ["Ctrl", "J"] },
   { label: "Nuvem: backup e links", keys: ["Ctrl", "Shift", "S"] },
+  { label: "Ajustes (tema, texto, interface)", keys: ["Ctrl", ","] },
   { label: "Do título para o texto", keys: ["Enter"] },
   { label: "Obras: nova obra", keys: ["N"] },
   { label: "Obras: renomear", keys: ["R"] },

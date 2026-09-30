@@ -11,6 +11,7 @@ import { Library } from "./components/library/Library";
 import { CommandPalette } from "./components/panels/CommandPalette";
 import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
+import { SettingsPanel } from "./components/panels/SettingsPanel";
 import { SpacingPanel } from "./components/panels/SpacingPanel";
 import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
 import { Workspace } from "./components/workspace/Workspace";
@@ -97,6 +98,9 @@ export default function App() {
         </Match>
         <Match when={state.panel === "cloud"}>
           <CloudPanel />
+        </Match>
+        <Match when={state.panel === "settings"}>
+          <SettingsPanel />
         </Match>
       </Switch>
       <Show when={state.scrivener}>

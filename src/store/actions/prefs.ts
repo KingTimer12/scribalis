@@ -1,5 +1,5 @@
 import * as api from "../../api/prefs";
-import type { PrefsPatch } from "../../api/types";
+import type { Prefs, PrefsPatch } from "../../api/types";
 import {
   GOALS, TEXT_PX_DEFAULT, TEXT_PX_MAX, TEXT_PX_MIN, TEXT_PX_STEP, UI_SCALE_LABEL, UI_SCALES, WIDTH_LABEL,
 } from "../../lib/constants";
@@ -22,6 +22,7 @@ export function updatePrefs(patch: PrefsPatch) {
 }
 
 export const toggleTheme = () => updatePrefs({ theme: state.prefs.theme === "dark" ? "light" : "dark" });
+export const setTheme = (theme: Prefs["theme"]) => updatePrefs({ theme });
 
 export function cycleGoal() {
   const goal = GOALS[(GOALS.indexOf(state.prefs.goal) + 1) % GOALS.length];
@@ -29,11 +30,17 @@ export function cycleGoal() {
   flash("Meta diária: " + fmt(goal) + " palavras");
 }
 
+/** Sets the daily goal directly (Ajustes panel): the segmented control is its own feedback. */
+export const setGoal = (goal: number) => updatePrefs({ goal });
+
 export function cycleWidth() {
   const width = ((state.prefs.width + 1) % 3) as 0 | 1 | 2;
   updatePrefs({ width });
   flash("Largura " + WIDTH_LABEL[width]);
 }
+
+/** Sets the text width directly (Ajustes panel): the segmented control is its own feedback. */
+export const setWidth = (width: 0 | 1 | 2) => updatePrefs({ width });
 
 function setTextPx(px: number) {
   const textPx = Math.max(TEXT_PX_MIN, Math.min(TEXT_PX_MAX, px));

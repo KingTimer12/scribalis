@@ -16,7 +16,8 @@ export type FocusTarget =
   | "rename"
   | "tree"
   | "board"
-  | "cloud";
+  | "cloud"
+  | "settings";
 
 export type Caret = number | "end" | null;
 
