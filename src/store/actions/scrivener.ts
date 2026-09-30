@@ -7,6 +7,7 @@ import { focusTarget } from "../focus";
 import { flushAll } from "../saving";
 import { setState, state } from "../state";
 import { openBook, refreshLibrary } from "./library";
+import { loadBoard } from "./board";
 import { flash, flashError, homeTarget } from "./ui";
 import { loadArea } from "./workspace";
 
@@ -64,6 +65,8 @@ export async function confirmScrivenerImport() {
       const book = await bookApi.openBook(result.bookId);
       if (state.book?.id === book.id) setState("book", book);
       await loadArea();
+      // The import may have added cards to the open book's board.
+      await loadBoard(book.id);
       focusTarget(homeTarget());
     }
     flash(importSummary(result));
