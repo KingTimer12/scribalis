@@ -1,5 +1,6 @@
 import { onMount } from "solid-js";
 import type { BoardCard as Card } from "../../api/types";
+import { CARD_TEXT_MAX, CARD_TITLE_MAX } from "../../lib/constants";
 import { loadCardText, selectCard } from "../../store/actions/board";
 import { flushCard, scheduleCardText, scheduleCardTitle } from "../../store/actions/boardText";
 import { focusTarget } from "../../store/focus";
@@ -57,6 +58,8 @@ export function BoardCard(props: { card: Card; onMenu: (x: number, y: number) =>
         aria-label="Título do cartão"
         placeholder="Título do cartão"
         value={props.card.title}
+        // Matches the cut the save applies, so the field never shows text that will not be kept.
+        maxLength={CARD_TITLE_MAX}
         onInput={(e) => scheduleCardTitle(id(), e.currentTarget.value)}
         onFocus={() => selectCard(id())}
         onBlur={leave}
@@ -71,6 +74,9 @@ export function BoardCard(props: { card: Card; onMenu: (x: number, y: number) =>
         aria-label="Texto do cartão"
         placeholder="Anote aqui…"
         value={state.boardText[id()] ?? ""}
+        maxLength={CARD_TEXT_MAX}
+        // Until the saved text arrives, typing would replace it.
+        readOnly={state.boardText[id()] === undefined}
         onInput={(e) => scheduleCardText(id(), e.currentTarget.value)}
         onFocus={() => selectCard(id())}
         onBlur={leave}

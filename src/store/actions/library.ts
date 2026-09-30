@@ -8,6 +8,7 @@ import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
 import { loadBoard } from "./board";
 import { expandedFor } from "./expanded";
+import { mainTab } from "./tabs";
 import { initialNode, keyOf, loadNodeDoc } from "./open";
 import { backupAuto, fetchComments, loadBookCloud, syncCloudBadges } from "./cloud";
 import { flushAll, settleDocSave, swapDocument } from "../saving";
@@ -59,7 +60,9 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
     void loadBookCloud(id).then((view) => {
       if (view?.enabled) void fetchComments(true);
     });
-    if (target === "title" && node?.kind === "chapter") focusTarget("title", 0);
+    // A book reopened on its Quadro has no visible editor to focus.
+    if (mainTab() === "board") focusTarget("board");
+    else if (target === "title" && node?.kind === "chapter") focusTarget("title", 0);
     else focusTarget(doc ? "body" : "tree", doc ? "end" : null);
   } catch (e) {
     flashError(e);

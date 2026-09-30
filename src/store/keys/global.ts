@@ -4,6 +4,7 @@ import { goLibrary } from "../actions/library";
 import { goChapterStep } from "../actions/open";
 import { toggleTheme } from "../actions/prefs";
 import { toggleSidebar } from "../actions/sidebar";
+import { mainTab } from "../actions/tabs";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
 import { currentChapter } from "../selectors/book";
 import { openAreaNode } from "../selectors/workspace";
@@ -32,7 +33,8 @@ export function rootKey(e: KeyboardEvent) {
   else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openPanel("cloud");
   else if (inBook && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (withNotes && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
-  else if (chapter && mod && e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
+  // On the Quadro the chapter editor is hidden: nothing to insert an image into.
+  else if (chapter && mainTab() === "editor" && mod && e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();
   else if (chapter && e.altKey && !mod && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
     const dir = e.key === "ArrowUp" ? -1 : 1;
     if (e.shiftKey) void moveChapterStep(dir);
