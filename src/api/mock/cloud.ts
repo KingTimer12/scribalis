@@ -2,13 +2,22 @@ import type { BookCloudView, CloudOverview, Share, ShareInput, Snapshot } from "
 import { findNode } from "../../lib/tree";
 import { cloudDb, findBook, mockId, toBookMeta, toSummary } from "./db";
 
-const DEFAULT_URL = "https://kingtimer12.dev/api/scribalis/v1";
+const DEFAULT_URL = "";
 
-const overview = (): CloudOverview => ({ apiUrl: cloudDb.apiUrl, defaultApiUrl: DEFAULT_URL, connected: cloudDb.connected });
+const overview = (): CloudOverview => ({
+  apiUrl: cloudDb.apiUrl,
+  defaultApiUrl: DEFAULT_URL,
+  connected: cloudDb.connected,
+});
 
 const bookState = (bookId: string): BookCloudView => {
   const b = cloudDb.books[bookId];
-  return { enabled: !!b?.enabled, lastBackupAt: b?.lastBackupAt ?? null, paused: null, lastCommentsAt: b?.lastCommentsAt ?? null };
+  return {
+    enabled: !!b?.enabled,
+    lastBackupAt: b?.lastBackupAt ?? null,
+    paused: null,
+    lastCommentsAt: b?.lastCommentsAt ?? null,
+  };
 };
 
 function snapshot(bookId: string) {
@@ -41,9 +50,17 @@ export const cloud = {
   },
   cloud_vault_info: () => {
     needVault();
-    return { id: "vlt_mock", keyId: "key_mock", createdAt: Date.now(), books: Object.keys(cloudDb.books).length, usage: { bytes: 1_200_000, quota: 1_073_741_824 } };
+    return {
+      id: "vlt_mock",
+      keyId: "key_mock",
+      createdAt: Date.now(),
+      books: Object.keys(cloudDb.books).length,
+      usage: { bytes: 1_200_000, quota: 1_073_741_824 },
+    };
   },
-  cloud_keys: () => [{ id: "key_mock", label: "Este computador", createdAt: Date.now(), lastUsedAt: Date.now(), current: true }],
+  cloud_keys: () => [
+    { id: "key_mock", label: "Este computador", createdAt: Date.now(), lastUsedAt: Date.now(), current: true },
+  ],
   cloud_add_key: ({ label }: { label: string }) => ({ id: mockId(), label, secret: "scb_mockmockmock" }),
   cloud_revoke_key: () => cloud.cloud_keys(),
   cloud_delete_vault: () => {
@@ -56,7 +73,14 @@ export const cloud = {
     needVault();
     return Object.entries(cloudDb.books)
       .filter(([, b]) => b.lastBackupAt)
-      .map(([id, b]) => ({ id, title: findBook(id).title, snapshots: b.snapshots.length, latestAt: b.lastBackupAt, openComments: 0, local: true }));
+      .map(([id, b]) => ({
+        id,
+        title: findBook(id).title,
+        snapshots: b.snapshots.length,
+        latestAt: b.lastBackupAt,
+        openComments: 0,
+        local: true,
+      }));
   },
   cloud_book_state: ({ bookId }: { bookId: string }) => bookState(bookId),
   cloud_set_enabled: ({ bookId, enabled }: { bookId: string; enabled: boolean }) => {
@@ -87,15 +111,29 @@ export const cloud = {
     (cloudDb.books[input.bookId] ??= { enabled: true, lastBackupAt: null, snapshots: [] }).enabled = true;
     snapshot(input.bookId);
     const share: Share = {
-      id: mockId(), url: "https://kingtimer12.dev/scribalis/s/" + mockId(), bookId: input.bookId, kind: input.kind,
-      target: input.target, snapshotId: input.freeze ? cloudDb.books[input.bookId].snapshots[0].id : null,
-      follow: !input.freeze, includeNotes: input.includeNotes, allowComments: input.allowComments,
-      createdAt: Date.now(), expiresAt: input.expiresInDays ? Date.now() + input.expiresInDays * 86_400_000 : null, views: 0,
+      id: mockId(),
+      url: "https://kingtimer12.dev/scribalis/s/" + mockId(),
+      bookId: input.bookId,
+      kind: input.kind,
+      target: input.target,
+      snapshotId: input.freeze ? cloudDb.books[input.bookId].snapshots[0].id : null,
+      follow: !input.freeze,
+      includeNotes: input.includeNotes,
+      allowComments: input.allowComments,
+      createdAt: Date.now(),
+      expiresAt: input.expiresInDays ? Date.now() + input.expiresInDays * 86_400_000 : null,
+      views: 0,
     };
     cloudDb.shares.unshift(share);
     return share;
   },
-  cloud_share_change: ({ id, change }: { id: string; change: Partial<Share> & { clearExpiry?: boolean; expiresInDays?: number } }) => {
+  cloud_share_change: ({
+    id,
+    change,
+  }: {
+    id: string;
+    change: Partial<Share> & { clearExpiry?: boolean; expiresInDays?: number };
+  }) => {
     const s = cloudDb.shares.find((x) => x.id === id);
     if (!s) throw "Link não encontrado";
     if (change.includeNotes !== undefined) s.includeNotes = change.includeNotes;

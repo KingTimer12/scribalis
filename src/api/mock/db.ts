@@ -90,7 +90,7 @@ export interface MockCloudBook {
 
 /** In-memory vault for the browser build. */
 export const cloudDb = {
-  apiUrl: "https://kingtimer12.dev/api/scribalis/v1",
+  apiUrl: "",
   connected: false,
   books: {} as Record<string, MockCloudBook>,
   shares: [] as Share[],

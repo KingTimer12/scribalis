@@ -3,7 +3,7 @@ use reqwest::Url;
 
 use crate::error::{AppError, AppResult};
 
-pub const DEFAULT_API_URL: &str = "https://kingtimer12.dev/api/scribalis/v1";
+pub const DEFAULT_API_URL: &str = "";
 
 /// Trims, drops the trailing `/` and checks the URL. The key travels in every request, so plain
 /// `http://` is allowed only for a server on this machine.
