@@ -29,9 +29,11 @@ export function Segmented<T extends string | number>(props: {
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
+      e.stopPropagation();
       select(idx() + 1);
     } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
+      e.stopPropagation();
       select(idx() - 1);
     }
   }
