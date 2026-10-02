@@ -1,0 +1,90 @@
+/* Sheet mentions in the text: the @Name chip, the @ menu and the hover card. */
+@layer components {
+  .ed-body .mention {
+    padding: 0 3px;
+    border-radius: 4px;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 11%, transparent);
+    white-space: nowrap;
+    cursor: default;
+  }
+  .ed-body .mention[data-kind="place"] {
+    color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 12%, transparent);
+  }
+  .ed-body .mention[data-kind="ability"] {
+    color: var(--rev);
+    background: color-mix(in srgb, var(--rev) 13%, transparent);
+  }
+  .ed-body .mention.gone {
+    color: var(--muted);
+    background: var(--soft);
+    text-decoration: line-through;
+  }
+
+  .mmenu,
+  .mcard {
+    position: fixed;
+    z-index: 60;
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .mmenu {
+    min-width: 240px;
+    max-width: 340px;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+  }
+  .mmenu-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .mmenu-opt.on {
+    background: var(--soft);
+  }
+  .mmenu-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+  .sc-avatar.small {
+    width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .mcard {
+    width: 320px;
+    max-height: 60vh;
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--ink);
+    animation: fadeIn 0.12s ease-out;
+  }
+  .mcard-title {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .mcard-gone {
+    margin: 0;
+  }
+  .mcard-open {
+    align-self: flex-start;
+    font-size: 13px;
+  }
+}

@@ -43,7 +43,7 @@ describe("SheetsView", () => {
     await createSheet();
     await tick();
     const types = [...host.querySelectorAll(".sf")].map((el) => (el as HTMLElement).dataset.type);
-    expect(types).toEqual(["select", "input", "textarea", "textarea", "boolean"]);
+    expect(types).toEqual(["select", "input", "reference", "textarea", "tags", "reference", "boolean"]);
     const sw = host.querySelector<HTMLButtonElement>(".sf-switch")!;
     expect(sw.getAttribute("aria-checked")).toBe("false");
     sw.click();
@@ -53,12 +53,35 @@ describe("SheetsView", () => {
     dispose();
   });
 
+  it("a tag typed in another spelling reuses the existing one, and Backspace takes the last", async () => {
+    const { host, dispose } = await mount();
+    await createSheet();
+    await setSheetValueNow(state.sheetSel!, "personalidade", ["Corajosa"]);
+    await createSheet();
+    await tick();
+    const input = host.querySelector<HTMLInputElement>("#sf-personalidade")!;
+    const type = (v: string, key: string) => {
+      input.value = v;
+      input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    };
+    type("corajosa", "Enter");
+    type("nova", ",");
+    await tick();
+    const sheet = () => state.sheets!.sheets.find((s) => s.id === state.sheetSel)!;
+    expect(sheet().values.personalidade).toEqual(["Corajosa", "nova"]);
+    type("", "Backspace");
+    await tick();
+    expect(sheet().values.personalidade).toEqual(["Corajosa"]);
+    dispose();
+  });
+
   it("the Molde button opens the template editor with one row per field", async () => {
     const { host, dispose } = await mount();
     await startTemplateEdit();
     await tick();
     expect(host.querySelector(".tpl-title")?.textContent).toBe("Molde de personagem");
-    expect(host.querySelectorAll(".tpl-row")).toHaveLength(5);
+    expect(host.querySelectorAll(".tpl-row")).toHaveLength(7);
     expect(host.querySelectorAll(".tpl-options")).toHaveLength(1);
     dispose();
   });
@@ -73,7 +96,7 @@ describe("sheet helpers", () => {
       { id: "a", label: "Vivo", type: "boolean" as const },
       { id: "b", label: "Nota", type: "textarea" as const },
     ];
-    expect(cardPreview(sheet, template)).toEqual([
+    expect(cardPreview(sheet, template, () => undefined)).toEqual([
       { label: "Vivo", value: "Sim" },
       { label: "Nota", value: "linha dois" },
     ]);

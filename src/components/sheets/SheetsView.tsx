@@ -9,7 +9,7 @@ import { SheetCard } from "./SheetCard";
 import { SheetForm } from "./SheetForm";
 import { TemplateEditor } from "./TemplateEditor";
 
-const KINDS: SheetKind[] = ["character", "place"];
+const KINDS: SheetKind[] = ["character", "place", "ability"];
 
 function KindTab(props: { kind: SheetKind }) {
   const count = () => state.sheets?.sheets.filter((s) => s.kind === props.kind).length ?? 0;
@@ -39,9 +39,9 @@ function Grid() {
       when={!none()}
       fallback={
         <div class="sheets-start">
-          <p class="ui">Nenhum {label().one} ainda.</p>
+          <p class="ui">{label().none}</p>
           <button type="button" class="sheets-btn primary big" onClick={() => void createSheet()}>
-            Criar o primeiro {label().one}
+            {label().first}
           </button>
         </div>
       }

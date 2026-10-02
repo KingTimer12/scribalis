@@ -1,4 +1,4 @@
-use crate::model::doc::{Block, Doc, Inline};
+use crate::model::doc::{Block, Doc};
 
 /// The opening of a document as one line: whitespace collapsed, cut at `max` characters with
 /// an ellipsis. Stops reading as soon as it has enough, so long chapters cost little.
@@ -9,10 +9,7 @@ pub fn excerpt(doc: &Doc, max: usize) -> String {
     for block in &doc.content {
         let Block::Paragraph { content, .. } = block else { continue };
         for inline in content {
-            let text = match inline {
-                Inline::Text { text, .. } => text.as_str(),
-                Inline::HardBreak => " ",
-            };
+            let text = inline.plain();
             for c in text.chars() {
                 if c.is_whitespace() {
                     gap = len > 0;

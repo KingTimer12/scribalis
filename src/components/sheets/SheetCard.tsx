@@ -1,16 +1,17 @@
 import { For, Show } from "solid-js";
 import type { Sheet, SheetField } from "../../api/types";
-import { cardPreview, hueOf, initials } from "../../lib/sheets";
+import { avatarText, cardPreview, hueOf, nameLookup } from "../../lib/sheets";
 import { openSheet } from "../../store/actions/sheets";
+import { state } from "../../store/state";
 
-/** Character or place card in the grid: avatar, name and the first filled-in fields. */
+/** Character, place or ability card in the grid: avatar, name and the first filled-in fields. */
 export function SheetCard(props: { sheet: Sheet; template: SheetField[] }) {
-  const preview = () => cardPreview(props.sheet, props.template);
+  const preview = () => cardPreview(props.sheet, props.template, nameLookup(state.sheets));
   return (
     <button type="button" class="sc" onClick={() => void openSheet(props.sheet.id)}>
       <div class="sc-head">
         <span class="sc-avatar" style={{ "--hue": hueOf(props.sheet.id) }} aria-hidden="true">
-          {props.sheet.kind === "character" ? initials(props.sheet.name) : "⌖"}
+          {avatarText(props.sheet)}
         </span>
         <span class="sc-name" classList={{ empty: !props.sheet.name.trim() }}>
           {props.sheet.name.trim() || "Sem nome"}

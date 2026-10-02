@@ -4,7 +4,11 @@ export type ImageSlot = "cover" | "header" | "footer" | "separator";
 export type Separator = { type: "text"; text: string } | { type: "image"; image: string };
 
 export type MarkJSON = { type: "bold" | "italic" };
-export type InlineJSON = { type: "text"; text: string; marks?: MarkJSON[] } | { type: "hardBreak" };
+export type InlineJSON =
+  | { type: "text"; text: string; marks?: MarkJSON[] }
+  | { type: "hardBreak" }
+  /** `@Name` pointing at a sheet; `label` is the name when it was written. */
+  | { type: "mention"; attrs: { id: string; label: string } };
 export type Align = "left" | "center" | "right" | "justify";
 export type ParaAttrsJSON = Partial<{
   textAlign: Align | null;
@@ -255,9 +259,9 @@ export interface CloseReport {
   timedOut: boolean;
 }
 
-// Sheets ("Fichas"): characters and places, each kind following its own template.
-export type SheetKind = "character" | "place";
-export type FieldType = "input" | "textarea" | "select" | "boolean";
+// Sheets ("Fichas"): characters, places and abilities, each kind following its own template.
+export type SheetKind = "character" | "place" | "ability";
+export type FieldType = "input" | "textarea" | "select" | "boolean" | "reference" | "tags";
 
 export interface SheetField {
   id: string;
@@ -265,9 +269,14 @@ export interface SheetField {
   type: FieldType;
   /** Choices of a select field; missing on the other types. */
   options?: string[];
+  /** Kind a reference field points at. */
+  target?: SheetKind;
+  /** A reference field that holds several sheets. */
+  multiple?: boolean;
 }
 
-export type SheetValue = string | boolean;
+/** Text, yes/no, or a list (tags, ids of a multiple reference); a single reference is an id. */
+export type SheetValue = string | boolean | string[];
 
 export interface Sheet {
   id: string;
@@ -280,7 +289,7 @@ export interface Sheet {
 export interface Sheets {
   version: number;
   templates: Record<SheetKind, SheetField[]>;
-  /** Characters and places together, in creation order. */
+  /** Every kind together, in creation order. */
   sheets: Sheet[];
 }
 

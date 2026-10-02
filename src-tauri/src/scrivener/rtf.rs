@@ -153,10 +153,7 @@ impl Reader {
         let content = std::mem::take(&mut self.content);
         let plain: String = content
             .iter()
-            .map(|i| match i {
-                Inline::Text { text, .. } => text.as_str(),
-                Inline::HardBreak => "\n",
-            })
+            .map(Inline::plain)
             .collect();
         let block = if matches!(plain.trim(), "#" | "*" | "***" | "* * *") {
             Block::Separator

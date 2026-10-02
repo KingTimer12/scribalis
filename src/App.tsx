@@ -6,6 +6,8 @@ import type { CloudProgress, CloudStatus } from "./api/types";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
 import { ConfirmDialog } from "./components/ui/ConfirmDialog";
+import { MentionCard } from "./components/editor/MentionCard";
+import { MentionMenu } from "./components/editor/MentionMenu";
 import { CloudJobOverlay } from "./components/cloud/CloudJobOverlay";
 import { CloudPanel } from "./components/cloud/CloudPanel";
 import { Library } from "./components/library/Library";
@@ -111,6 +113,10 @@ export default function App() {
       </Switch>
       <Show when={state.scrivener}>
         <ScrivenerImport />
+      </Show>
+      <Show when={inBook() && state.bookTab === "write"}>
+        <MentionMenu />
+        <MentionCard />
       </Show>
       <ConfirmDialog />
       <CloudJobOverlay />

@@ -1,6 +1,6 @@
 import type { SheetKind } from "../../api/types";
 import { norm } from "../../lib/format";
-import { createSheet, KIND_LABEL, openSheet, setBookTab, setSheetKind } from "../actions/sheets";
+import { createSheet, goToSheet, KIND_LABEL, setBookTab, setSheetKind } from "../actions/sheets";
 import { startTemplateEdit } from "../actions/sheetTemplate";
 import { state } from "../state";
 import type { Command } from "./palette";
@@ -17,9 +17,10 @@ export function sheetCommands(): Command[] {
   const list: Command[] = [
     onSheets
       ? { label: "Voltar para a escrita", hint: "Ctrl Shift F", act: () => void setBookTab("write") }
-      : { label: "Fichas: personagens e lugares", hint: "Ctrl Shift F", act: () => void setBookTab("sheets") },
+      : { label: "Fichas: personagens, lugares e habilidades", hint: "Ctrl Shift F", act: () => void setBookTab("sheets") },
     { label: "Novo personagem", hint: "", act: () => void newSheet("character") },
     { label: "Novo lugar", hint: "", act: () => void newSheet("place") },
+    { label: "Nova habilidade", hint: "", act: () => void newSheet("ability") },
   ];
   if (onSheets) {
     list.push({ label: "Editar molde de " + KIND_LABEL[state.sheetKind].one, hint: "", act: () => void startTemplateEdit() });
@@ -36,10 +37,6 @@ export function sheetHits(q: string): Command[] {
       kind: "ficha",
       label: s.name,
       hint: KIND_LABEL[s.kind].one,
-      act: async () => {
-        await setBookTab("sheets");
-        await setSheetKind(s.kind);
-        await openSheet(s.id);
-      },
+      act: () => void goToSheet(s.id),
     }));
 }

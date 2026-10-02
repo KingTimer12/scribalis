@@ -342,6 +342,117 @@
     border-radius: 6px;
   }
 
+  .sf-ref {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .sf-hint {
+    margin: 0;
+  }
+
+  /* Tags and multiple references */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--faint);
+    border-radius: 8px;
+    background: var(--panel);
+    cursor: text;
+  }
+  .chips:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px 2px 10px;
+    border-radius: 99px;
+    background: var(--soft);
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .chip-open {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .chip-open:hover {
+    text-decoration: underline;
+  }
+  .chip-x {
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .chip-x:hover,
+  .chip-x:focus-visible {
+    background: var(--faint);
+    color: var(--ink);
+  }
+  .chips-box {
+    position: relative;
+    flex: 1 1 120px;
+    min-width: 120px;
+  }
+  .chips-input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    padding: 4px 2px;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-serif);
+    font-size: 15px;
+  }
+  .chips-menu {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 200px;
+    max-height: 240px;
+    overflow: auto;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .chips-opt {
+    padding: 6px 10px;
+    border-radius: 7px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .chips-opt:hover,
+  .chips-opt.on {
+    background: var(--soft);
+  }
+
+  .tpl-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   /* Template editor */
   .tpl {
     max-width: 760px;

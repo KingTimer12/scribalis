@@ -65,9 +65,34 @@ pub enum Inline {
         marks: Marks,
     },
     HardBreak,
+    /// `@Name` pointing at a sheet (character, place, ability). `label` is the name when it was
+    /// written: the editor shows the current one, the label stands in when the sheet is gone.
+    Mention {
+        attrs: MentionAttrs,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct MentionAttrs {
+    pub id: String,
+    #[serde(default)]
+    pub label: String,
 }
 
 impl Inline {
+    /// The run as plain text: a line break is a newline, a mention its label.
+    pub fn plain(&self) -> &str {
+        match self {
+            Inline::Text { text, .. } => text,
+            Inline::HardBreak => "\n",
+            Inline::Mention { attrs } => &attrs.label,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn mention(id: &str, label: &str) -> Self {
+        Inline::Mention { attrs: MentionAttrs { id: id.into(), label: label.into() } }
+    }
     #[cfg(test)]
     pub fn text(s: &str) -> Self {
         Inline::Text { text: s.to_string(), marks: Marks::default() }

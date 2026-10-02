@@ -12,10 +12,7 @@ pub fn doc_text(doc: &Doc) -> String {
         if let Block::Paragraph { content, .. } = block {
             let line: Vec<&str> = content
                 .iter()
-                .map(|i| match i {
-                    Inline::Text { text, .. } => text.as_str(),
-                    Inline::HardBreak => "\n",
-                })
+                .map(Inline::plain)
                 .collect();
             out.push(line.concat());
         }
@@ -42,5 +39,13 @@ mod tests {
     fn doc_words_ignore_separators_and_images() {
         let doc = crate::markdown::parse::parse("um dois\n\n***\n\n![](../imagens/a.png)\n\ntrês");
         assert_eq!(doc_words(&doc), 3);
+    }
+
+    #[test]
+    fn a_mention_counts_as_the_name_it_shows() {
+        let doc = crate::markdown::parse::parse("Viu @[Ana Lírio](x1) chegar");
+        assert_eq!(doc_text(&doc), "Viu Ana Lírio chegar");
+        assert_eq!(doc_words(&doc), 4);
+        assert_eq!(crate::markdown::serialize::serialize(&doc).trim(), "Viu @[Ana Lírio](x1) chegar");
     }
 }

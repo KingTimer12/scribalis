@@ -13,6 +13,8 @@ export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
   textarea: "Texto longo",
   select: "Lista de opções",
   boolean: "Sim ou não",
+  reference: "Referência a fichas",
+  tags: "Tags",
 };
 
 const template = () => state.sheets?.templates[state.sheetKind] ?? [];
@@ -45,6 +47,7 @@ export function updateDraftField(i: number, patch: Partial<SheetField>) {
     if (!d[i]) return;
     Object.assign(d[i], patch);
     if (d[i].type === "select") d[i].options ??= [];
+    if (d[i].type === "reference") d[i].target ??= "character";
   });
 }
 
@@ -59,14 +62,15 @@ export function moveDraftField(i: number, step: -1 | 1) {
 export const removeDraftField = (i: number) => editDraft((d) => void d.splice(i, 1));
 
 /**
- * Filled-in values the draft would throw away: fields that leave the template, and fields whose
- * type changes (a yes/no turned into a list loses its answers, and so on).
+ * Filled-in values the draft would throw away: fields that leave the template, fields whose type
+ * changes (a yes/no turned into a list loses its answers, and so on) and references that point at
+ * another kind.
  */
 export function draftLosses(sheets: Sheets, kind: keyof Sheets["templates"], draft: SheetField[]): { field: string; sheets: number }[] {
   const out: { field: string; sheets: number }[] = [];
   for (const old of sheets.templates[kind]) {
     const now = draft.find((f) => f.id === old.id);
-    if (now && now.type === old.type) continue;
+    if (now && now.type === old.type && (now.type !== "reference" || now.target === old.target)) continue;
     const count = sheets.sheets.filter((s) => s.kind === kind && old.id in s.values).length;
     if (count) out.push({ field: old.label, sheets: count });
   }

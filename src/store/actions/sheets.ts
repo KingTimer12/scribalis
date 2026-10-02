@@ -7,9 +7,28 @@ import { setState, state } from "../state";
 import { run } from "./run";
 import { flashError, homeTarget } from "./ui";
 
-export const KIND_LABEL: Record<SheetKind, { many: string; one: string; fresh: string }> = {
-  character: { many: "Personagens", one: "personagem", fresh: "Novo personagem" },
-  place: { many: "Lugares", one: "lugar", fresh: "Novo lugar" },
+interface KindLabel {
+  many: string;
+  one: string;
+  fresh: string;
+  none: string;
+  first: string;
+  nameOf: string;
+}
+
+export const KIND_LABEL: Record<SheetKind, KindLabel> = {
+  character: {
+    many: "Personagens", one: "personagem", fresh: "Novo personagem", none: "Nenhum personagem ainda.",
+    first: "Criar o primeiro personagem", nameOf: "Nome do personagem",
+  },
+  place: {
+    many: "Lugares", one: "lugar", fresh: "Novo lugar", none: "Nenhum lugar ainda.",
+    first: "Criar o primeiro lugar", nameOf: "Nome do lugar",
+  },
+  ability: {
+    many: "Habilidades", one: "habilidade", fresh: "Nova habilidade", none: "Nenhuma habilidade ainda.",
+    first: "Criar a primeira habilidade", nameOf: "Nome da habilidade",
+  },
 };
 
 export async function loadSheets() {
@@ -30,6 +49,7 @@ export async function setBookTab(tab: "write" | "sheets") {
   setState({ bookTab: tab, focus: false, panel: null });
   if (tab === "sheets") {
     focusTarget("sheets");
+    // Normally loaded with the book; a failed load gets another try here.
     if (!state.sheets) await loadSheets();
   } else {
     focusTarget(homeTarget());
@@ -83,4 +103,13 @@ export async function requestDeleteSheet(id: string) {
     setState({ sheets, sheetSel: state.sheetSel === id ? null : state.sheetSel });
     focusTarget("sheets");
   });
+}
+
+/** Opens any sheet, switching to its kind (a reference chip, a mention's card, the palette). */
+export async function goToSheet(id: string) {
+  const sheet = state.sheets?.sheets.find((s) => s.id === id);
+  if (!sheet) return;
+  await setBookTab("sheets");
+  await setSheetKind(sheet.kind);
+  await openSheet(id);
 }

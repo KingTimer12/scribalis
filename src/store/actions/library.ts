@@ -7,6 +7,7 @@ import { docWords } from "../../lib/doc";
 import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
 import { expandedFor } from "./expanded";
+import { loadSheets } from "./sheets";
 import { boardNode } from "../selectors/board";
 import { initialNode, keyOf, loadNodeDoc } from "./open";
 import { backupAuto, fetchComments, loadBookCloud, syncCloudBadges } from "./cloud";
@@ -54,6 +55,8 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
       await settleDocSave();
       apply();
     }
+    // Mentions in the text show the sheets' names and cards.
+    void loadSheets();
     if (prev && prev !== id) backupAuto(prev);
     setState("cloudBook", null);
     void loadBookCloud(id).then((view) => {

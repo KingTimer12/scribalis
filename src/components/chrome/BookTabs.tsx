@@ -23,7 +23,7 @@ export function BookTabs() {
   return (
     <div class="book-tabs" role="tablist" aria-label="Seção da obra">
       <Tab tab="write" label="Escrita" hint="Escrita (Ctrl Shift F alterna)" />
-      <Tab tab="sheets" label="Fichas" hint="Personagens e lugares (Ctrl Shift F)" />
+      <Tab tab="sheets" label="Fichas" hint="Personagens, lugares e habilidades (Ctrl Shift F)" />
     </div>
   );
 }

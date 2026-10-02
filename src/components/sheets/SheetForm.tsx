@@ -23,8 +23,8 @@ export function SheetForm(props: { sheet: Sheet }) {
       </div>
       <input
         class="sf-name"
-        aria-label={"Nome do " + label().one}
-        placeholder={"Nome do " + label().one}
+        aria-label={label().nameOf}
+        placeholder={label().nameOf}
         value={props.sheet.name}
         ref={focusRef("sheetName")}
         autocomplete="off"

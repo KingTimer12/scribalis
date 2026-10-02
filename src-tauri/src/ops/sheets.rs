@@ -21,6 +21,10 @@ pub struct FieldInput {
     pub ty: FieldType,
     #[serde(default)]
     pub options: Vec<String>,
+    #[serde(default)]
+    pub target: Option<SheetKind>,
+    #[serde(default)]
+    pub multiple: bool,
 }
 
 #[derive(Serialize, Debug)]
@@ -46,7 +50,8 @@ pub fn load(dir: &Path) -> AppResult<Sheets> {
 }
 
 /// Cleans the editor's fields: labels trimmed (never empty), ids unique, select options trimmed,
-/// deduplicated and capped, no options on other types.
+/// deduplicated and capped; options, target and `multiple` only on the types that use them (a
+/// reference without a target points at characters).
 fn clean_fields(fields: Vec<FieldInput>) -> Vec<Field> {
     let mut out: Vec<Field> = Vec::with_capacity(fields.len());
     for f in fields {
@@ -63,7 +68,9 @@ fn clean_fields(fields: Vec<FieldInput>) -> Vec<Field> {
                 }
             }
         }
-        out.push(Field { id, label, ty: f.ty, options });
+        let reference = f.ty == FieldType::Reference;
+        let target = reference.then(|| f.target.unwrap_or(SheetKind::Character));
+        out.push(Field { id, label, ty: f.ty, options, target, multiple: reference && f.multiple });
     }
     out
 }
@@ -73,8 +80,10 @@ fn clean_fields(fields: Vec<FieldInput>) -> Vec<Field> {
 pub fn set_template(dir: &Path, kind: SheetKind, fields: Vec<FieldInput>) -> AppResult<Sheets> {
     edit(dir, |sheets| {
         let template = clean_fields(fields);
+        let previous = sheets.templates.of(kind).to_vec();
+        let kinds = sheets.kinds();
         for sheet in sheets.sheets.iter_mut().filter(|s| s.kind == kind) {
-            sheet.conform(&template);
+            sheet.conform(&template, &previous, &kinds);
         }
         *sheets.templates.of_mut(kind) = template;
         Ok(sheets.clone())
@@ -108,8 +117,9 @@ pub fn set_value(dir: &Path, id: &str, field: &str, value: Option<FieldValue>) -
             .find(|f| f.id == field)
             .cloned()
             .ok_or_else(|| AppError::msg("Este campo não existe mais no molde"))?;
+        let kinds = sheets.kinds();
         let sheet = sheets.find_mut(id).expect("found above");
-        match value.and_then(|v| v.fit(&def)) {
+        match value.and_then(|v| v.fit(&def, &kinds)) {
             Some(v) => sheet.values.insert(def.id, v),
             None => sheet.values.remove(&def.id),
         };
@@ -124,6 +134,8 @@ pub fn delete(dir: &Path, id: &str) -> AppResult<Sheets> {
         if sheets.sheets.len() == before {
             return Err(AppError::msg(NOT_FOUND));
         }
+        // References to the deleted sheet go with it.
+        sheets.conform_all();
         Ok(sheets.clone())
     })
 }
@@ -133,7 +145,14 @@ mod tests {
     use super::*;
 
     fn input(id: &str, label: &str, ty: FieldType, options: &[&str]) -> FieldInput {
-        FieldInput { id: id.into(), label: label.into(), ty, options: options.iter().map(|o| o.to_string()).collect() }
+        FieldInput {
+            id: id.into(),
+            label: label.into(),
+            ty,
+            options: options.iter().map(|o| o.to_string()).collect(),
+            target: None,
+            multiple: false,
+        }
     }
 
     #[test]
@@ -189,6 +208,35 @@ mod tests {
         assert_eq!(ana.values["idade"], FieldValue::Bool(true));
         let vael = sheets.sheets.iter().find(|s| s.id == vael).unwrap();
         assert_eq!(vael.values["descricao"], FieldValue::Text("porto".into()), "places keep theirs");
+    }
+
+    #[test]
+    fn a_reference_points_at_a_place_and_goes_when_the_place_is_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        let ana = create(dir.path(), SheetKind::Character, "Ana").unwrap().id;
+        let vael = create(dir.path(), SheetKind::Place, "Vael").unwrap().id;
+        set_value(dir.path(), &ana, "nascimento", Some(FieldValue::Text(ana.clone()))).unwrap();
+        assert!(load(dir.path()).unwrap().sheets[0].values.is_empty(), "a character is not a place");
+        set_value(dir.path(), &ana, "nascimento", Some(FieldValue::Text(vael.clone()))).unwrap();
+        set_value(dir.path(), &ana, "personalidade", Some(FieldValue::List(vec!["Leal".into(), "leal".into()]))).unwrap();
+        let sheet = &load(dir.path()).unwrap().sheets[0];
+        assert_eq!(sheet.values["nascimento"], FieldValue::Text(vael.clone()));
+        assert_eq!(sheet.values["personalidade"], FieldValue::List(vec!["Leal".into()]));
+        let sheets = delete(dir.path(), &vael).unwrap();
+        assert!(!sheets.sheets[0].values.contains_key("nascimento"));
+    }
+
+    #[test]
+    fn a_reference_field_without_a_target_points_at_characters() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut f = input("", "Mentor", FieldType::Reference, &["x"]);
+        f.multiple = true;
+        let mut g = input("", "Nota", FieldType::Input, &[]);
+        g.multiple = true;
+        g.target = Some(SheetKind::Place);
+        let t = set_template(dir.path(), SheetKind::Ability, vec![f, g]).unwrap().templates.ability;
+        assert_eq!((t[0].target, t[0].multiple, t[0].options.len()), (Some(SheetKind::Character), true, 0));
+        assert_eq!((t[1].target, t[1].multiple), (None, false));
     }
 
     #[test]

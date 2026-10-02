@@ -1,5 +1,5 @@
 import { For, Index, Show } from "solid-js";
-import type { FieldType, SheetField } from "../../api/types";
+import type { FieldType, SheetField, SheetKind } from "../../api/types";
 import { KIND_LABEL } from "../../store/actions/sheets";
 import {
   addDraftField, cancelTemplateEdit, FIELD_TYPE_LABEL, moveDraftField, removeDraftField, saveTemplate, updateDraftField,
@@ -7,6 +7,7 @@ import {
 import { state } from "../../store/state";
 
 const TYPES = Object.keys(FIELD_TYPE_LABEL) as FieldType[];
+const KINDS: SheetKind[] = ["character", "place", "ability"];
 
 function FieldRow(props: { field: SheetField; index: number; last: boolean }) {
   const i = () => props.index;
@@ -46,6 +47,33 @@ function FieldRow(props: { field: SheetField; index: number; last: boolean }) {
           </button>
         </div>
       </div>
+      <Show when={props.field.type === "reference"}>
+        <div class="tpl-line">
+          <label class="ui tpl-sub">
+            Aponta para
+            <select
+              class="sf-input tpl-type"
+              onChange={(e) => updateDraftField(i(), { target: e.currentTarget.value as SheetKind })}
+            >
+              <For each={KINDS}>
+                {(k) => (
+                  <option value={k} selected={k === (props.field.target ?? "character")}>
+                    {KIND_LABEL[k].many}
+                  </option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label class="ui tpl-sub">
+            <input
+              type="checkbox"
+              checked={!!props.field.multiple}
+              onChange={(e) => updateDraftField(i(), { multiple: e.currentTarget.checked })}
+            />
+            Permite várias
+          </label>
+        </div>
+      </Show>
       <Show when={props.field.type === "select"}>
         <textarea
           class="sf-input tpl-options"
@@ -68,8 +96,8 @@ export function TemplateEditor() {
     <div class="tpl">
       <h2 class="tpl-title">Molde de {label().one}</h2>
       <p class="tpl-hint ui">
-        Todos os cartões de {label().one} seguem estes campos, nesta ordem. Tipos: texto curto, texto longo, lista de opções e sim ou
-        não.
+        Todos os cartões de {label().one} seguem estes campos, nesta ordem. Tipos: texto curto, texto longo, lista de opções, sim ou não,
+        referência a outras fichas (ex.: Nascimento aponta para Lugares) e tags.
       </p>
       <Show when={draft().length} fallback={<p class="sheets-empty ui">Nenhum campo ainda.</p>}>
         <ol class="tpl-list">

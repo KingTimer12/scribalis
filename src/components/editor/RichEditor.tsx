@@ -6,6 +6,7 @@ import type { SeparatorView } from "../../editor/separator";
 import { bookAsset } from "../../lib/assets";
 import { onEditorChange, splitCurrent } from "../../store/actions/chapters";
 import { focusHandler, focusTarget } from "../../store/focus";
+import { mentionTarget, onMentionKey, onMentionQuery } from "../../store/mentions";
 import { scheduleDocSave } from "../../store/saving";
 import { setState, state } from "../../store/state";
 
@@ -25,6 +26,7 @@ export function RichEditor(props: RichEditorProps) {
     return { kind: "image", src: bookAsset(b.dir, s.image, b.updatedAt) };
   };
   const resolveImage = (src: string) => (state.book ? bookAsset(state.book.dir, src, 0) : null);
+  const mentions = { lookup: mentionTarget, onQuery: onMentionQuery, onKey: onMentionKey };
 
   onMount(() => {
     const editor =
@@ -38,6 +40,7 @@ export function RichEditor(props: RichEditorProps) {
             onSplit: splitCurrent,
             onHint: (show) => setState("tripleHint", show && !state.toast),
             onExitTop: () => focusTarget("title", "end"),
+            mentions,
             ariaLabel: "Texto do capítulo",
             placeholder: "Comece a escrever…",
           })
@@ -50,6 +53,7 @@ export function RichEditor(props: RichEditorProps) {
             onHint: () => {},
             onExitTop: () => {},
             separatorKey: false,
+            mentions,
             ariaLabel: "Texto do documento",
             placeholder: "Escreva aqui…",
           });

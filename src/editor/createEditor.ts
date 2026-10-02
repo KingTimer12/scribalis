@@ -9,6 +9,8 @@ import TextAlign from "@tiptap/extension-text-align";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import type { DocJSON } from "../api/types";
 import { BookImageNode } from "./image";
+import { MentionNode, type MentionOptions } from "./mention";
+import { MentionSuggest, type MentionSuggestOptions } from "./mentionSuggest";
 import { SeparatorNode, type SeparatorView } from "./separator";
 import { ParagraphSpacing } from "./spacing";
 import { WriterKeys, type WriterKeysOptions } from "./writerKeys";
@@ -23,6 +25,8 @@ export interface WriterEditorOptions extends Omit<WriterKeysOptions, "onSplit" |
   onSplit?: (before: DocJSON, after: DocJSON) => void;
   /** False: Ctrl Enter inserts no separator (free texts). Defaults to true. */
   separatorKey?: boolean;
+  /** Sheet mentions: how to show them and the @ menu. Absent in tests: mentions show their label. */
+  mentions?: MentionOptions & MentionSuggestOptions;
   ariaLabel: string;
   placeholder: string;
 }
@@ -40,6 +44,8 @@ export function createWriterEditor(o: WriterEditorOptions): Editor {
       Placeholder.configure({ placeholder: o.placeholder }),
       SeparatorNode.configure({ view: o.separator }),
       BookImageNode.configure({ resolve: o.resolveImage }),
+      MentionNode.configure({ lookup: o.mentions?.lookup ?? (() => undefined) }),
+      MentionSuggest.configure({ onQuery: o.mentions?.onQuery ?? (() => {}), onKey: o.mentions?.onKey ?? (() => false) }),
       WriterKeys.configure({ onSplit: o.onSplit ?? null, separatorKey: o.separatorKey ?? true, onHint: o.onHint, onExitTop: o.onExitTop }),
       Bold,
       Italic,
