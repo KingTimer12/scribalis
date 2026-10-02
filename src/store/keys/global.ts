@@ -4,6 +4,7 @@ import { goLibrary } from "../actions/library";
 import { goChapterStep } from "../actions/open";
 import { textBigger, textReset, textSmaller, toggleTheme } from "../actions/prefs";
 import { toggleSidebar } from "../actions/sidebar";
+import { toggleBookTab } from "../actions/sheets";
 import { boardNode } from "../selectors/board";
 import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
 import { currentChapter } from "../selectors/book";
@@ -21,8 +22,10 @@ export function rootKey(e: KeyboardEvent) {
   const k = (e.key || "").toLowerCase();
   const code = e.code || "";
   const inBook = !!state.book && state.view === "book";
-  const chapter = inBook && !!currentChapter();
-  const withNotes = inBook && (chapter || openAreaNode()?.kind === "text");
+  // Writing shortcuts stay off while the sheets cover the tree and the editor.
+  const writing = inBook && state.bookTab === "write";
+  const chapter = writing && !!currentChapter();
+  const withNotes = writing && (chapter || openAreaNode()?.kind === "text");
   let handled = true;
 
   if (mod && (k === "k" || code === "KeyK")) openPanel("palette");
@@ -34,9 +37,10 @@ export function rootKey(e: KeyboardEvent) {
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
   else if (mod && (k === "," || code === "Comma")) openPanel("settings");
   else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
-  else if (inBook && mod && !e.shiftKey && (k === "e" || code === "KeyE")) toggleSidebar();
+  else if (writing && mod && !e.shiftKey && (k === "e" || code === "KeyE")) toggleSidebar();
+  else if (inBook && mod && e.shiftKey && (k === "f" || code === "KeyF")) void toggleBookTab();
   else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openPanel("cloud");
-  else if (inBook && mod && (k === "." || code === "Period")) toggleFocusMode();
+  else if (writing && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (withNotes && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
   // On the Quadro the chapter editor is hidden: nothing to insert an image into.
   else if (chapter && !boardNode() && mod && e.shiftKey && (k === "i" || code === "KeyI")) void insertChapterImage();

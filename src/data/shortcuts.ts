@@ -30,6 +30,7 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Comandos e busca", keys: ["Ctrl", "K"], run: () => openPanel("palette") },
   { label: "Voltar às obras", keys: ["Ctrl", "O"] },
   { label: "Mostrar / recolher a árvore", keys: ["Ctrl", "E"] },
+  { label: "Escrita / Fichas (personagens e lugares)", keys: ["Ctrl", "Shift", "F"] },
   { label: "Notas do capítulo ou texto", keys: ["Ctrl", ";"] },
   { label: "Capítulo anterior / próximo", keys: ["Alt", "↑ ↓"] },
   { label: "Mover capítulo na pasta", keys: ["Alt", "Shift", "↑ ↓"] },

@@ -254,3 +254,37 @@ export interface CloseReport {
   failed: { bookId: string; message: string }[];
   timedOut: boolean;
 }
+
+// Sheets ("Fichas"): characters and places, each kind following its own template.
+export type SheetKind = "character" | "place";
+export type FieldType = "input" | "textarea" | "select" | "boolean";
+
+export interface SheetField {
+  id: string;
+  label: string;
+  type: FieldType;
+  /** Choices of a select field; missing on the other types. */
+  options?: string[];
+}
+
+export type SheetValue = string | boolean;
+
+export interface Sheet {
+  id: string;
+  kind: SheetKind;
+  name: string;
+  /** By field id; only fields of the kind's template. */
+  values: Record<string, SheetValue>;
+}
+
+export interface Sheets {
+  version: number;
+  templates: Record<SheetKind, SheetField[]>;
+  /** Characters and places together, in creation order. */
+  sheets: Sheet[];
+}
+
+export interface SheetCreated {
+  id: string;
+  sheets: Sheets;
+}

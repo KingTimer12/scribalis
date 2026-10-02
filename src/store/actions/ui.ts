@@ -19,6 +19,7 @@ export const flashError = (e: unknown) => flash(typeof e === "string" ? e : "Alg
 /** Where focus rests on the current screen: the library grid, the text of an open chapter or text, or the tree. */
 export function homeTarget(): FocusTarget {
   if (state.view === "library") return "lib";
+  if (state.bookTab === "sheets") return "sheets";
   // A folder's board, or the Quadro tab with the editor hidden behind it: focus the cards.
   if (boardNode()) return "board";
   const kind = openAreaNode()?.kind;

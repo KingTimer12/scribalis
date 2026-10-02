@@ -16,6 +16,8 @@ export type FocusTarget =
   | "rename"
   | "tree"
   | "board"
+  | "sheets"
+  | "sheetName"
   | "cloud"
   | "settings";
 

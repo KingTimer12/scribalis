@@ -8,6 +8,7 @@ import { bookTitleKey } from "../../store/keys/fields";
 import { state } from "../../store/state";
 import { SrLabel } from "../ui/SrLabel";
 import { AppBrand } from "./AppBrand";
+import { BookTabs } from "./BookTabs";
 import { ThemeToggle } from "./ThemeToggle";
 import { TopActions } from "./TopActions";
 import { UpdateBadge } from "./UpdateBadge";
@@ -44,6 +45,7 @@ export function TopBar() {
             placeholder="Nome da obra"
             autocomplete="off"
           />
+          <BookTabs />
         </Show>
       </div>
       <div class="flex items-center gap-[18px]">

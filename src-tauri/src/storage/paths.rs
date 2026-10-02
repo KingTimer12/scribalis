@@ -12,6 +12,8 @@ pub const META_FILE: &str = "metadata.json";
 pub const AREA_DIR: &str = "area";
 pub const AREA_FILE: &str = "area.json";
 pub const AREA_FILES_DIR: &str = "arquivos";
+/// Character and place sheets with their templates.
+pub const SHEETS_FILE: &str = "fichas.json";
 
 /// Folder name for a book title: ascii letters/digits joined by dashes.
 pub fn slugify(title: &str) -> String {

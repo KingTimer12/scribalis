@@ -7,6 +7,7 @@ mod dialog;
 pub mod library;
 pub mod prefs;
 pub mod scrivener;
+pub mod sheets;
 pub mod stats;
 pub mod update;
 pub mod workspace;

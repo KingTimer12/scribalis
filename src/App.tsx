@@ -78,7 +78,7 @@ export default function App() {
   /** A chapter or a free text is open: notes and paragraph spacing apply to it. */
   const writing = () => {
     const kind = openAreaNode()?.kind;
-    return inBook() && (kind === "chapter" || kind === "text");
+    return inBook() && state.bookTab === "write" && (kind === "chapter" || kind === "text");
   };
 
   return (

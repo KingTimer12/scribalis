@@ -1,7 +1,7 @@
 import { createStore, produce } from "solid-js/store";
 import type {
   AreaNode, BookCloudView, BookMeta, BookSummary, CloudOverview, CloudProgress, CloudStatus, ImportTarget, Prefs, ScanView,
-  SearchHit, ShareKind, UpdateInfo,
+  SearchHit, ShareKind, SheetField, SheetKind, Sheets, UpdateInfo,
 } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import { findNode } from "../lib/tree";
@@ -103,6 +103,17 @@ export interface AppState {
   boardExcerpts: Record<string, string>;
   /** The selected index card. */
   boardSel: string | null;
+  // sheets ("Fichas")
+  /** Section of the open book: the tree and editor, or the character and place sheets. */
+  bookTab: "write" | "sheets";
+  /** Sheets of the open book; null until the Fichas tab first opens. */
+  sheets: Sheets | null;
+  sheetKind: SheetKind;
+  /** Sheet open in the form, or null for the card grid. */
+  sheetSel: string | null;
+  sheetQ: string;
+  /** Copy of the kind's template being edited, or null. */
+  templateDraft: SheetField[] | null;
 }
 
 export const [state, setState] = createStore<AppState>({
@@ -143,6 +154,12 @@ export const [state, setState] = createStore<AppState>({
   cloudJob: null,
   boardExcerpts: {},
   boardSel: null,
+  bookTab: "write",
+  sheets: null,
+  sheetKind: "character",
+  sheetSel: null,
+  sheetQ: "",
+  templateDraft: null,
 });
 
 /** Values outside the store: they never need to re-render anything. */

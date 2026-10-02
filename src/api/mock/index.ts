@@ -4,12 +4,13 @@ import { cloud } from "./cloud";
 import { library } from "./library";
 import { prefs } from "./prefs";
 import { scrivener } from "./scrivener";
+import { sheets } from "./sheets";
 import { update } from "./update";
 import { workspace } from "./workspace";
 
 type Handler = (args: never) => unknown;
 const handlers: Record<string, Handler> = {
-  ...library, ...book, ...chapter, ...prefs, ...update, ...workspace, ...scrivener, ...cloud,
+  ...library, ...book, ...chapter, ...prefs, ...update, ...workspace, ...scrivener, ...cloud, ...sheets,
 };
 
 /** `?mockDelay=150` in the dev URL makes every call slow, to exercise IPC races (e2e). */

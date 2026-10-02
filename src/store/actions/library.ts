@@ -45,6 +45,7 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
           area: items, areaExpanded: expandedFor(id, items, node?.id ?? null), areaSel: node?.id ?? null,
           areaOpen: node?.id ?? null, areaRenaming: null, areaRenameVal: "",
           boardExcerpts: {}, boardSel: null,
+          bookTab: "write", sheets: null, sheetKind: "character", sheetSel: null, sheetQ: "", templateDraft: null,
         });
       });
     if (doc && key) await swapDocument(doc, key, apply);

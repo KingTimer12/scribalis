@@ -19,7 +19,7 @@ use tauri::Manager;
 
 use cloud::{status::CLOUD_FILE, CloudState};
 use commands::{
-    book, chapter, cloud_backup, cloud_share, cloud_vault, library, prefs, scrivener as scrivener_cmd, stats, update as update_cmd,
+    book, chapter, cloud_backup, cloud_share, cloud_vault, library, prefs, scrivener as scrivener_cmd, sheets, stats, update as update_cmd,
     workspace,
 };
 use state::Library;
@@ -84,6 +84,12 @@ pub fn run() {
             workspace::workspace_pick_files,
             workspace::workspace_open_file,
             workspace::workspace_excerpts,
+            sheets::sheets_load,
+            sheets::sheets_set_template,
+            sheets::sheets_create,
+            sheets::sheets_rename,
+            sheets::sheets_set_value,
+            sheets::sheets_delete,
             scrivener_cmd::scrivener_pick,
             scrivener_cmd::scrivener_scan,
             scrivener_cmd::scrivener_import,

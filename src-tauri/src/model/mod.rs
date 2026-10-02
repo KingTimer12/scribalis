@@ -5,5 +5,6 @@ pub mod metadata;
 pub mod para_attrs;
 pub mod patches;
 pub mod prefs;
+pub mod sheets;
 pub mod views;
 pub mod workspace;

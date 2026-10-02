@@ -11,6 +11,7 @@ export async function newBook(): Promise<BookMeta> {
     book, area, areaSel: null, areaOpen: null, areaExpanded: [],
     areaRenaming: null, areaRenameVal: "", toast: "", focus: false,
     boardExcerpts: {}, boardSel: null,
+    bookTab: "write", sheets: null, sheetKind: "character", sheetSel: null, sheetQ: "", templateDraft: null,
   });
   return book;
 }

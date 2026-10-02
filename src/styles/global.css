@@ -6,6 +6,7 @@
 @import "./board.css";
 @import "./settings.css";
 @import "./cloudjob.css";
+@import "./sheets.css";
 
 /* Theme tokens become utilities: text-ink, bg-panel, border-faint… */
 @theme inline {

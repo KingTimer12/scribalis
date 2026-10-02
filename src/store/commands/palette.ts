@@ -13,6 +13,8 @@ import { focusTarget } from "../focus";
 import { libList, libSelIndex } from "../selectors/library";
 import { setState, state } from "../state";
 import { chapterCommands } from "./chapter";
+import { sheetCommands, sheetHits } from "./sheets";
+import { setBookTab } from "../actions/sheets";
 import { workspaceCommands } from "./workspace";
 
 export interface Command {
@@ -69,10 +71,11 @@ export function paletteItems(): Command[] {
       const id = c.id;
       out.push({
         kind: pad(hit.index + 1), label: c.title || "Sem título", hint: fmt(c.words ?? 0) + " pal.",
-        act: () => { reveal(id); void openNode(id); },
+        act: () => { void setBookTab("write"); reveal(id); void openNode(id); },
       });
     }
   }
+  if (q && state.view === "book" && book) out.push(...sheetHits(q));
   if (q) {
     for (const b of state.library) {
       if (b.id !== state.curId && norm(b.title).includes(q)) {
@@ -84,7 +87,9 @@ export function paletteItems(): Command[] {
   const cmds =
     state.view === "library" || !book
       ? libraryCommands()
-      : [...chapterCommands(), ...workspaceCommands(), ...commonCommands()];
+      : state.bookTab === "sheets"
+        ? [...sheetCommands(), ...commonCommands()]
+        : [...chapterCommands(), ...workspaceCommands(), ...sheetCommands(), ...commonCommands()];
   for (const c of cmds) if (!q || norm(c.label).includes(q)) out.push(c);
   if (q) out = out.slice(0, 9);
   return out;
