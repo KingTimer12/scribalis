@@ -4,7 +4,7 @@ import { insertImage } from "../../editor/bridge";
 import { flushAll } from "../saving";
 import { currentChapter } from "../selectors/book";
 import { refreshLibrary } from "./library";
-import { mainTab } from "./tabs";
+import { boardNode } from "../selectors/board";
 import { setState, state } from "../state";
 import { flash, flashError } from "./ui";
 
@@ -70,7 +70,7 @@ export async function clearBookImage(slot: ImageSlot) {
 }
 
 /** The chapter is open and on screen: on the Quadro tab its editor is hidden. */
-const chapterShown = () => !!currentChapter() && mainTab() === "editor";
+const chapterShown = () => !!currentChapter() && !boardNode();
 
 /** Ctrl I / palette: Rust opens the dialog and copies the image into the book. */
 export async function insertChapterImage() {

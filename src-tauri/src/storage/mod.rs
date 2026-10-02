@@ -1,5 +1,4 @@
 pub mod atomic;
-pub mod board_io;
 pub mod chapter_io;
 pub mod images;
 pub mod metadata_io;

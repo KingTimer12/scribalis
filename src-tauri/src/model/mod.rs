@@ -1,4 +1,3 @@
-pub mod board;
 pub mod doc;
 pub mod manuscript;
 pub mod marks;

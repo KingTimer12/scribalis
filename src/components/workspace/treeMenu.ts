@@ -6,7 +6,8 @@ import { copyChapter, moveChapterStepFor, setStatus } from "../../store/actions/
 import { openNode, selectNode } from "../../store/actions/open";
 import { openPanel } from "../../store/actions/ui";
 import {
-  addFiles, createNode, moveIntoManuscript, moveOutOfManuscript, openFile, requestDelete, startNodeRename,
+  addFiles, createNode, createSubdocument, moveIntoManuscript, moveOutOfManuscript, openFile, requestDelete,
+  startNodeRename,
 } from "../../store/actions/workspace";
 import { setState, state } from "../../store/state";
 import type { MenuItem } from "../ui/ContextMenu";
@@ -61,6 +62,7 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
   const rename: MenuItem = { label: "Renomear", hint: "F2", act: () => startNodeRename(id) };
   const del: MenuItem = { label: "Excluir", hint: "Del", danger: true, act: () => void requestDelete(id) };
   const open: MenuItem = { label: "Abrir", act: () => void openNode(id) };
+  const subdoc: MenuItem = { label: "Novo subdocumento", act: () => void createSubdocument(id) };
   switch (node.kind) {
     case "manuscript":
       return [newChapter, newFolder];
@@ -70,6 +72,7 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
         : [...outsideCreators(), rename, share(node), del];
     case "chapter":
       return [
+        subdoc,
         rename,
         ...STATUS.map((s): MenuItem => ({
           label: "Status: " + STATUS_LABEL[s],
@@ -84,7 +87,7 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
         del,
       ];
     case "text":
-      return [open, rename, share(node), { label: "Mover para o Manuscrito", act: () => void moveIntoManuscript(id) }, del];
+      return [open, subdoc, rename, share(node), { label: "Mover para o Manuscrito", act: () => void moveIntoManuscript(id) }, del];
     case "file":
       return [open, { label: "Abrir no app padrão", act: () => void openFile(id) }, rename, del];
     default:

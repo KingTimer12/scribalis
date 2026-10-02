@@ -24,11 +24,16 @@ describe("workspace tree helpers", () => {
     expect(dropTarget(items, "b", "d", "inside")).toEqual({ parent: "d", index: 1 });
   });
 
-  it("refuses drops onto itself, into its own subtree or inside a non-folder", () => {
+  it("refuses drops onto itself, into its own subtree or inside an image or attachment", () => {
     expect(dropTarget(items, "d", "d", "inside")).toBeNull();
     expect(dropTarget(items, "d", "e", "inside")).toBeNull();
     expect(dropTarget(items, "d", "e", "before")).toBeNull();
-    expect(dropTarget(items, "f", "b", "inside")).toBeNull();
+    expect(dropTarget(items, "f", "c", "inside")).toBeNull();
+    expect(dropTarget(items, "b", "f", "inside")).toBeNull();
+  });
+
+  it("drops inside a document as a subdocument", () => {
+    expect(dropTarget(items, "f", "b", "inside")).toEqual({ parent: "b", index: 0 });
   });
 });
 
@@ -46,7 +51,8 @@ describe("drop rules around the Manuscrito", () => {
 
   it("drops inside the Manuscrito like inside a folder", () => {
     expect(dropTarget(tree, "t", "m", "inside")).toEqual({ parent: "m", index: 2 });
-    expect(dropTarget(tree, "t", "c1", "inside")).toBeNull();
+    // Inside a chapter: a subchapter.
+    expect(dropTarget(tree, "c2", "c1", "inside")).toEqual({ parent: "c1", index: 0 });
   });
 
   it("lists a node's ancestors, nearest last", () => {

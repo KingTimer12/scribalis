@@ -32,6 +32,3 @@ export const DEFAULT_PREFS: Prefs = {
 /** Longest synopsis, in characters (Rust cuts at the same length). */
 export const SYNOPSIS_MAX = 2000;
 
-/** Longest card title and text, in characters (Rust cuts at the same length). */
-export const CARD_TITLE_MAX = 200;
-export const CARD_TEXT_MAX = 20000;

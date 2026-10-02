@@ -1,7 +1,8 @@
 import type { AreaNode, Created, DocJSON, NodeKind } from "../types";
 import { SYNOPSIS_MAX } from "../../lib/constants";
+import { docText } from "../../lib/doc";
 import { inManuscript, manuscriptWords } from "../../lib/manuscript";
-import { isContainer } from "../../lib/tree";
+import { holdsChildren } from "../../lib/tree";
 import { db, EMPTY, findBook, mockId, touch } from "./db";
 import { checkCreate, checkDelete, checkMove, checkRename, convert, NO_MEDIA, rootIndex } from "./manuscript";
 
@@ -39,7 +40,7 @@ export function insertNode(items: AreaNode[], parent: string | null, index: numb
   if (parent) {
     const p = find(items, parent);
     if (!p) notFound();
-    if (!isContainer(p.kind)) throw "Só dá para guardar itens dentro de pastas";
+    if (!holdsChildren(p.kind)) throw "Só dá para guardar itens dentro de pastas e documentos";
     p.children ??= [];
     list = p.children;
   }
@@ -54,7 +55,7 @@ function moveNode(items: AreaNode[], id: string, parent: string | null, index: n
     if (parent === id || find(node.children ?? [], parent)) throw "Não dá para mover uma pasta para dentro dela mesma";
     const p = find(items, parent);
     if (!p) notFound();
-    if (!isContainer(p.kind)) throw "Só dá para guardar itens dentro de pastas";
+    if (!holdsChildren(p.kind)) throw "Só dá para guardar itens dentro de pastas e documentos";
   }
   const removed = remove(items, id);
   if (!removed) notFound();
@@ -169,5 +170,20 @@ export const workspace = {
   },
   workspace_open_file: (_: Ids): void => {
     throw "Abrir arquivos só funciona no app desktop";
+  },
+
+  /** Mirrors `ops::excerpts`: one line, cut at 400 characters with an ellipsis; empty documents left out. */
+  workspace_excerpts: ({ bookId, parent }: { bookId: string; parent: string }): Record<string, string> => {
+    const b = findBook(bookId);
+    const node = find(b.area, parent);
+    if (!node) notFound();
+    const out: Record<string, string> = {};
+    for (const c of node.children ?? []) {
+      const doc = b.docs[c.id];
+      if ((c.kind !== "chapter" && c.kind !== "text") || !doc) continue;
+      const text = Array.from(docText(doc).replace(/\s+/g, " ").trim());
+      if (text.length) out[c.id] = text.length > 400 ? text.slice(0, 400).join("").trimEnd() + "…" : text.join("");
+    }
+    return out;
   },
 };

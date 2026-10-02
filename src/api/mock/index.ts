@@ -1,4 +1,3 @@
-import { board } from "./board";
 import { book } from "./book";
 import { chapter } from "./chapter";
 import { cloud } from "./cloud";
@@ -10,7 +9,7 @@ import { workspace } from "./workspace";
 
 type Handler = (args: never) => unknown;
 const handlers: Record<string, Handler> = {
-  ...library, ...book, ...chapter, ...prefs, ...update, ...workspace, ...scrivener, ...cloud, ...board,
+  ...library, ...book, ...chapter, ...prefs, ...update, ...workspace, ...scrivener, ...cloud,
 };
 
 /** `?mockDelay=150` in the dev URL makes every call slow, to exercise IPC races (e2e). */

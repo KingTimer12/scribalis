@@ -19,16 +19,16 @@ describe("importSummary", () => {
 });
 
 describe("confirmScrivenerImport", () => {
-  it("refreshes the board when importing into the open book", async () => {
+  it("refreshes the tree when importing into the open book", async () => {
     const book = await newBook();
-    // The import (Rust) appends a card behind the store's back.
+    // The import (Rust) adds items behind the store's back.
     const spy = vi.spyOn(api, "importScrivener").mockImplementation(async () => {
-      await mockInvoke("board_create", { bookId: book.id, index: 0, title: "Do Scrivener" });
+      await mockInvoke("workspace_create", { bookId: book.id, parent: null, index: 9, kind: "folder", title: "Do Scrivener" });
       return { bookId: book.id, chapters: 0, items: 1, warnings: 0 };
     });
     setState("scrivener", { path: "x.scriv", view: { items: [] } as unknown as ScanView, chosen: [], target: { type: "book", id: book.id }, busy: false });
     await confirmScrivenerImport();
-    expect(state.board.map((c) => c.title)).toEqual(["Do Scrivener"]);
+    expect(state.area.map((n) => n.title)).toContain("Do Scrivener");
     spy.mockRestore();
   });
 });

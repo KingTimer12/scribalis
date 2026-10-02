@@ -20,12 +20,12 @@ describe("tree menus", () => {
     expect(labels(menuOf("m"))).toEqual(["Novo capítulo", "Nova pasta"]);
     expect(labels(menuOf("p"))).toEqual(["Novo capítulo", "Nova pasta", "Renomear", "Excluir"]);
     expect(labels(menuOf("c2"))).toEqual([
-      "Renomear", "Status: Rascunho", "Status: Revisão", "Status: Pronto",
+      "Novo subdocumento", "Renomear", "Status: Rascunho", "Status: Revisão", "Status: Pronto",
       "Mover para cima", "Mover para baixo", "Compartilhar…",
       "Copiar para publicar", "Mover para fora do Manuscrito", "Excluir",
     ]);
     expect(labels(menuOf("f"))).toEqual(["Novo texto", "Nova pasta", "Adicionar imagem ou arquivo…", "Renomear", "Compartilhar…", "Excluir"]);
-    expect(labels(menuOf("t"))).toEqual(["Abrir", "Renomear", "Compartilhar…", "Mover para o Manuscrito", "Excluir"]);
+    expect(labels(menuOf("t"))).toEqual(["Abrir", "Novo subdocumento", "Renomear", "Compartilhar…", "Mover para o Manuscrito", "Excluir"]);
     expect(labels(menuOf("i"))).toEqual(["Abrir", "Renomear", "Excluir"]);
     expect(labels(menuOf("a"))).toEqual(["Abrir", "Abrir no app padrão", "Renomear", "Excluir"]);
     expect(labels(treeMenu(null))).toEqual(["Novo texto", "Nova pasta", "Adicionar imagem ou arquivo…"]);

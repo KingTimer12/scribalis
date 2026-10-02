@@ -41,3 +41,7 @@ export const areaPickFiles = (bookId: string, parent: string | null) =>
 
 /** Opens an image/attachment node in the OS's default app. */
 export const areaOpenFile = (bookId: string, id: string) => call<void>("workspace_open_file", { bookId, id });
+
+/** Opening text of each chapter or text directly under `parent`, by id: placeholders for its board's cards. */
+export const areaExcerpts = (bookId: string, parent: string) =>
+  call<Record<string, string>>("workspace_excerpts", { bookId, parent });

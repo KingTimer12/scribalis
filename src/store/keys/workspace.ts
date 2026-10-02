@@ -1,5 +1,5 @@
 import { inManuscript } from "../../lib/manuscript";
-import { isContainer, visibleRows, type Row } from "../../lib/tree";
+import { foldable, visibleRows, type Row } from "../../lib/tree";
 import { toggleExpanded } from "../actions/expanded";
 import { openNode, selectNode } from "../actions/open";
 import { createNode, requestDelete, startNodeRename } from "../actions/workspace";
@@ -35,13 +35,13 @@ export function treeKey(e: KeyboardEvent, openMenu: () => void) {
       pick(rows[rows.length - 1]);
       break;
     case "ArrowRight":
-      if (row && isContainer(row.node.kind)) {
+      if (row && foldable(row.node)) {
         if (!expanded(row.node.id)) toggleExpanded(row.node.id);
         else if (row.node.children?.length) selectNode(row.node.children[0].id);
       }
       break;
     case "ArrowLeft":
-      if (row && isContainer(row.node.kind) && expanded(row.node.id)) toggleExpanded(row.node.id);
+      if (row && foldable(row.node) && expanded(row.node.id)) toggleExpanded(row.node.id);
       else if (row?.parent) selectNode(row.parent);
       break;
     case "Enter":

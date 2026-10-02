@@ -6,9 +6,8 @@ import { areaTree } from "../../api/workspace";
 import { docWords } from "../../lib/doc";
 import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
-import { loadBoard } from "./board";
 import { expandedFor } from "./expanded";
-import { mainTab } from "./tabs";
+import { boardNode } from "../selectors/board";
 import { initialNode, keyOf, loadNodeDoc } from "./open";
 import { backupAuto, fetchComments, loadBookCloud, syncCloudBadges } from "./cloud";
 import { flushAll, settleDocSave, swapDocument } from "../saving";
@@ -45,7 +44,7 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
           // the tree's screen state belongs to the previous book
           area: items, areaExpanded: expandedFor(id, items, node?.id ?? null), areaSel: node?.id ?? null,
           areaOpen: node?.id ?? null, areaRenaming: null, areaRenameVal: "",
-          board: [], boardText: {}, boardSel: null,
+          boardExcerpts: {}, boardSel: null,
         });
       });
     if (doc && key) await swapDocument(doc, key, apply);
@@ -55,13 +54,12 @@ export async function openBook(id: string, target: "title" | "body" = "body") {
       apply();
     }
     if (prev && prev !== id) backupAuto(prev);
-    void loadBoard(id);
     setState("cloudBook", null);
     void loadBookCloud(id).then((view) => {
       if (view?.enabled) void fetchComments(true);
     });
-    // A book reopened on its Quadro has no visible editor to focus.
-    if (mainTab() === "board") focusTarget("board");
+    // A book reopened on a board has no visible editor to focus.
+    if (boardNode()) focusTarget("board");
     else if (target === "title" && node?.kind === "chapter") focusTarget("title", 0);
     else focusTarget(doc ? "body" : "tree", doc ? "end" : null);
   } catch (e) {

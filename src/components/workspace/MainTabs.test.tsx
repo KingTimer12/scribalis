@@ -27,14 +27,37 @@ vi.mock("../editor/Editor", () => ({
 
 const { openBook } = await import("../../store/actions/library");
 const { setMainTab } = await import("../../store/actions/tabs");
+const { loadArea } = await import("../../store/actions/workspace");
 const { flushAll, scheduleDocSave } = await import("../../store/saving");
 const { state } = await import("../../store/state");
 const { newBook } = await import("../../test/newBook");
 const { MainTabs } = await import("./MainTabs");
 
+/** The Quadro tab only exists for a document with subdocuments: gives the open chapter one. */
+async function addSubchapter(bookId: string, parent: string) {
+  await mockInvoke("workspace_create", { bookId, parent, index: 0, kind: "chapter", title: "Cena" });
+  await loadArea();
+}
+
 const para = (text: string): DocJSON => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
 
 describe("MainTabs", () => {
+  it("shows the tabs only for a document with subdocuments", async () => {
+    const book = await newBook();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const dispose = render(() => <MainTabs />, host);
+    await openBook(book.id);
+    expect(host.querySelector(".ws-tabs")).toBeNull();
+    await addSubchapter(book.id, state.areaOpen!);
+    expect(host.querySelector(".ws-tabs")).not.toBeNull();
+    setMainTab("board");
+    expect(host.querySelector(".board [data-card-id]")).not.toBeNull();
+    setMainTab("editor");
+    dispose();
+    host.remove();
+  });
+
   it("Editor → Quadro → Editor keeps the open chapter in the editor and saves the text typed before", async () => {
     const book = await newBook();
     const host = document.createElement("div");
@@ -42,6 +65,7 @@ describe("MainTabs", () => {
     const dispose = render(() => <MainTabs />, host);
     await openBook(book.id);
     const chapterId = state.areaOpen!;
+    await addSubchapter(book.id, chapterId);
     expect(currentDocKey()).toMatchObject({ docId: chapterId, scope: "chapter" });
 
     fake.type(para("Antes do quadro"));
@@ -69,6 +93,7 @@ describe("MainTabs", () => {
     const dispose = render(() => <MainTabs />, host);
     await openBook(book.id);
     const chapterId = state.areaOpen!;
+    await addSubchapter(book.id, chapterId);
     fake.type(para("Salvo na troca"));
     scheduleDocSave();
     setMainTab("board");

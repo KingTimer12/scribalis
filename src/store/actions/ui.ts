@@ -2,7 +2,7 @@ import type { Panel } from "../../lib/types";
 import { focusTarget, type FocusTarget } from "../focus";
 import { openAreaNode } from "../selectors/workspace";
 import { setState, state } from "../state";
-import { mainTab } from "./tabs";
+import { boardNode } from "../selectors/board";
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -19,8 +19,8 @@ export const flashError = (e: unknown) => flash(typeof e === "string" ? e : "Alg
 /** Where focus rests on the current screen: the library grid, the text of an open chapter or text, or the tree. */
 export function homeTarget(): FocusTarget {
   if (state.view === "library") return "lib";
-  // The editor stays mounted but hidden behind the Quadro: focus the board instead.
-  if (mainTab() === "board") return "board";
+  // A folder's board, or the Quadro tab with the editor hidden behind it: focus the cards.
+  if (boardNode()) return "board";
   const kind = openAreaNode()?.kind;
   return kind === "chapter" || kind === "text" ? "body" : "tree";
 }
@@ -40,8 +40,8 @@ export function openPanel(name: Panel) {
 }
 
 export function toggleFocusMode() {
-  // Focus mode is for writing: the board tab has no text being written.
-  if (!state.focus && mainTab() === "board") return;
+  // Focus mode is for writing: a board of index cards has no text being written.
+  if (!state.focus && boardNode()) return;
   const on = !state.focus;
   setState("focus", on);
   flash(on ? "Modo foco" : "Modo foco desligado");

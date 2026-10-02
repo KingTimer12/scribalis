@@ -3,7 +3,7 @@ import type { AreaNode } from "../api/types";
 import {
   chapterCount, chapterNumber, chapterOrder, displayTitle, inManuscript, manuscriptOf, manuscriptWords,
 } from "./manuscript";
-import { isContainer } from "./tree";
+import { holdsChildren, isFolder } from "./tree";
 
 const ch = (id: string, words: number, title = ""): AreaNode => ({ id, kind: "chapter", title, notes: "", status: "rascunho", words });
 const items: AreaNode[] = [
@@ -29,8 +29,10 @@ describe("manuscript helpers", () => {
     expect(inManuscript(items, "m")).toBe(true);
     expect(inManuscript(items, "t")).toBe(false);
     expect(chapterCount(items[0].children![0])).toBe(2);
-    expect(isContainer("manuscript") && isContainer("folder")).toBe(true);
-    expect(isContainer("chapter")).toBe(false);
+    expect(isFolder("manuscript") && isFolder("folder")).toBe(true);
+    expect(isFolder("chapter")).toBe(false);
+    expect(holdsChildren("chapter") && holdsChildren("text")).toBe(true);
+    expect(holdsChildren("image") || holdsChildren("file")).toBe(false);
   });
 
   it("shows an untitled chapter by its number", () => {

@@ -1,6 +1,6 @@
 import { createStore, produce } from "solid-js/store";
 import type {
-  AreaNode, BoardCard, BookCloudView, BookMeta, BookSummary, CloudOverview, CloudStatus, ImportTarget, Prefs, ScanView,
+  AreaNode, BookCloudView, BookMeta, BookSummary, CloudOverview, CloudStatus, ImportTarget, Prefs, ScanView,
   SearchHit, ShareKind, UpdateInfo,
 } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
@@ -82,9 +82,9 @@ export interface AppState {
   cloudStatus: CloudStatus | null;
   /** Link being created from a context menu or command: opens the share form in the cloud panel. */
   shareDraft: ShareDraft | null;
-  /** The open book's board: cards in order, texts loaded so far, the selected card. */
-  board: BoardCard[];
-  boardText: Record<string, string>;
+  /** Board of the open folder (or document): opening text of its documents, by id, as card placeholders. */
+  boardExcerpts: Record<string, string>;
+  /** The selected index card. */
   boardSel: string | null;
 }
 
@@ -123,8 +123,7 @@ export const [state, setState] = createStore<AppState>({
   cloudBook: null,
   cloudStatus: null,
   shareDraft: null,
-  board: [],
-  boardText: {},
+  boardExcerpts: {},
   boardSel: null,
 });
 

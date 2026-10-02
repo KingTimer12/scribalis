@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 import { fmt } from "../../lib/format";
 import { displayTitle } from "../../lib/manuscript";
-import { isContainer, type Row } from "../../lib/tree";
+import { foldable, type Row } from "../../lib/tree";
 import { toggleExpanded } from "../../store/actions/expanded";
 import { openNode } from "../../store/actions/open";
 import { cancelNodeRename, commitNodeRename, startNodeRename } from "../../store/actions/workspace";
@@ -58,7 +58,8 @@ function RenameField(props: { id: string }) {
 export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => void }) {
   const node = () => props.row.node;
   const id = () => node().id;
-  const folder = () => isContainer(node().kind);
+  // Folders, and documents with subdocuments, fold and unfold.
+  const folder = () => foldable(node());
   const expanded = () => state.areaExpanded.includes(id());
   const dropHere = () => {
     const d = drag();

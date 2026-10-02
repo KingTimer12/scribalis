@@ -3,8 +3,14 @@
 // so drag-and-drop in the UI computes exactly what `workspace_move` will accept.
 import type { AreaNode, NodeKind } from "../api/types";
 
-/** Kinds that hold children. */
-export const isContainer = (kind: NodeKind) => kind === "folder" || kind === "manuscript";
+/** Folders and the Manuscrito: opening one shows its board of index cards. */
+export const isFolder = (kind: NodeKind) => kind === "folder" || kind === "manuscript";
+
+/** Kinds that hold children: folders, the Manuscrito, and documents (children are subdocuments). */
+export const holdsChildren = (kind: NodeKind) => isFolder(kind) || kind === "chapter" || kind === "text";
+
+/** True when a node shows a chevron in the tree: a folder, or a document with subdocuments. */
+export const foldable = (node: AreaNode) => isFolder(node.kind) || !!node.children?.length;
 
 /** The Manuscrito: always the first root item. */
 export function manuscriptOf(items: AreaNode[]): AreaNode | null {
@@ -89,7 +95,7 @@ export function dropTarget(items: AreaNode[], dragId: string, targetId: string, 
   const dragged = findNode(items, dragId);
   const target = findNode(items, targetId);
   if (!dragged || !target || dragged.kind === "manuscript") return null;
-  if (pos === "inside" && !isContainer(target.kind)) return null;
+  if (pos === "inside" && !holdsChildren(target.kind)) return null;
   if (findNode(dragged.children ?? [], targetId)) return null;
 
   const pruned = withoutNode(items, dragId);

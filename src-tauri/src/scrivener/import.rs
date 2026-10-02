@@ -34,8 +34,6 @@ struct Ctx<'a> {
     chapter_items: &'a HashSet<String>,
     chapters: Vec<Node>,
     attachments: Vec<Node>,
-    /// Items with a synopsis, as board cards (title, text), in binder order.
-    cards: Vec<(String, String)>,
     items: usize,
     warnings: usize,
 }
@@ -60,14 +58,6 @@ fn can_be_chapter(item: &BinderItem) -> bool {
 }
 
 impl Ctx<'_> {
-    /// Queues a board card for `item` when it has a synopsis.
-    fn note_card(&mut self, item: &BinderItem) {
-        let synopsis = self.project.synopsis(&item.key);
-        if !synopsis.is_empty() {
-            self.cards.push((title_of(item), synopsis));
-        }
-    }
-
     fn text(&mut self, key: &str) -> Doc {
         self.project.text(key).unwrap_or_else(|_| {
             self.warnings += 1;
@@ -100,11 +90,11 @@ impl Ctx<'_> {
         Ok(Some(node))
     }
 
-    /// Appends the workspace nodes of `item`'s children onto `folder`.
-    fn push_children(&mut self, folder: &mut Node, item: &BinderItem) -> AppResult<()> {
+    /// Appends the workspace nodes of `item`'s children onto `parent` (a folder or a document).
+    fn push_children(&mut self, parent: &mut Node, item: &BinderItem) -> AppResult<()> {
         for child in &item.children {
             if let Some(n) = self.node(child)? {
-                folder.children.push(n);
+                parent.children.push(n);
             }
         }
         Ok(())
@@ -119,14 +109,16 @@ impl Ctx<'_> {
             self.emit_chapter(item)?;
             return Ok(None);
         }
-        self.note_card(item);
         match item.kind {
             ItemKind::Image | ItemKind::File if item.children.is_empty() => self.media_node(item),
-            ItemKind::Text if item.children.is_empty() => {
+            ItemKind::Text => {
+                // A text with children stays a document; its children become subdocuments.
                 let doc = self.text(&item.key);
                 let notes = self.project.notes(&item.key);
                 let synopsis = self.project.synopsis(&item.key);
-                self.text_node(&title_of(item), notes, synopsis, &doc).map(Some)
+                let mut node = self.text_node(&title_of(item), notes, synopsis, &doc)?;
+                self.push_children(&mut node, item)?;
+                Ok(Some(node))
             }
             ItemKind::Image | ItemKind::File => {
                 // Media with children: a folder titled like the item, holding its own
@@ -150,7 +142,7 @@ impl Ctx<'_> {
                 let notes = self.project.notes(&item.key);
                 let synopsis = self.project.synopsis(&item.key);
                 folder.synopsis = synopsis.clone();
-                let own_text = has_text(&doc) || item.kind == ItemKind::Text;
+                let own_text = has_text(&doc);
                 if own_text {
                     folder.children.push(self.text_node(&title, notes, synopsis, &doc)?);
                 } else {
@@ -178,7 +170,6 @@ impl Ctx<'_> {
         if item.kind == ItemKind::Trash {
             return Ok(());
         }
-        self.note_card(item);
         if matches!(item.kind, ItemKind::Image | ItemKind::File) {
             if let Some(n) = self.media_node(item)? {
                 self.attachments.push(n);
@@ -235,7 +226,7 @@ pub fn import_into(
     wrap: Option<&str>,
 ) -> AppResult<Outcome> {
     let binder = project.binder()?;
-    let mut ctx = Ctx { project, dir, chapter_items, chapters: Vec::new(), attachments: Vec::new(), cards: Vec::new(), items: 0, warnings: 0 };
+    let mut ctx = Ctx { project, dir, chapter_items, chapters: Vec::new(), attachments: Vec::new(), items: 0, warnings: 0 };
     let mut nodes = Vec::new();
     for item in &binder {
         if let Some(n) = ctx.node(item)? {
@@ -265,7 +256,6 @@ pub fn import_into(
         m.children.extend(ctx.chapters);
     }
     write_workspace(dir, &ws)?;
-    crate::ops::board::append(dir, std::mem::take(&mut ctx.cards))?;
     meta.chapters = mirror(&ws.items);
     meta.updated_at = now_ms();
     write_metadata(dir, meta)?;
@@ -312,7 +302,6 @@ mod tests {
     use crate::model::doc::Block;
     use crate::model::manuscript::chapters;
     use crate::model::workspace::NodeKind;
-    use crate::ops::board;
     use crate::ops::library::create_book;
     use crate::storage::{chapter_io::read_at, workspace_io::read_workspace};
     use crate::text::words::doc_text;
@@ -323,14 +312,6 @@ mod tests {
             .iter()
             .map(|c| (c.title.clone(), c.notes.clone(), c.file.clone().unwrap()))
             .collect()
-    }
-
-    /// Board cards of a book as (title, text).
-    fn board_cards(dir: &Path) -> Vec<(String, String)> {
-        board::list(dir).unwrap().into_iter().map(|c| {
-            let text = board::load_text(dir, &c.id).unwrap();
-            (c.title, text)
-        }).collect()
     }
 
     const BINDER: &str = r#"<ScrivenerProject><Binder>
@@ -482,31 +463,38 @@ mod tests {
     }
 
     #[test]
-    fn synopses_become_board_cards_in_binder_order() {
+    fn a_text_with_children_stays_a_document_with_subdocuments() {
         let tmp = tempfile::tempdir().unwrap();
-        let p = project(tmp.path());
+        let dir = tmp.path().join("Sub.scriv");
+        let data = dir.join("Files/Data");
+        for key in ["A", "B", "C"] {
+            fs::create_dir_all(data.join(key)).unwrap();
+        }
+        fs::write(dir.join("Sub.scrivx"), r#"<ScrivenerProject><Binder>
+          <BinderItem UUID="R" Type="ResearchFolder"><Title>Pesquisa</Title><Children>
+            <BinderItem UUID="A" Type="Text"><Title>Ana</Title><Children>
+              <BinderItem UUID="B" Type="Text"><Title>Infância</Title><Children>
+                <BinderItem UUID="C" Type="Text"><Title>Escola</Title></BinderItem>
+              </Children></BinderItem>
+            </Children></BinderItem>
+          </Children></BinderItem>
+        </Binder></ScrivenerProject>"#).unwrap();
+        fs::write(data.join("A/content.rtf"), br"{\rtf1 Olhos cinzentos.\par}").unwrap();
+        fs::write(data.join("A/synopsis.txt"), "A heroína").unwrap();
+        fs::write(data.join("B/content.rtf"), br"{\rtf1 Cresceu no porto.\par}").unwrap();
+        let p = Project::open(&dir).unwrap();
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (dir, _meta, _out) = import_new_book(&root, &p, &folders(&["C1", "C2"])).unwrap();
-        let expected = vec![
-            ("Capítulo 1".to_string(), "Chegada ao porto".to_string()),
-            ("Cena 1".to_string(), "Abertura".to_string()),
-            ("Ana".to_string(), "A heroína".to_string()),
-        ];
-        assert_eq!(board_cards(&dir), expected);
-        // The synopsis field keeps its guide role.
-        assert_eq!(chapters(&read_workspace(&dir).unwrap().items)[0].synopsis, "Chegada ao porto");
-    }
-
-    #[test]
-    fn import_into_an_open_book_appends_to_its_board() {
-        let tmp = tempfile::tempdir().unwrap();
-        let p = project(tmp.path());
-        let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
-        board::create(&dir, 0, "Meu cartão").unwrap();
-        import_into(&p, &folders(&["C1"]), &dir, &mut meta, Some("Livro")).unwrap();
-        let titles: Vec<String> = board_cards(&dir).into_iter().map(|c| c.0).collect();
-        assert_eq!(titles, vec!["Meu cartão", "Capítulo 1", "Cena 1", "Ana"]);
+        let (book, _meta, _out) = import_new_book(&root, &p, &HashSet::new()).unwrap();
+        let ws = read_workspace(&book).unwrap();
+        let ana = &ws.items[1].children[0];
+        assert_eq!((ana.kind, ana.title.as_str(), ana.synopsis.as_str()), (NodeKind::Text, "Ana", "A heroína"));
+        let doc = crate::storage::workspace_io::read_node_doc(&book, ana.file.as_deref().unwrap()).unwrap();
+        assert_eq!(doc_text(&doc), "Olhos cinzentos.");
+        let infancia = &ana.children[0];
+        assert_eq!((infancia.kind, infancia.title.as_str()), (NodeKind::Text, "Infância"));
+        assert_eq!(ana.children.len(), 1);
+        assert_eq!((infancia.children[0].kind, infancia.children[0].title.as_str()), (NodeKind::Text, "Escola"));
     }
 
     #[test]

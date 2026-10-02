@@ -3,7 +3,7 @@ import type { AreaNode } from "../../api/types";
 import { currentDocKey } from "../../editor/bridge";
 import { pad, plural } from "../../lib/format";
 import { chapterNumber, descendantCount, displayTitle, inManuscript } from "../../lib/manuscript";
-import { dropTarget, findNode, isContainer, locate, manuscriptOf, type DropPos } from "../../lib/tree";
+import { dropTarget, findNode, isFolder, locate, manuscriptOf, type DropPos } from "../../lib/tree";
 import { askConfirm } from "../confirm";
 import { focusTarget } from "../focus";
 import { cancelDocSave, flushAll, holdDocSaves, registerFlusher, releaseDocSaves, settleDocSave } from "../saving";
@@ -18,7 +18,7 @@ function parentForNewItem(): string | null {
   const sel = state.areaSel;
   if (!sel) return null;
   const node = findNode(state.area, sel);
-  if (node && isContainer(node.kind)) return sel;
+  if (node && isFolder(node.kind)) return sel;
   return locate(state.area, sel)?.parent ?? null;
 }
 
@@ -46,21 +46,55 @@ export async function loadArea() {
   }
 }
 
+type NewKind = "folder" | "text" | "chapter";
+
+/** Creates the node in Rust and takes the new tree; the parent unfolds to show it. */
+async function addNode(bookId: string, kind: NewKind, parent: string | null, index: number): Promise<string> {
+  const title = kind === "folder" ? "Nova pasta" : kind === "text" ? "Novo documento" : "";
+  const { id, items } = await api.areaCreate(bookId, parent, index, kind, title);
+  setState("area", items);
+  if (parent) expand(parent);
+  return id;
+}
+
+/** Kind of a new document under `parent`: a chapter inside the Manuscrito, a text outside it. */
+export const docKindUnder = (parent: string) => (inManuscript(state.area, parent) ? "chapter" : "text");
+
+/**
+ * New node under `parent` at `index` that stays where it is created: no rename field, nothing
+ * opens (the board focuses its card instead). Resolves to the new id, or null on failure.
+ */
+export async function createQuietly(kind: NewKind, parent: string, index: number): Promise<string | null> {
+  const b = state.book;
+  if (!b) return null;
+  let id: string | null = null;
+  await run(async () => {
+    await flushAll();
+    id = await addNode(b.id, kind, parent, index);
+  });
+  return id;
+}
+
+/** "Novo subdocumento": a document at the end of `id`'s children. */
+export function createSubdocument(id: string) {
+  const node = findNode(state.area, id);
+  if (!node) return;
+  return createNode(docKindUnder(id), { parent: id, index: node.children?.length ?? 0 });
+}
+
 /**
  * Creates a node in the selected folder (or at `at`). A chapter opens on its title; a folder
  * or text enters rename in the tree.
  */
-export function createNode(kind: "folder" | "text" | "chapter", at?: { parent: string | null; index: number }) {
+export function createNode(kind: NewKind, at?: { parent: string | null; index: number }) {
   const b = state.book;
   if (!b) return;
   const parent = at ? at.parent : parentForNewItem();
   const siblings = (parent ? findNode(state.area, parent)?.children : state.area) ?? [];
   const index = at ? at.index : siblings.length;
-  const title = kind === "folder" ? "Nova pasta" : kind === "text" ? "Novo documento" : "";
   return run(async () => {
-    const { id, items } = await api.areaCreate(b.id, parent, index, kind, title);
-    setState({ area: items, areaSel: id });
-    if (parent) expand(parent);
+    const id = await addNode(b.id, kind, parent, index);
+    setState("areaSel", id);
     if (kind !== "chapter") return startNodeRename(id);
     await openNode(id, false);
     focusTarget("title", 0);
@@ -149,15 +183,18 @@ export async function requestDelete(id: string) {
   if (!node) return;
   if (node.kind === "manuscript") return flash("O Manuscrito não pode ser excluído.");
   const inside = descendantCount(node);
-  const message = isContainer(node.kind)
+  const message = isFolder(node.kind)
     ? inside
       ? "A pasta e os " + plural(inside, "item", "itens") + " dentro dela serão excluídos."
       : "A pasta vazia será excluída."
-    : node.kind === "chapter"
-      ? "O capítulo e o texto dele serão excluídos."
-      : node.kind === "text"
-        ? "O texto será excluído."
-        : "O arquivo será excluído.";
+    : inside
+      ? (node.kind === "chapter" ? "O capítulo" : "O texto") +
+        " e " + plural(inside, "subdocumento", "subdocumentos") + " dentro dele serão excluídos."
+      : node.kind === "chapter"
+        ? "O capítulo e o texto dele serão excluídos."
+        : node.kind === "text"
+          ? "O texto será excluído."
+          : "O arquivo será excluído.";
   const ok = await askConfirm({
     title: "Excluir “" + displayTitle(state.area, node) + "”?",
     message,

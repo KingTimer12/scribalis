@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { cardDropIndex } from "../../lib/cardOrder";
-import { moveCard } from "../../store/actions/board";
+import { findNode } from "../../lib/tree";
+import { dropCard } from "../../store/actions/board";
 import { state } from "../../store/state";
 
 /** Reordering board cards with pointer events (HTML5 drag and drop never reaches the webview on Windows). */
@@ -25,14 +26,15 @@ export function consumeCardClick(): boolean {
   return was;
 }
 
-export function pointerDownOnCard(e: PointerEvent, id: string) {
+/** Starts watching a press on card `id` of `parent`'s board; past a few pixels it becomes a drag. */
+export function pointerDownOnCard(e: PointerEvent, parent: string, id: string) {
   swallowClick = false;
   if (e.button !== 0) return;
   const card = e.currentTarget as HTMLElement;
   const startX = e.clientX;
   const startY = e.clientY;
   let active = false;
-  const ids = () => state.board.map((c) => c.id);
+  const ids = () => (findNode(state.area, parent)?.children ?? []).map((c) => c.id);
 
   const move = (ev: PointerEvent) => {
     if (!active) {
@@ -66,8 +68,7 @@ export function pointerDownOnCard(e: PointerEvent, id: string) {
     end();
     setCardDrag(null);
     if (!active || !d?.targetId || !d.pos) return;
-    const to = cardDropIndex(ids(), d.dragId, d.targetId, d.pos);
-    if (to !== null) void moveCard(d.dragId, to);
+    void dropCard(parent, d.dragId, d.targetId, d.pos);
   };
 
   const cancel = () => {

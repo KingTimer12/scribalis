@@ -1,11 +1,19 @@
-import { onMount } from "solid-js";
-import type { BoardCard as Card } from "../../api/types";
-import { CARD_TEXT_MAX, CARD_TITLE_MAX } from "../../lib/constants";
-import { loadCardText, selectCard } from "../../store/actions/board";
-import { flushCard, scheduleCardText, scheduleCardTitle } from "../../store/actions/boardText";
+import { Show } from "solid-js";
+import type { AreaNode } from "../../api/types";
+import { SYNOPSIS_MAX } from "../../lib/constants";
+import { fmt, plural } from "../../lib/format";
+import { displayTitle } from "../../lib/manuscript";
+import { isFolder } from "../../lib/tree";
+import { selectCard } from "../../store/actions/board";
+import { flushCardTitle, scheduleCardTitle } from "../../store/actions/cardTitle";
+import { openNode } from "../../store/actions/open";
+import { flushSynopsis, scheduleSynopsis } from "../../store/actions/synopsis";
 import { focusTarget } from "../../store/focus";
 import { cardFieldKey } from "../../store/keys/cardField";
 import { state } from "../../store/state";
+import { StatusDot } from "../ui/StatusDot";
+import { NodeIcon } from "../workspace/NodeIcon";
+import { cardKindLabel } from "./boardMenu";
 import { cardDrag, consumeCardClick, pointerDownOnCard } from "./cardDrag";
 
 export const cardDomId = (id: string) => "bcard-" + id;
@@ -14,18 +22,30 @@ export const cardTextId = (id: string) => "bcard-text-" + id;
 
 const stop = (e: Event) => e.stopPropagation();
 
-/** One index card: a ruled card with its title over a red line and its text on the rules. */
-export function BoardCard(props: { card: Card; onMenu: (x: number, y: number) => void; onEditText: (id: string) => void }) {
-  const id = () => props.card.id;
-  onMount(() => void loadCardText(id()));
+/** What is inside a card's node, for its foot: "3 subdocumentos", "2 itens"… */
+function inside(node: AreaNode): string {
+  const n = node.children?.length ?? 0;
+  if (isFolder(node.kind)) return plural(n, "item", "itens");
+  return n ? plural(n, "subdocumento", "subdocumentos") : "";
+}
+
+/**
+ * One index card for a child of the board's node: its title over a red line and its synopsis
+ * on the rules. Without a synopsis, the opening of the document shows as the placeholder.
+ */
+export function BoardCard(props: {
+  parent: string;
+  node: AreaNode;
+  onMenu: (x: number, y: number) => void;
+  onEditText: (id: string) => void;
+}) {
+  const id = () => props.node.id;
   const dropHere = () => {
     const d = cardDrag();
     return d && d.targetId === id() ? d.pos : null;
   };
-  const leave = () => {
-    void flushCard();
-  };
   const back = () => focusTarget("board");
+  const placeholder = () => state.boardExcerpts[id()] ?? "Escreva uma sinopse…";
   return (
     <div
       id={cardDomId(id())}
@@ -39,12 +59,14 @@ export function BoardCard(props: { card: Card; onMenu: (x: number, y: number) =>
       }}
       aria-selected={state.boardSel === id()}
       data-card-id={id()}
-      onPointerDown={(e) => pointerDownOnCard(e, id())}
+      title="Duplo clique para abrir"
+      onPointerDown={(e) => pointerDownOnCard(e, props.parent, id())}
       onClick={() => {
         if (consumeCardClick()) return;
         selectCard(id());
         focusTarget("board");
       }}
+      onDblClick={() => void openNode(id())}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -55,35 +77,45 @@ export function BoardCard(props: { card: Card; onMenu: (x: number, y: number) =>
       <input
         id={cardTitleId(id())}
         class="bcard-title"
-        aria-label="Título do cartão"
-        placeholder="Título do cartão"
-        value={props.card.title}
-        // Matches the cut the save applies, so the field never shows text that will not be kept.
-        maxLength={CARD_TITLE_MAX}
+        aria-label="Título"
+        // An untitled chapter goes by its number, like in the tree.
+        placeholder={props.node.kind === "chapter" ? displayTitle(state.area, props.node) : "Sem título"}
+        value={props.node.title}
         onInput={(e) => scheduleCardTitle(id(), e.currentTarget.value)}
         onFocus={() => selectCard(id())}
-        onBlur={leave}
+        onBlur={() => void flushCardTitle()}
         onKeyDown={(e) => cardFieldKey(e, back, () => props.onEditText(id()))}
         onPointerDown={stop}
         onClick={stop}
+        onDblClick={stop}
         autocomplete="off"
       />
       <textarea
         id={cardTextId(id())}
         class="bcard-text"
-        aria-label="Texto do cartão"
-        placeholder="Anote aqui…"
-        value={state.boardText[id()] ?? ""}
-        maxLength={CARD_TEXT_MAX}
-        // Until the saved text arrives, typing would replace it.
-        readOnly={state.boardText[id()] === undefined}
-        onInput={(e) => scheduleCardText(id(), e.currentTarget.value)}
+        aria-label="Sinopse"
+        placeholder={placeholder()}
+        value={props.node.synopsis ?? ""}
+        maxLength={SYNOPSIS_MAX}
+        onInput={(e) => scheduleSynopsis(id(), e.currentTarget.value)}
         onFocus={() => selectCard(id())}
-        onBlur={leave}
+        onBlur={() => void flushSynopsis()}
         onKeyDown={(e) => cardFieldKey(e, back)}
         onPointerDown={stop}
         onClick={stop}
+        onDblClick={stop}
       />
+      <div class="bcard-foot ui">
+        <NodeIcon kind={props.node.kind} />
+        <span>{cardKindLabel(props.node)}</span>
+        <Show when={props.node.kind === "chapter"}>
+          <StatusDot status={props.node.status ?? "rascunho"} />
+          <span>{fmt(props.node.words ?? 0)} palavras</span>
+        </Show>
+        <Show when={inside(props.node)}>
+          <span>{inside(props.node)}</span>
+        </Show>
+      </div>
     </div>
   );
 }

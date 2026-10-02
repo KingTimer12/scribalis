@@ -1,4 +1,4 @@
-/* The book's board: ruled index cards on cork. */
+/* Board of a folder or document: its children as ruled index cards on cork. */
 @layer components {
   .ws-main-col {
     flex-grow: 1;
@@ -67,6 +67,16 @@
   }
   .board-head {
     justify-content: space-between;
+  }
+  .board-title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .board-size .crumb.on {
     color: var(--accent);
@@ -178,6 +188,23 @@
     /* #6b6b6b only reached 4.29:1 on the dark theme's paper (#ece6d8); this keeps ≥4.5:1
        on both --paper values while staying visibly lighter than --paper-ink (#2a2a2a). */
     color: #5c5c5c;
+  }
+  /* The document's opening text, shown until a synopsis is written. */
+  .bcard-text::placeholder {
+    font-style: italic;
+  }
+  .bcard-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 6px;
+    font-size: 11px;
+    color: #5c5c5c;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .bcard-foot .ws-icon {
+    flex-shrink: 0;
   }
   @media (prefers-reduced-motion: no-preference) {
     .bcard {

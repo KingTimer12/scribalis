@@ -1,5 +1,6 @@
 import { gridStep, isGridKey } from "../../lib/grid";
-import { requestCardDelete, selectCard } from "../actions/board";
+import { selectCard } from "../actions/board";
+import { requestDelete } from "../actions/workspace";
 import { focusTarget } from "../focus";
 import { state } from "../state";
 
@@ -20,7 +21,7 @@ export function boardKey(e: KeyboardEvent, ids: string[], cols: number, edit: (i
   } else if (e.key === "Enter") {
     if (i >= 0) edit(ids[i]);
   } else if (e.key === "Delete" || e.key === "Backspace") {
-    if (i >= 0) void requestCardDelete(ids[i]);
+    if (i >= 0) void requestDelete(ids[i]);
   } else if (e.key === "Escape") focusTarget("tree");
   else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) openMenu();
   else handled = false;

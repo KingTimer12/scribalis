@@ -45,9 +45,10 @@ impl NodeKind {
         if IMAGE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()) { NodeKind::Image } else { NodeKind::File }
     }
 
-    /// Kinds that hold children.
-    pub fn is_container(self) -> bool {
-        matches!(self, NodeKind::Manuscript | NodeKind::Folder)
+    /// Kinds that hold children: folders, the Manuscrito, and documents (whose children are
+    /// subdocuments). Images and attachments stay leaves.
+    pub fn holds_children(self) -> bool {
+        matches!(self, NodeKind::Manuscript | NodeKind::Folder | NodeKind::Chapter | NodeKind::Text)
     }
 }
 
@@ -118,7 +119,7 @@ fn not_found() -> AppError {
 }
 
 fn not_a_container() -> AppError {
-    AppError::msg("Só dá para guardar itens dentro de pastas")
+    AppError::msg("Só dá para guardar itens dentro de pastas e documentos")
 }
 
 pub fn find<'a>(items: &'a [Node], id: &str) -> Option<&'a Node> {
@@ -160,7 +161,7 @@ pub fn insert(items: &mut Vec<Node>, parent: Option<&str>, index: usize, node: N
         None => items,
         Some(pid) => {
             let p = find_mut(items, pid).ok_or_else(not_found)?;
-            if !p.kind.is_container() {
+            if !p.kind.holds_children() {
                 return Err(not_a_container());
             }
             &mut p.children
@@ -179,7 +180,7 @@ pub fn move_node(items: &mut Vec<Node>, id: &str, parent: Option<&str>, index: u
             return Err(AppError::msg("Não dá para mover uma pasta para dentro dela mesma"));
         }
         let p = find(items, pid).ok_or_else(not_found)?;
-        if !p.kind.is_container() {
+        if !p.kind.holds_children() {
             return Err(not_a_container());
         }
     }
@@ -278,7 +279,7 @@ mod tests {
         assert_eq!(ids(&find(&t, "d").unwrap().children), vec!["e", "g"]);
         insert(&mut t, None, 0, Node::folder("h".into(), "Topo")).unwrap();
         assert_eq!(t[0].id, "h");
-        assert!(insert(&mut t, Some("b"), 0, Node::folder("i".into(), "x")).is_err());
+        assert!(insert(&mut t, Some("c"), 0, Node::folder("i".into(), "x")).is_err());
         assert!(insert(&mut t, Some("zz"), 0, Node::folder("j".into(), "x")).is_err());
     }
 
@@ -287,7 +288,23 @@ mod tests {
         let mut t = vec![Node::manuscript("m".into())];
         insert(&mut t, Some("m"), 0, Node::chapter("c".into(), "", "capitulos/c.md")).unwrap();
         assert_eq!(ids(&t[0].children), vec!["c"]);
-        assert!(insert(&mut t, Some("c"), 0, Node::folder("x".into(), "x")).is_err());
+    }
+
+    #[test]
+    fn documents_hold_subdocuments() {
+        let mut t = tree();
+        insert(&mut t, Some("b"), 0, Node::leaf("s".into(), NodeKind::Text, "Cena", "s.md")).unwrap();
+        insert(&mut t, Some("s"), 0, Node::leaf("s2".into(), NodeKind::Text, "Detalhe", "s2.md")).unwrap();
+        // The document stays a document: no folder appears around its subdocuments.
+        assert_eq!(find(&t, "b").unwrap().kind, NodeKind::Text);
+        assert_eq!(ids(&find(&t, "s").unwrap().children), vec!["s2"]);
+        move_node(&mut t, "e", Some("s"), 0).unwrap();
+        assert_eq!(ids(&find(&t, "s").unwrap().children), vec!["e", "s2"]);
+        let mut m = vec![Node::manuscript("m".into())];
+        insert(&mut m, Some("m"), 0, Node::chapter("c".into(), "", "capitulos/c.md")).unwrap();
+        insert(&mut m, Some("c"), 0, Node::chapter("c2".into(), "", "capitulos/c2.md")).unwrap();
+        assert_eq!(m[0].children[0].kind, NodeKind::Chapter);
+        assert_eq!(ids(&m[0].children[0].children), vec!["c2"]);
     }
 
     #[test]

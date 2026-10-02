@@ -1,4 +1,4 @@
-import type { AreaNode, BoardCard, BookMeta, BookSummary, DocJSON, Prefs, Separator, Share, Snapshot, Status } from "../types";
+import type { AreaNode, BookMeta, BookSummary, DocJSON, Prefs, Separator, Share, Snapshot, Status } from "../types";
 import { docWords } from "../../lib/doc";
 import { chapterOrder, manuscriptWords } from "../../lib/manuscript";
 
@@ -17,9 +17,6 @@ export interface MockBook {
   area: AreaNode[];
   /** Documents of chapters and texts; ids never change on conversion, so neither do the keys. */
   docs: Record<string, DocJSON>;
-  /** The book's board (order + titles) and each card's text. */
-  board?: BoardCard[];
-  boardText?: Record<string, string>;
 }
 
 let seq = 0;

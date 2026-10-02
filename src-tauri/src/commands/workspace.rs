@@ -104,3 +104,13 @@ pub async fn workspace_open_file(app: AppHandle, state: State<'_, SharedLibrary>
         .open_path(path.to_string_lossy(), None::<&str>)
         .map_err(|_| AppError::msg("Não foi possível abrir o arquivo"))
 }
+
+/// Opening text of the documents under `parent`, for the placeholders of its board's cards.
+#[tauri::command]
+pub async fn workspace_excerpts(
+    state: State<'_, SharedLibrary>,
+    book_id: String,
+    parent: String,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    lock(&state)?.with_book(&book_id, |dir, _meta| crate::ops::excerpts::excerpts(dir, &parent))
+}

@@ -86,17 +86,6 @@ export interface Created {
   items: AreaNode[];
 }
 
-/** A card of the book's board; its text is loaded apart (`boardLoadText`). */
-export interface BoardCard {
-  id: string;
-  title: string;
-}
-
-export interface BoardCreated {
-  id: string;
-  cards: BoardCard[];
-}
-
 export interface LibraryListing {
   books: BookSummary[];
   warnings: string[];

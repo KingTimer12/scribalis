@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { dropTarget, findNode, isContainer, type DropPos } from "../../lib/tree";
+import { dropTarget, findNode, holdsChildren, type DropPos } from "../../lib/tree";
 import { toggleExpanded } from "../../store/actions/expanded";
 import { moveNode } from "../../store/actions/workspace";
 import { state } from "../../store/state";
@@ -79,10 +79,10 @@ export function pointerDownOnRow(e: PointerEvent, id: string) {
       return setDrag({ dragId: id, targetId: null, pos: null });
     }
     const r = hit.getBoundingClientRect();
-    const pos = dropPosAt(ev.clientY - r.top, r.height, isContainer(node.kind));
+    const pos = dropPosAt(ev.clientY - r.top, r.height, holdsChildren(node.kind));
     const ok = dropTarget(state.area, id, targetId, pos) !== null;
     setDrag({ dragId: id, targetId: ok ? targetId : null, pos: ok ? pos : null });
-    hover(isContainer(node.kind) && !state.areaExpanded.includes(targetId) ? targetId : null);
+    hover(holdsChildren(node.kind) && !state.areaExpanded.includes(targetId) ? targetId : null);
   };
 
   const end = () => {

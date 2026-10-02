@@ -1,5 +1,7 @@
-import { createEffect, createSignal, For, Show } from "solid-js";
-import { createCard } from "../../store/actions/board";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
+import type { AreaNode } from "../../api/types";
+import { displayTitle } from "../../lib/manuscript";
+import { createCard, loadExcerpts } from "../../store/actions/board";
 import { updatePrefs } from "../../store/actions/prefs";
 import { focusRef } from "../../store/focus";
 import { boardKey } from "../../store/keys/board";
@@ -7,7 +9,7 @@ import { state } from "../../store/state";
 import { ContextMenu, type MenuItem } from "../ui/ContextMenu";
 import { Hint } from "../ui/Hint";
 import { BoardCard, cardDomId, cardTextId, cardTitleId } from "./BoardCard";
-import { backgroundMenu, cardMenu } from "./boardMenu";
+import { backgroundMenu, cardMenu, newCardLabel } from "./boardMenu";
 
 interface MenuState {
   x: number;
@@ -25,12 +27,17 @@ function gridColumns(el: HTMLElement | undefined): number {
 
 const focusField = (domId: string) => requestAnimationFrame(() => document.getElementById(domId)?.focus());
 
-/** The book's board: free cards on cork, in the saved order. */
-export function BoardView() {
+/** Board of a folder (or of a document with subdocuments): its children as index cards, in tree order. */
+export function BoardView(props: { parent: AreaNode }) {
   let grid: HTMLDivElement | undefined;
   const [menu, setMenu] = createSignal<MenuState | null>(null);
-  const ids = () => state.board.map((c) => c.id);
+  const children = () => props.parent.children ?? [];
+  const ids = () => children().map((c) => c.id);
   const editText = (id: string) => focusField(cardTextId(id));
+  const add = () => void createCard(props.parent.id);
+
+  // Placeholders follow the cards on show: a new, moved in or removed document reloads them.
+  createEffect(on(() => props.parent.id + ":" + ids().join(","), () => void loadExcerpts(props.parent.id)));
 
   // A new card opens on its title.
   let known = new Set(ids());
@@ -47,16 +54,17 @@ export function BoardView() {
   });
 
   const openMenuAtSelection = () => {
-    const id = state.boardSel;
-    const r = id ? document.getElementById(cardDomId(id))?.getBoundingClientRect() : null;
-    if (id && r) setMenu({ x: r.left + 24, y: r.top + 32, items: cardMenu(id) });
+    const node = children().find((c) => c.id === state.boardSel);
+    const r = node ? document.getElementById(cardDomId(node.id))?.getBoundingClientRect() : null;
+    if (node && r) setMenu({ x: r.left + 24, y: r.top + 32, items: cardMenu(props.parent, node) });
   };
 
   return (
     <div class="board" data-size={state.prefs.cardSize}>
       <div class="board-head">
-        <button type="button" class="sp-btn" onClick={() => void createCard()}>
-          + Novo cartão
+        <h2 class="board-title">{displayTitle(state.area, props.parent)}</h2>
+        <button type="button" class="sp-btn" onClick={add}>
+          + {newCardLabel(props.parent.id)}
         </button>
         <div class="board-size" role="group" aria-label="Tamanho">
           <span class="ui">Tamanho</span>
@@ -82,27 +90,28 @@ export function BoardView() {
         }}
         class="board-cork"
         role="listbox"
-        aria-label="Cartões do quadro"
+        aria-label={"Cartões de " + displayTitle(state.area, props.parent)}
         tabIndex={0}
         aria-activedescendant={state.boardSel ? cardDomId(state.boardSel) : undefined}
         onKeyDown={(e) => boardKey(e, ids(), gridColumns(grid), editText, openMenuAtSelection)}
         onContextMenu={(e) => {
           e.preventDefault();
-          setMenu({ x: e.clientX, y: e.clientY, items: backgroundMenu() });
+          setMenu({ x: e.clientX, y: e.clientY, items: backgroundMenu(props.parent) });
         }}
       >
-        <Show when={state.board.length > 0} fallback={<EmptyBoard />}>
-          {/* Keyed by id: a fresh list from Rust keeps the cards (and a focused field) mounted. */}
+        <Show when={ids().length > 0} fallback={<EmptyBoard onAdd={add} label={newCardLabel(props.parent.id)} />}>
+          {/* Keyed by id: a fresh tree from Rust keeps the cards (and a focused field) mounted. */}
           <For each={ids()}>
             {(id) => {
-              const card = () => state.board.find((c) => c.id === id);
+              const node = () => children().find((c) => c.id === id);
               return (
-                <Show when={card()}>
-                  {(c) => (
+                <Show when={node()}>
+                  {(n) => (
                     <BoardCard
-                      card={c()}
+                      parent={props.parent.id}
+                      node={n()}
                       onEditText={editText}
-                      onMenu={(x, y) => setMenu({ x, y, items: cardMenu(id) })}
+                      onMenu={(x, y) => setMenu({ x, y, items: cardMenu(props.parent, n()) })}
                     />
                   )}
                 </Show>
@@ -113,24 +122,23 @@ export function BoardView() {
       </div>
       <div class="ws-help">
         <Hint keys="←↑↓→">escolher</Hint>
-        <Hint keys="Enter">escrever</Hint>
+        <Hint keys="Enter">sinopse</Hint>
+        <Hint keys="Duplo clique">abrir</Hint>
         <Hint keys="Esc">voltar à árvore</Hint>
       </div>
       <Show when={menu()}>
-        {(m) => (
-          <ContextMenu x={m().x} y={m().y} items={m().items} onClose={() => setMenu(null)} />
-        )}
+        {(m) => <ContextMenu x={m().x} y={m().y} items={m().items} onClose={() => setMenu(null)} />}
       </Show>
     </div>
   );
 }
 
-function EmptyBoard() {
+function EmptyBoard(props: { onAdd: () => void; label: string }) {
   return (
     <div class="board-empty">
-      <p class="ui">Nenhum cartão ainda.</p>
-      <button type="button" class="sp-btn" onClick={() => void createCard()}>
-        Novo cartão
+      <p class="ui">Nada aqui ainda.</p>
+      <button type="button" class="sp-btn" onClick={() => props.onAdd()}>
+        {props.label}
       </button>
     </div>
   );
