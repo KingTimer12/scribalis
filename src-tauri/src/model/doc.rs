@@ -70,6 +70,18 @@ pub enum Inline {
     Mention {
         attrs: MentionAttrs,
     },
+    /// `[[Title]]` pointing at a tree node (chapter, text, folder). An empty `label` shows the
+    /// node's current title; a non-empty one is the alias written after `|`.
+    WikiLink {
+        attrs: WikiLinkAttrs,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct WikiLinkAttrs {
+    pub id: String,
+    #[serde(default)]
+    pub label: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -80,18 +92,23 @@ pub struct MentionAttrs {
 }
 
 impl Inline {
-    /// The run as plain text: a line break is a newline, a mention its label.
+    /// The run as plain text: a line break is a newline, a mention or wiki link its label.
     pub fn plain(&self) -> &str {
         match self {
             Inline::Text { text, .. } => text,
             Inline::HardBreak => "\n",
             Inline::Mention { attrs } => &attrs.label,
+            Inline::WikiLink { attrs } => &attrs.label,
         }
     }
 
     #[cfg(test)]
     pub fn mention(id: &str, label: &str) -> Self {
         Inline::Mention { attrs: MentionAttrs { id: id.into(), label: label.into() } }
+    }
+    #[cfg(test)]
+    pub fn wiki(id: &str, label: &str) -> Self {
+        Inline::WikiLink { attrs: WikiLinkAttrs { id: id.into(), label: label.into() } }
     }
     #[cfg(test)]
     pub fn text(s: &str) -> Self {

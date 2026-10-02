@@ -46,6 +46,10 @@ pub struct BookCloud {
     /// When "Buscar comentários" last ran for this book (ms), shown next to the button.
     #[serde(default)]
     pub last_comments_at: Option<u64>,
+    /// Backed up without encryption or compression, so the server can render its public links.
+    /// Off by default: books are sealed with the vault key.
+    #[serde(default)]
+    pub plain: bool,
 }
 
 impl CloudFile {

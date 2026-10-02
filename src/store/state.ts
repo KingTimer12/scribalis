@@ -5,7 +5,7 @@ import type {
 } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
 import { findNode } from "../lib/tree";
-import type { Panel, View } from "../lib/types";
+import type { Panel, SettingsTab, View } from "../lib/types";
 
 export interface PromptState {
   label: string;
@@ -57,6 +57,8 @@ export interface AppState {
   prefs: Prefs;
   focus: boolean;
   panel: Panel | null;
+  /** Category shown in the Configurações modal. */
+  settingsTab: SettingsTab;
   // palette
   q: string;
   pIdx: number;
@@ -125,6 +127,7 @@ export const [state, setState] = createStore<AppState>({
   prefs: { ...DEFAULT_PREFS },
   focus: false,
   panel: null,
+  settingsTab: "appearance",
   q: "",
   pIdx: 0,
   hits: [],

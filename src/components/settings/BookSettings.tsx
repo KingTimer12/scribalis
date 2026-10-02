@@ -118,11 +118,11 @@ function FrameRow(props: { label: string; slot: "header" | "footer" }) {
   );
 }
 
-/** Ajustes section for the open book: author, cover, scene separator, top/bottom frames — same actions as the palette. */
+/** Book drawer section for the open book: author, cover, scene separator, top/bottom frames — same actions as the palette. */
 export function BookSettings() {
   return (
     <section class="set-sec">
-      <div class="ui cap set-head">Obra</div>
+      <div class="ui cap set-head">Detalhes</div>
       <AuthorRow />
       <CoverRow />
       <SeparatorRow />

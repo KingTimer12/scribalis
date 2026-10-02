@@ -6,6 +6,7 @@ use super::{
     api::{FileRef, HashesBody, Missing, SnapshotBody, SnapshotCreated},
     client::Client,
     error::{CloudError, CloudResult, LOCAL},
+    crypto::VaultKey,
     manifest::{self, Entry},
     progress,
     CloudState,
@@ -140,6 +141,7 @@ struct Upload<'a> {
     book_id: &'a str,
     dir: &'a std::path::Path,
     entries: &'a [Entry],
+    key: Option<&'a VaultKey>,
 }
 
 impl Upload<'_> {
@@ -148,7 +150,15 @@ impl Upload<'_> {
         for (i, hash) in hashes.iter().enumerate() {
             progress::emit(self.app, self.book_id, "sending", i, hashes.len());
             let Some(entry) = self.entries.iter().find(|e| &e.hash == hash) else { continue };
-            self.client.put_file(&format!("/blobs/{hash}"), &safe_join(self.dir, &entry.path)?).await?;
+            let full = safe_join(self.dir, &entry.path)?;
+            if manifest::sealable(&entry.path, self.key).is_some() {
+                // Sealing is deterministic, so these bytes hash to the manifest entry unless the file
+                // changed since; the server then answers hash_mismatch and the next run picks it up.
+                let bytes = manifest::blob_bytes(&full, &entry.path, self.key)?;
+                self.client.put_bytes(&format!("/blobs/{hash}"), bytes).await?;
+            } else {
+                self.client.put_file(&format!("/blobs/{hash}"), &full).await?;
+            }
         }
         progress::emit(self.app, self.book_id, "sending", hashes.len(), hashes.len());
         Ok(())
@@ -159,10 +169,14 @@ async fn run_once(app: &AppHandle, cloud: &CloudState, book_id: &str, manual: bo
     let client = cloud.vault_client()?;
     let dir = lock(&app.state::<SharedLibrary>())?.dir_of(book_id)?;
 
+    // Open books (the ones with public links) go as they are; every other book is sealed.
+    let encrypted = !cloud.lock()?.file.book(book_id).is_some_and(|b| b.plain);
+    let key = if encrypted { Some(cloud.ensure_vault_key()?) } else { None };
     let mut cache = std::mem::take(&mut cloud.lock()?.hashes);
     let walk_dir = dir.clone();
+    let walk_key = key.clone();
     let (entries, cache) = tokio::task::spawn_blocking(move || {
-        let entries = manifest::build(&walk_dir, &mut cache);
+        let entries = manifest::build(&walk_dir, &mut cache, walk_key.as_ref());
         (entries, cache)
     })
     .await
@@ -188,7 +202,7 @@ async fn run_once(app: &AppHandle, cloud: &CloudState, book_id: &str, manual: bo
             file_count: Some(missing.missing.len()),
         },
     );
-    let up = Upload { app, client: &client, book_id, dir: &dir, entries: &entries };
+    let up = Upload { app, client: &client, book_id, dir: &dir, entries: &entries, key: key.as_ref() };
     up.send(&missing.missing).await?;
 
     let body = SnapshotBody { files: entries.iter().map(|e| FileRef { path: &e.path, hash: &e.hash }).collect() };

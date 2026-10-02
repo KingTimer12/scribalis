@@ -59,6 +59,13 @@ fn last_snapshot(cloud: &CloudState, book_id: &str) -> CloudResult<Option<String
 /// that could point at a snapshot older than the text the author currently sees.
 pub async fn create(app: &AppHandle, input: ShareInput) -> CloudResult<Share> {
     let cloud = app.state::<CloudState>();
+    // The server renders the link from the backup, so it must be able to read it.
+    if !cloud.lock()?.file.book(&input.book_id).is_some_and(|b| b.plain) {
+        return Err(CloudError::new(
+            "encrypted",
+            "Esta obra vai criptografada para a nuvem, e o servidor não consegue mostrar o texto num link. Deixe-a aberta para criar links.",
+        ));
+    }
     cloud.edit(|f| f.book_mut(&input.book_id).enabled = true)?;
     backup::require_fresh_backup(backup::run(app, &input.book_id, true).await)?;
     let snapshot_id = if input.freeze {

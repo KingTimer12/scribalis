@@ -19,9 +19,9 @@ describe("HelpPanel", () => {
     done();
   });
 
-  it("clicking a runnable row (Ajustes) opens the settings drawer and leaves help", () => {
+  it("clicking a runnable row (Configurações) opens the settings modal and leaves help", () => {
     const { host, done } = mounted();
-    const row = [...host.querySelectorAll<HTMLButtonElement>("button.help-row-btn")].find((b) => b.textContent?.includes("Ajustes (tema, texto, interface)"))!;
+    const row = [...host.querySelectorAll<HTMLButtonElement>("button.help-row-btn")].find((b) => b.textContent?.includes("Configurações (tema, meta, nuvem)"))!;
     row.click();
     expect(state.panel).toBe("settings");
     done();

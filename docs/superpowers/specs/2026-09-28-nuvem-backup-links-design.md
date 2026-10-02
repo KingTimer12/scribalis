@@ -30,7 +30,7 @@ capítulo ou do item.
 ### Fora de escopo
 
 - Responder, editar ou apagar comentários pelo app. Destacar no editor o trecho de um comentário (âncora).
-- Criptografia no cliente. Quem administra o servidor lê as obras. O painel Nuvem avisa isso.
+- ~~Criptografia no cliente.~~ Substituído em 2026-10-02: ver "Criptografia e compressão" no fim.
 - Sincronização em tempo real ou mescla entre dois computadores editando a mesma obra. Restaurar substitui.
 - QR code para levar o cofre a outro computador. Entre dois desktops não há câmera, então basta copiar e colar
   o código.
@@ -463,3 +463,17 @@ fica fina e é validada manualmente contra um servidor real (`bun start` local o
 **Manual, contra servidor real:** ativar; backup de uma obra; alterar um capítulo e ver só 1–2 arquivos
 enviados; restaurar; baixar em outra pasta raiz; gerar link, abrir no navegador, comentar e buscar os
 comentários; revogar link; trocar o endereço.
+
+## Criptografia e compressão (2026-10-02)
+
+- Cada obra é **criptografada** (padrão) ou **aberta**. A opção fica em `cloud.json` (`books[id].plain`).
+- Obra criptografada: cada arquivo, menos o `metadata.json` (o servidor lê `id` e título dele), é comprimido
+  com deflate quando diminui (imagens não) e selado com XChaCha20-Poly1305 (`cloud/crypto.rs`). O nonce é um
+  HMAC do conteúdo, então o mesmo arquivo gera o mesmo blob e a deduplicação e o `unchanged` continuam valendo.
+  O servidor só vê que dois arquivos são iguais, nunca o que contêm.
+- Formato do blob: `SCBE` | versão | flags | impressão digital da chave (8 bytes) | nonce (24) | cifrado + tag.
+- A chave do cofre (32 bytes) fica no chaveiro (`<apiUrl>#cripto`), é criada ao ativar o cofre ou no primeiro
+  backup, e viaja no código de "Adicionar computador" (`scb_….<64 hex>`). O outro computador não digita senha.
+  Computadores conectados antes disso trazem a chave com "Trazer chave".
+- Links públicos só para obras abertas: o servidor precisa ler o texto. Criar link numa obra criptografada
+  devolve `encrypted`. A restauração detecta blobs selados e abre; backups antigos (sem selo) continuam valendo.

@@ -31,3 +31,20 @@ pub fn delete(api_url: &str) -> CloudResult<()> {
         Err(_) => Err(unavailable()),
     }
 }
+
+/// The encryption key sits next to the device key, under its own account name.
+fn crypt_account(api_url: &str) -> String {
+    format!("{api_url}#cripto")
+}
+
+pub fn read_crypt(api_url: &str) -> CloudResult<Option<String>> {
+    read(&crypt_account(api_url))
+}
+
+pub fn write_crypt(api_url: &str, key_hex: &str) -> CloudResult<()> {
+    write(&crypt_account(api_url), key_hex)
+}
+
+pub fn delete_crypt(api_url: &str) -> CloudResult<()> {
+    delete(&crypt_account(api_url))
+}

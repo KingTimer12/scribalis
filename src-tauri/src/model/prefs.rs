@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 pub const TEXT_PX_MIN: u8 = 14;
 pub const TEXT_PX_MAX: u8 = 32;
 pub const UI_SCALE_MAX: u8 = 2;
+/// Daily goal bounds; the Ajustes field accepts any value in between ("1.5k", "1600").
+pub const GOAL_MIN: u32 = 10;
+pub const GOAL_MAX: u32 = 100_000;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", from = "StoredPrefs")]
@@ -110,7 +113,7 @@ pub struct PrefsPatch {
 impl Prefs {
     pub fn apply(mut self, p: PrefsPatch) -> Self {
         if let Some(v) = p.theme { self.theme = v; }
-        if let Some(v) = p.goal { self.goal = v; }
+        if let Some(v) = p.goal { self.goal = v.clamp(GOAL_MIN, GOAL_MAX); }
         if let Some(v) = p.width { self.width = v.min(2); }
         if let Some(v) = p.font { self.font = v.min(2); }
         if let Some(v) = p.sidebar_closed { self.sidebar_closed = v; }
@@ -139,6 +142,16 @@ mod tests {
     fn patch_merges_and_clamps() {
         let p = Prefs::default().apply(PrefsPatch { width: Some(9), goal: Some(5000), ..Default::default() });
         assert_eq!((p.width, p.goal, p.theme.as_str()), (2, 5000, "light"));
+    }
+
+    #[test]
+    fn goal_takes_any_value_within_bounds() {
+        let p = Prefs::default().apply(PrefsPatch { goal: Some(1650), ..Default::default() });
+        assert_eq!(p.goal, 1650);
+        let p = p.apply(PrefsPatch { goal: Some(0), ..Default::default() });
+        assert_eq!(p.goal, GOAL_MIN);
+        let p = p.apply(PrefsPatch { goal: Some(9_000_000), ..Default::default() });
+        assert_eq!(p.goal, GOAL_MAX);
     }
 
     #[test]

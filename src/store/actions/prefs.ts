@@ -30,7 +30,7 @@ export function cycleGoal() {
   flash("Meta diária: " + fmt(goal) + " palavras");
 }
 
-/** Sets the daily goal directly (Ajustes panel): the segmented control is its own feedback. */
+/** Sets the daily goal directly (Configurações): the control is its own feedback. */
 export const setGoal = (goal: number) => updatePrefs({ goal });
 
 export function cycleWidth() {
@@ -39,7 +39,7 @@ export function cycleWidth() {
   flash("Largura " + WIDTH_LABEL[width]);
 }
 
-/** Sets the text width directly (Ajustes panel): the segmented control is its own feedback. */
+/** Sets the text width directly (Configurações): the control is its own feedback. */
 export const setWidth = (width: 0 | 1 | 2) => updatePrefs({ width });
 
 function setTextPx(px: number) {

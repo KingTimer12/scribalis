@@ -82,6 +82,8 @@ export interface MockCloudBook {
   enabled: boolean;
   lastBackupAt: number | null;
   lastCommentsAt?: number | null;
+  /** Open book (public links): backed up without encryption. */
+  plain?: boolean;
   snapshots: Snapshot[];
 }
 

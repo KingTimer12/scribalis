@@ -5,7 +5,7 @@ import { refreshLibrary } from "./library";
 import { state } from "../state";
 
 /**
- * Shared behind the palette's "Separador: texto" command and the Ajustes panel's "Mudar texto…"
+ * Shared behind the palette's "Separador: texto" command and the book drawer's "Mudar texto…"
  * button: same prompt flow, same initial value.
  */
 export function changeSeparatorText() {

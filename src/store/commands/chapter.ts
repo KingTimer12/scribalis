@@ -8,7 +8,7 @@ import { backupNow, fetchComments } from "../actions/cloud";
 import { clearBookImage, insertChapterImage, pickBookImage } from "../actions/images";
 import { goChapterStep } from "../actions/open";
 import { cycleGoal, cycleWidth, textBigger, textSmaller } from "../actions/prefs";
-import { openPanel } from "../actions/ui";
+import { openBookPanel, openPanel } from "../actions/ui";
 import { currentChapter, currentNumber } from "../selectors/book";
 import { setState, state } from "../state";
 import { formatCommands } from "./format";
@@ -44,7 +44,7 @@ export function chapterCommands(): Command[] {
   const status = c.status ?? "rascunho";
   const share = () => {
     setState("shareDraft", { kind: "chapter", target: c.id, label: "Capítulo " + pad(currentNumber()) });
-    openPanel("cloud");
+    openBookPanel();
   };
   return [
     { label: "Novo capítulo depois deste", hint: "Enter ×3", act: () => void newChapterAfterCurrent() },

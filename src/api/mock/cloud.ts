@@ -8,6 +8,7 @@ const overview = (): CloudOverview => ({
   apiUrl: cloudDb.apiUrl,
   defaultApiUrl: DEFAULT_URL,
   connected: cloudDb.connected,
+  hasCryptKey: cloudDb.connected,
 });
 
 const bookState = (bookId: string): BookCloudView => {
@@ -17,6 +18,7 @@ const bookState = (bookId: string): BookCloudView => {
     lastBackupAt: b?.lastBackupAt ?? null,
     paused: null,
     lastCommentsAt: b?.lastCommentsAt ?? null,
+    encrypted: !b?.plain,
   };
 };
 
@@ -61,7 +63,11 @@ export const cloud = {
   cloud_keys: () => [
     { id: "key_mock", label: "Este computador", createdAt: Date.now(), lastUsedAt: Date.now(), current: true },
   ],
-  cloud_add_key: ({ label }: { label: string }) => ({ id: mockId(), label, secret: "scb_mockmockmock" }),
+  cloud_add_key: ({ label }: { label: string }) => ({ id: mockId(), label, secret: "scb_mockmockmock." + "ab".repeat(32) }),
+  cloud_import_crypt_key: ({ code }: { code: string }) => {
+    if (!/\.[0-9a-f]{64}$/i.test(code.trim())) throw 'Este código não traz a chave de criptografia. Gere um novo em "Adicionar computador".';
+    return overview();
+  },
   cloud_revoke_key: () => cloud.cloud_keys(),
   cloud_delete_vault: () => {
     cloudDb.connected = false;
@@ -89,6 +95,12 @@ export const cloud = {
     if (enabled) snapshot(bookId);
     return bookState(bookId);
   },
+  cloud_set_encrypted: ({ bookId, encrypted }: { bookId: string; encrypted: boolean }) => {
+    const b = (cloudDb.books[bookId] ??= { enabled: false, lastBackupAt: null, snapshots: [] });
+    b.plain = !encrypted;
+    if (b.enabled) snapshot(bookId);
+    return bookState(bookId);
+  },
   cloud_backup: ({ bookId, manual }: { bookId: string; manual: boolean }) => {
     if (!cloudDb.books[bookId]?.enabled) {
       if (manual) throw "Ative o backup desta obra primeiro.";
@@ -108,6 +120,9 @@ export const cloud = {
   cloud_shares: ({ bookId }: { bookId: string }) => cloudDb.shares.filter((s) => s.bookId === bookId),
   cloud_share_create: ({ input }: { input: ShareInput }) => {
     needVault();
+    if (!cloudDb.books[input.bookId]?.plain) {
+      throw "Esta obra vai criptografada para a nuvem, e o servidor não consegue mostrar o texto num link. Deixe-a aberta para criar links.";
+    }
     (cloudDb.books[input.bookId] ??= { enabled: true, lastBackupAt: null, snapshots: [] }).enabled = true;
     snapshot(input.bookId);
     const share: Share = {

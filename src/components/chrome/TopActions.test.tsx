@@ -1,7 +1,8 @@
 import { render } from "solid-js/web";
 import { describe, expect, it } from "vitest";
 import { closePanel } from "../../store/actions/ui";
-import { state } from "../../store/state";
+import { setState, state } from "../../store/state";
+import { newBook } from "../../test/newBook";
 import { TopActions } from "./TopActions";
 
 function mounted() {
@@ -27,10 +28,16 @@ describe("TopActions", () => {
     done();
   });
 
-  it("Ajustes opens the settings drawer", () => {
-    const { host, done } = mounted();
-    host.querySelector<HTMLButtonElement>('[aria-label="Ajustes"]')!.click();
-    expect(state.panel).toBe("settings");
+  it("Obra opens the book drawer, only inside a book", async () => {
+    setState("book", null);
+    let { host, done } = mounted();
+    expect(host.querySelector('[aria-label="Obra"]')).toBeNull();
+    done();
+    await newBook();
+    setState("view", "book");
+    ({ host, done } = mounted());
+    host.querySelector<HTMLButtonElement>('[aria-label="Obra"]')!.click();
+    expect(state.panel).toBe("book");
     done();
   });
 

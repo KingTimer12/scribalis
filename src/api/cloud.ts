@@ -10,6 +10,7 @@ export const cloudActivate = (label: string) => call<CloudOverview>("cloud_activ
 export const cloudConnect = (secret: string) => call<CloudOverview>("cloud_connect", { secret });
 export const cloudVaultInfo = () => call<VaultInfo>("cloud_vault_info");
 export const cloudKeys = () => call<KeyInfo[]>("cloud_keys");
+export const cloudImportCryptKey = (code: string) => call<CloudOverview>("cloud_import_crypt_key", { code });
 export const cloudAddKey = (label: string) => call<NewKey>("cloud_add_key", { label });
 export const cloudRevokeKey = (id: string) => call<KeyInfo[]>("cloud_revoke_key", { id });
 export const cloudDeleteVault = () => call<CloudOverview>("cloud_delete_vault");
@@ -17,6 +18,7 @@ export const cloudRemoteBooks = () => call<RemoteBookView[]>("cloud_remote_books
 
 export const cloudBookState = (bookId: string) => call<BookCloudView>("cloud_book_state", { bookId });
 export const cloudSetEnabled = (bookId: string, enabled: boolean) => call<BookCloudView>("cloud_set_enabled", { bookId, enabled });
+export const cloudSetEncrypted = (bookId: string, encrypted: boolean) => call<BookCloudView>("cloud_set_encrypted", { bookId, encrypted });
 export const cloudBackup = (bookId: string, manual: boolean) => call<BookCloudView>("cloud_backup", { bookId, manual });
 export const cloudSnapshots = (bookId: string) => call<Snapshot[]>("cloud_snapshots", { bookId });
 export const cloudForgetBook = (bookId: string) => call<BookCloudView>("cloud_forget_book", { bookId });

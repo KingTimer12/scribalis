@@ -24,6 +24,8 @@ pub struct BookCloudView {
     pub paused: Option<String>,
     /// When "Buscar comentários" last ran for this book, shown next to the button.
     pub last_comments_at: Option<u64>,
+    /// Sealed with the vault key (the default); off for books with public links.
+    pub encrypted: bool,
 }
 
 fn view(cloud: &CloudState, book_id: &str) -> AppResult<BookCloudView> {
@@ -34,6 +36,7 @@ fn view(cloud: &CloudState, book_id: &str) -> AppResult<BookCloudView> {
         last_backup_at: b.and_then(|b| b.last_backup_at),
         paused: g.paused.clone(),
         last_comments_at: b.and_then(|b| b.last_comments_at),
+        encrypted: !b.is_some_and(|b| b.plain),
     })
 }
 
@@ -50,6 +53,23 @@ pub async fn cloud_set_enabled(app: AppHandle, book_id: String, enabled: bool) -
         return Err(AppError::msg("Ative a nuvem primeiro."));
     }
     cloud.edit(|f| f.book_mut(&book_id).enabled = enabled)?;
+    if enabled {
+        backup::run(&app, &book_id, true).await?;
+    }
+    view(&cloud, &book_id)
+}
+
+/// Switches a book between encrypted (sealed and compressed) and open (readable by the server, needed
+/// for public links). An enabled book is backed up again right away, so the newest backup follows.
+#[tauri::command]
+pub async fn cloud_set_encrypted(app: AppHandle, book_id: String, encrypted: bool) -> AppResult<BookCloudView> {
+    let cloud = app.state::<CloudState>();
+    let enabled = cloud.edit(|f| {
+        let b = f.book_mut(&book_id);
+        b.plain = !encrypted;
+        b.enabled
+    })?;
+    cloud.lock()?.sent.remove(&book_id);
     if enabled {
         backup::run(&app, &book_id, true).await?;
     }

@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { openPanel } from "../../store/actions/ui";
+import { openBookPanel } from "../../store/actions/ui";
 import { state } from "../../store/state";
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -17,7 +17,7 @@ export function CloudIndicator() {
   };
   return (
     <Show when={state.cloudBook?.enabled}>
-      <button class="ui crumb" title="Nuvem (Ctrl Shift S)" onClick={() => openPanel("cloud")}>
+      <button class="ui crumb" title="Nuvem (Ctrl Shift S)" onClick={() => openBookPanel()}>
         {label()}
       </button>
     </Show>

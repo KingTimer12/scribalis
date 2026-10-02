@@ -5,6 +5,8 @@ import { cloudDb } from "../../api/mock/db";
 import { listLibrary } from "../../api/library";
 import { setState, state } from "../state";
 import { activateCloud, backupNow, createShare, fetchComments, loadBookCloud, setBookBackup } from "./cloud";
+import { setBookEncrypted } from "./cloudCrypto";
+import { answerConfirm, pendingConfirm } from "../confirm";
 import { openBook } from "./library";
 
 async function openFirstBook() {
@@ -45,12 +47,21 @@ describe("cloud actions", () => {
     expect(state.toast).toBe("Ative o backup desta obra primeiro.");
   });
 
-  it("creating a link copies its URL", async () => {
+  it("an encrypted book refuses links; once left open, creating a link copies its URL", async () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     await activateCloud("Casa");
     const id = await openFirstBook();
-    await createShare({ bookId: id, kind: "chapter", target: chapterOrder(state.area)[0].id, freeze: false, includeNotes: false, allowComments: true, expiresInDays: null });
+    const input = { bookId: id, kind: "chapter" as const, target: chapterOrder(state.area)[0].id, freeze: false, includeNotes: false, allowComments: true, expiresInDays: null };
+    await createShare(input);
+    expect(writeText).not.toHaveBeenCalled();
+    expect(state.toast).toContain("criptografada");
+    const opened = setBookEncrypted(false);
+    expect(pendingConfirm()?.title).toBe("Deixar esta obra aberta?");
+    answerConfirm(true);
+    expect(await opened).toBe(true);
+    expect(state.cloudBook?.encrypted).toBe(false);
+    await createShare(input);
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/scribalis/s/"));
     expect(state.toast).toBe("Link copiado");
     vi.unstubAllGlobals();
@@ -65,5 +76,16 @@ describe("cloud actions", () => {
     await fetchComments(false);
     expect(findNode(state.area, chapterId)!.notes).toContain("achei confuso");
     expect(state.toast).toBe("1 comentário adicionado às notas");
+  });
+
+  it("books start encrypted, and cancelling the question keeps it that way", async () => {
+    await activateCloud("Casa");
+    const id = await openFirstBook();
+    await loadBookCloud(id);
+    expect(state.cloudBook?.encrypted).toBe(true);
+    const asked = setBookEncrypted(false);
+    answerConfirm(false);
+    expect(await asked).toBe(false);
+    expect(state.cloudBook?.encrypted).toBe(true);
   });
 });

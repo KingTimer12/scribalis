@@ -265,4 +265,201 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+
+  /* ---------- Configurações modal (SettingsModal.tsx) ---------- */
+  .setm {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    width: 760px;
+    max-width: calc(100% - 48px);
+    height: 560px;
+    max-height: calc(100% - 96px);
+    background: var(--panel);
+    border: 1px solid var(--faint);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    outline: none;
+    animation: fadeIn 0.18s ease-out;
+  }
+  .setm-side {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 22px 10px;
+    background: var(--bg);
+    border-right: 1px solid var(--faint);
+  }
+  .setm-brand {
+    padding: 0 10px 14px;
+  }
+  .setm-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .setm-tab:hover {
+    background: var(--soft);
+  }
+  .setm-tab.on {
+    background: var(--soft);
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .setm-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .setm-tab-label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .setm-tab.on .setm-tab-label {
+    color: var(--accent);
+  }
+  .setm-tab-hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .setm-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .setm-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 18px 12px 28px;
+    border-bottom: 1px solid var(--faint);
+  }
+  .setm-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .setm-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px 28px 28px;
+  }
+  .setm-body .set-sec {
+    max-width: 460px;
+  }
+  .cloud-settings {
+    gap: 22px;
+  }
+
+  /* ---------- daily goal field ---------- */
+  .set-goal {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .set-goal-input {
+    width: 120px;
+    font-size: 14px;
+  }
+  .set-goal-input.bad {
+    border-color: var(--danger);
+  }
+  .set-goal-unit {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .set-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .set-chip {
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--faint);
+    border-radius: 13px;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .set-chip:hover {
+    color: var(--ink);
+    background: var(--soft);
+  }
+  .set-chip.on {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .set-chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .set-help {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .set-help.bad {
+    color: var(--danger);
+  }
+
+  @media (max-width: 640px) {
+    .setm {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+    }
+    .setm-side {
+      flex-direction: row;
+      overflow-x: auto;
+      padding: 10px;
+      border-right: 0;
+      border-bottom: 1px solid var(--faint);
+    }
+    .setm-brand,
+    .setm-tab-hint {
+      display: none;
+    }
+  }
+
+  /* ---------- cloud encryption (BookCloudSection, VaultSection) ---------- */
+  .crypt-note {
+    margin-top: -4px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .crypt-import {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .crypt-import > summary {
+    cursor: pointer;
+    color: var(--accent);
+  }
+  .crypt-import[open] {
+    gap: 8px;
+  }
+  .crypt-import[open] > summary {
+    margin-bottom: 8px;
+  }
+  .crypt-import .cloud-btn {
+    align-self: flex-start;
+    margin-top: 8px;
+  }
 }

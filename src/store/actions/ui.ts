@@ -1,4 +1,4 @@
-import type { Panel } from "../../lib/types";
+import type { Panel, SettingsTab } from "../../lib/types";
 import { focusTarget, type FocusTarget } from "../focus";
 import { openAreaNode } from "../selectors/workspace";
 import { setState, state } from "../state";
@@ -46,4 +46,17 @@ export function toggleFocusMode() {
   const on = !state.focus;
   setState("focus", on);
   flash(on ? "Modo foco" : "Modo foco desligado");
+}
+
+/** Opens the Configurações modal on a category; switching category keeps it open. */
+export function openSettings(tab?: SettingsTab) {
+  if (tab) setState("settingsTab", tab);
+  if (state.panel === "settings" && tab) return;
+  openPanel("settings");
+}
+
+/** The open book's drawer (its settings, backup and links); without a book, the cloud settings. */
+export function openBookPanel() {
+  if (state.book && state.view === "book") openPanel("book");
+  else openSettings("cloud");
 }

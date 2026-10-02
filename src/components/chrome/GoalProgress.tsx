@@ -1,13 +1,13 @@
 import { fmt } from "../../lib/format";
-import { openPanel } from "../../store/actions/ui";
+import { openSettings } from "../../store/actions/ui";
 import { todayLive } from "../../store/selectors/book";
 import { state } from "../../store/state";
 
-/** Daily goal: words written this session across all books. Click opens Ajustes to change the goal. */
+/** Daily goal: words written this session across all books. Click opens Configurações › Escrita to change the goal. */
 export function GoalProgress() {
   const pct = () => Math.min(100, Math.round((todayLive() / state.prefs.goal) * 100));
   return (
-    <button type="button" class="goal-btn" title="Meta diária — mudar em Ajustes" onClick={() => openPanel("settings")}>
+    <button type="button" class="goal-btn" title="Meta diária: mudar em Configurações" onClick={() => openSettings("writing")}>
       <span>
         {fmt(todayLive())} de {fmt(state.prefs.goal)} hoje
       </span>

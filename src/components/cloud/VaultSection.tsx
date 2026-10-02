@@ -1,6 +1,7 @@
 import { createEffect, createResource, createSignal, For, on, Show } from "solid-js";
 import { cloudRemoteBooks, cloudVaultInfo } from "../../api/cloud";
 import { activateCloud, confirmDeleteVault, connectCloud, downloadBook, setApiUrl } from "../../store/actions/cloud";
+import { importCryptKey } from "../../store/actions/cloudCrypto";
 import { state } from "../../store/state";
 import { KeyList } from "./KeyList";
 
@@ -12,6 +13,7 @@ export function VaultSection() {
   // The overview may arrive after the panel opens (and changes after saving).
   createEffect(on(() => state.cloud?.apiUrl, (u) => u && setUrl(u)));
   const [code, setCode] = createSignal("");
+  const [keyCode, setKeyCode] = createSignal("");
   const connected = () => !!state.cloud?.connected;
   const [info] = createResource(() => connected() || null, () => cloudVaultInfo().catch(() => null));
   const [remote, { refetch }] = createResource(() => connected() || null, () => cloudRemoteBooks().catch(() => []));
@@ -38,6 +40,25 @@ export function VaultSection() {
         }
       >
         <Show when={info()}>{(i) => <div class="ui">{mb(i().usage.bytes)} de {mb(i().usage.quota)}</div>}</Show>
+        <div class="cloud-sec crypt-sec">
+          <div class="ui cap">Criptografia</div>
+          <div class="ui">
+            {state.cloud?.hasCryptKey
+              ? "Este computador tem a chave do cofre: os backups criptografados abrem aqui."
+              : "Este computador ainda não tem a chave do cofre. Ela é criada no primeiro backup, ou trazida de outro computador."}
+          </div>
+          <details class="crypt-import">
+            <summary class="ui">Trazer chave de outro computador</summary>
+            <input
+              class="cloud-input"
+              placeholder="Código de &quot;Adicionar computador&quot;"
+              value={keyCode()}
+              onInput={(e) => setKeyCode(e.currentTarget.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+            <button class="cloud-btn" onClick={() => void importCryptKey(keyCode()).then((ok) => ok && setKeyCode(""))}>Trazer chave</button>
+          </details>
+        </div>
         <KeyList />
         <For each={(remote() ?? []).filter((b) => !b.local && b.latestAt)}>
           {(b) => (

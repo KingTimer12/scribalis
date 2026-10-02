@@ -4,7 +4,7 @@ import { pad } from "../../lib/format";
 import { chapterNumber, inManuscript } from "../../lib/manuscript";
 import { copyChapter, moveChapterStepFor, setStatus } from "../../store/actions/chapters";
 import { openNode, selectNode } from "../../store/actions/open";
-import { openPanel } from "../../store/actions/ui";
+import { openBookPanel } from "../../store/actions/ui";
 import {
   addFiles, createNode, createSubdocument, moveIntoManuscript, moveOutOfManuscript, openFile, requestDelete,
   startNodeRename,
@@ -50,7 +50,7 @@ function share(node: AreaNode): MenuItem {
           ? { kind: "chapter" as const, target: node.id, label: "Capítulo " + pad(chapterNumber(state.area, node.id)) }
           : { kind: "workspace" as const, target: node.id, label: node.title || "Item da área" };
       setState("shareDraft", draft);
-      openPanel("cloud");
+      openBookPanel();
     },
   };
 }

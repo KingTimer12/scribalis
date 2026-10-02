@@ -89,6 +89,16 @@ impl Client {
         Self::send(rb).await.map(|_| ())
     }
 
+    /// Sends an in-memory blob (a sealed file) as the raw request body.
+    pub async fn put_bytes(&self, path: &str, bytes: Vec<u8>) -> CloudResult<()> {
+        let rb = self
+            .request(Method::PUT, path)
+            .header(header::CONTENT_TYPE, "application/octet-stream")
+            .header(header::CONTENT_LENGTH, bytes.len())
+            .body(bytes);
+        Self::send(rb).await.map(|_| ())
+    }
+
     /// Streams a response body into `to`.
     pub async fn download(&self, path: &str, to: &Path) -> CloudResult<()> {
         let res = Self::send(self.request(Method::GET, path)).await?;

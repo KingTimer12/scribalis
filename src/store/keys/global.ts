@@ -6,7 +6,7 @@ import { textBigger, textReset, textSmaller, toggleTheme } from "../actions/pref
 import { toggleSidebar } from "../actions/sidebar";
 import { toggleBookTab } from "../actions/sheets";
 import { boardNode } from "../selectors/board";
-import { closePanel, openPanel, toggleFocusMode } from "../actions/ui";
+import { closePanel, openBookPanel, openPanel, openSettings, toggleFocusMode } from "../actions/ui";
 import { currentChapter } from "../selectors/book";
 import { openAreaNode } from "../selectors/workspace";
 import { state } from "../state";
@@ -35,11 +35,11 @@ export function rootKey(e: KeyboardEvent) {
   else if (mod && !e.altKey && (k === "-" || code === "Minus" || code === "NumpadSubtract")) textSmaller();
   else if (mod && !e.altKey && (k === "0" || code === "Digit0" || code === "Numpad0")) textReset();
   else if (mod && (k === "/" || k === "?" || code === "Slash" || code === "IntlRo" || code === "NumpadDivide")) openPanel("help");
-  else if (mod && (k === "," || code === "Comma")) openPanel("settings");
+  else if (mod && (k === "," || code === "Comma")) openSettings();
   else if (inBook && mod && (k === "o" || code === "KeyO")) goLibrary();
   else if (writing && mod && !e.shiftKey && (k === "e" || code === "KeyE")) toggleSidebar();
   else if (inBook && mod && e.shiftKey && (k === "f" || code === "KeyF")) void toggleBookTab();
-  else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openPanel("cloud");
+  else if (mod && e.shiftKey && (k === "s" || code === "KeyS")) openBookPanel();
   else if (writing && mod && (k === "." || code === "Period")) toggleFocusMode();
   else if (withNotes && mod && (k === ";" || code === "Semicolon")) openPanel("notes");
   // On the Quadro the chapter editor is hidden: nothing to insert an image into.

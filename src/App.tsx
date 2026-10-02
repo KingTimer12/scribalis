@@ -8,13 +8,15 @@ import { TopBar } from "./components/chrome/TopBar";
 import { ConfirmDialog } from "./components/ui/ConfirmDialog";
 import { MentionCard } from "./components/editor/MentionCard";
 import { MentionMenu } from "./components/editor/MentionMenu";
+import { WikiLinkCard } from "./components/editor/WikiLinkCard";
+import { WikiLinkMenu } from "./components/editor/WikiLinkMenu";
 import { CloudJobOverlay } from "./components/cloud/CloudJobOverlay";
-import { CloudPanel } from "./components/cloud/CloudPanel";
 import { Library } from "./components/library/Library";
 import { CommandPalette } from "./components/panels/CommandPalette";
 import { HelpPanel } from "./components/panels/HelpPanel";
 import { NotesPanel } from "./components/panels/NotesPanel";
-import { SettingsPanel } from "./components/panels/SettingsPanel";
+import { BookPanel } from "./components/settings/BookPanel";
+import { SettingsModal } from "./components/settings/SettingsModal";
 import { SpacingPanel } from "./components/panels/SpacingPanel";
 import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
 import { Workspace } from "./components/workspace/Workspace";
@@ -104,11 +106,11 @@ export default function App() {
         <Match when={state.panel === "help"}>
           <HelpPanel />
         </Match>
-        <Match when={state.panel === "cloud"}>
-          <CloudPanel />
+        <Match when={state.panel === "book" && inBook()}>
+          <BookPanel />
         </Match>
         <Match when={state.panel === "settings"}>
-          <SettingsPanel />
+          <SettingsModal />
         </Match>
       </Switch>
       <Show when={state.scrivener}>
@@ -117,6 +119,8 @@ export default function App() {
       <Show when={inBook() && state.bookTab === "write"}>
         <MentionMenu />
         <MentionCard />
+        <WikiLinkMenu />
+        <WikiLinkCard />
       </Show>
       <ConfirmDialog />
       <CloudJobOverlay />

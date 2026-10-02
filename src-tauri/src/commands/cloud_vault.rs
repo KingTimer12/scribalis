@@ -6,6 +6,7 @@ use crate::cloud::{
     api::{BookList, KeyInfo, KeyList, LabelBody, NewKey, NewKeyResponse, VaultCreated, VaultInfo},
     client::Client,
     config::{normalize_api_url, DEFAULT_API_URL},
+    crypto::{self, VaultKey},
     keychain, CloudState,
 };
 use crate::error::{AppError, AppResult};
@@ -17,6 +18,8 @@ pub struct CloudOverview {
     pub api_url: String,
     pub default_api_url: &'static str,
     pub connected: bool,
+    /// This computer holds the vault's encryption key (it may still be created on the first backup).
+    pub has_crypt_key: bool,
 }
 
 #[derive(Serialize)]
@@ -32,8 +35,13 @@ pub struct RemoteBookView {
 }
 
 fn overview(cloud: &CloudState) -> AppResult<CloudOverview> {
-    let g = cloud.lock()?;
-    Ok(CloudOverview { api_url: g.file.api_url().to_string(), default_api_url: DEFAULT_API_URL, connected: g.file.has_vault() })
+    let (api_url, connected) = {
+        let g = cloud.lock()?;
+        (g.file.api_url().to_string(), g.file.has_vault())
+    };
+    // A keychain hiccup only hides the flag; backups report their own errors.
+    let has_crypt_key = connected && cloud.vault_key().ok().flatten().is_some();
+    Ok(CloudOverview { api_url, default_api_url: DEFAULT_API_URL, connected, has_crypt_key })
 }
 
 #[tauri::command]
@@ -58,6 +66,7 @@ pub async fn cloud_activate(cloud: State<'_, CloudState>, label: String) -> AppR
     let created: VaultCreated = Client::new(&url, None)?.post("/vaults", &LabelBody { label: label.trim() }).await?;
     keychain::write(&url, &created.key.secret)?;
     cloud.set_key(Some(created.key.secret))?;
+    cloud.store_vault_key(Some(&VaultKey::generate()?))?;
     cloud.edit(|f| {
         let s = f.server_mut();
         s.vault_id = Some(created.vault.id);
@@ -68,7 +77,8 @@ pub async fn cloud_activate(cloud: State<'_, CloudState>, label: String) -> AppR
 
 #[tauri::command]
 pub async fn cloud_connect(cloud: State<'_, CloudState>, secret: String) -> AppResult<CloudOverview> {
-    let secret = secret.trim().to_string();
+    // The code from "Adicionar computador" carries the encryption key after the device secret.
+    let (secret, crypt) = crypto::split_code(&secret);
     if !secret.starts_with("scb_") {
         return Err(AppError::msg("Código inválido. Ele começa com scb_."));
     }
@@ -77,6 +87,11 @@ pub async fn cloud_connect(cloud: State<'_, CloudState>, secret: String) -> AppR
     let info: VaultInfo = Client::new(&url, Some(secret.clone()))?.get("/vault").await?;
     keychain::write(&url, &secret)?;
     cloud.set_key(Some(secret))?;
+    // An old code without the key keeps whatever this computer has; with none, a later backup
+    // creates one (see `ensure_vault_key`).
+    if let Some(k) = &crypt {
+        cloud.store_vault_key(Some(k))?;
+    }
     cloud.edit(|f| {
         let s = f.server_mut();
         s.vault_id = Some(info.id);
@@ -96,11 +111,30 @@ pub async fn cloud_keys(cloud: State<'_, CloudState>) -> AppResult<Vec<KeyInfo>>
     Ok(list.keys)
 }
 
-/// New key for another computer. The only time a secret reaches the webview, to be copied.
+/// New key for another computer. The only time a secret reaches the webview, to be copied. The code
+/// shown carries the encryption key too, so the other computer opens encrypted backups with no password.
 #[tauri::command]
 pub async fn cloud_add_key(cloud: State<'_, CloudState>, label: String) -> AppResult<NewKey> {
-    let res: NewKeyResponse = cloud.vault_client()?.post("/vault/keys", &LabelBody { label: label.trim() }).await?;
+    let crypt = cloud.ensure_vault_key()?;
+    let mut res: NewKeyResponse = cloud.vault_client()?.post("/vault/keys", &LabelBody { label: label.trim() }).await?;
+    res.key.secret = crypto::join_code(&res.key.secret, Some(&crypt));
     Ok(res.key)
+}
+
+/// "Trazer chave": takes the encryption key from a code made on another computer, for computers that
+/// joined the vault before backups were encrypted. The device key stays as it is.
+#[tauri::command]
+pub async fn cloud_import_crypt_key(cloud: State<'_, CloudState>, code: String) -> AppResult<CloudOverview> {
+    let (_, crypt) = crypto::split_code(&code);
+    let crypt = crypt.ok_or_else(|| AppError::msg("Este código não traz a chave de criptografia. Gere um novo em \"Adicionar computador\"."))?;
+    cloud.store_vault_key(Some(&crypt))?;
+    // Hashes and fingerprints made with the old key no longer match what will be sent.
+    {
+        let mut g = cloud.lock()?;
+        g.hashes = Default::default();
+        g.sent.clear();
+    }
+    overview(&cloud)
 }
 
 #[tauri::command]
@@ -117,6 +151,7 @@ pub async fn cloud_delete_vault(cloud: State<'_, CloudState>) -> AppResult<Cloud
     let url = cloud.lock()?.file.api_url().to_string();
     keychain::delete(&url)?;
     cloud.set_key(None)?;
+    cloud.store_vault_key(None)?;
     cloud.edit(|f| {
         f.servers.remove(&url);
     })?;

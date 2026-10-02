@@ -1,4 +1,4 @@
-import { closePanel, openPanel } from "../store/actions/ui";
+import { closePanel, openBookPanel, openPanel, openSettings } from "../store/actions/ui";
 import { textBigger, textSmaller, textReset, toggleTheme } from "../store/actions/prefs";
 
 export interface Shortcut {
@@ -46,8 +46,8 @@ export const SHORTCUTS: Shortcut[] = [
   { label: "Diminuir texto", keys: ["Ctrl", "−"], run: runAndClose(textSmaller) },
   { label: "Texto no tamanho padrão", keys: ["Ctrl", "0"], run: runAndClose(textReset) },
   { label: "Tema claro / escuro", keys: ["Ctrl", "J"], run: runAndClose(toggleTheme) },
-  { label: "Nuvem: backup e links", keys: ["Ctrl", "Shift", "S"], run: () => openPanel("cloud") },
-  { label: "Ajustes (tema, texto, interface)", keys: ["Ctrl", ","], run: () => openPanel("settings") },
+  { label: "Obra: ajustes, backup e links", keys: ["Ctrl", "Shift", "S"], run: () => openBookPanel() },
+  { label: "Configurações (tema, meta, nuvem)", keys: ["Ctrl", ","], run: () => openSettings() },
   { label: "Do título para o texto", keys: ["Enter"] },
   { label: "Obras: nova obra", keys: ["N"] },
   { label: "Obras: renomear", keys: ["R"] },

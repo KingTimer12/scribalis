@@ -9,6 +9,7 @@ import { focusHandler, focusTarget } from "../../store/focus";
 import { mentionTarget, onMentionKey, onMentionQuery } from "../../store/mentions";
 import { scheduleDocSave } from "../../store/saving";
 import { setState, state } from "../../store/state";
+import { onWikiLinkKey, onWikiLinkQuery, openWikiLink, wikiLinkTarget } from "../../store/wikiLinks";
 
 export interface RichEditorProps {
   /** "chapter" keeps the book-writing behavior (Enter x3 split, hint, word counts); "area" is a plain workspace text. */
@@ -27,6 +28,7 @@ export function RichEditor(props: RichEditorProps) {
   };
   const resolveImage = (src: string) => (state.book ? bookAsset(state.book.dir, src, 0) : null);
   const mentions = { lookup: mentionTarget, onQuery: onMentionQuery, onKey: onMentionKey };
+  const wikiLinks = { lookup: wikiLinkTarget, open: openWikiLink, onQuery: onWikiLinkQuery, onKey: onWikiLinkKey };
 
   onMount(() => {
     const editor =
@@ -41,6 +43,7 @@ export function RichEditor(props: RichEditorProps) {
             onHint: (show) => setState("tripleHint", show && !state.toast),
             onExitTop: () => focusTarget("title", "end"),
             mentions,
+            wikiLinks,
             ariaLabel: "Texto do capítulo",
             placeholder: "Comece a escrever…",
           })
@@ -54,6 +57,7 @@ export function RichEditor(props: RichEditorProps) {
             onExitTop: () => {},
             separatorKey: false,
             mentions,
+            wikiLinks,
             ariaLabel: "Texto do documento",
             placeholder: "Escreva aqui…",
           });

@@ -1,8 +1,9 @@
 //! Bold/italic runs and sheet mentions inside one markdown line. `*`, `**` and `***` toggle
-//! italic, bold and both; `@[Name](id)` is a mention; `\` escapes `\ * { ! @`.
-use crate::model::doc::{Inline, Marks, MentionAttrs};
+//! italic, bold and both; `@[Name](id)` is a mention; `[[alias]](id)` is a wiki link to a tree
+//! node; `\` escapes `\ * { ! @ [`.
+use crate::model::doc::{Inline, Marks, MentionAttrs, WikiLinkAttrs};
 
-const ESCAPABLE: [char; 5] = ['\\', '*', '{', '!', '@'];
+const ESCAPABLE: [char; 6] = ['\\', '*', '{', '!', '@', '['];
 
 fn run(toggle: Marks) -> &'static str {
     match (toggle.bold, toggle.italic) {
@@ -13,11 +14,12 @@ fn run(toggle: Marks) -> &'static str {
     }
 }
 
-/// A character of a line, or a mention (which carries no marks).
+/// A character of a line, a mention or a wiki link (links carry no marks).
 #[derive(Clone)]
 enum Piece<'a> {
     Char(char),
     Mention(&'a MentionAttrs),
+    Wiki(&'a WikiLinkAttrs),
 }
 
 /// One markdown string per line of the paragraph (lines split at hard breaks).
@@ -29,22 +31,25 @@ pub fn serialize(content: &[Inline]) -> Vec<String> {
             Inline::Text { text, marks } => pieces.extend(text.chars().map(|c| (Piece::Char(c), *marks))),
             Inline::HardBreak => lines.push(line_md(std::mem::take(&mut pieces))),
             Inline::Mention { attrs } => pieces.push((Piece::Mention(attrs), Marks::default())),
+            Inline::WikiLink { attrs } => pieces.push((Piece::Wiki(attrs), Marks::default())),
         }
     }
     lines.push(line_md(pieces));
     lines
 }
 
-fn mention_md(out: &mut String, m: &MentionAttrs) {
-    out.push_str("@[");
-    for c in m.label.chars() {
+/// `open` + label (escaping `\` and `]`) + `close` + `(id)`: the shared shape of mentions and wiki links.
+fn link_md(out: &mut String, open: &str, close: &str, label: &str, id: &str) {
+    out.push_str(open);
+    for c in label.chars() {
         if c == '\\' || c == ']' {
             out.push('\\');
         }
         out.push(c);
     }
-    out.push_str("](");
-    out.push_str(&m.id);
+    out.push_str(close);
+    out.push('(');
+    out.push_str(id);
     out.push(')');
 }
 
@@ -55,7 +60,7 @@ fn line_md(mut pieces: Vec<(Piece, Marks)>) -> String {
         .iter()
         .map(|(p, m)| match p {
             Piece::Char(c) => (!c.is_whitespace()).then_some(*m),
-            Piece::Mention(_) => Some(*m),
+            Piece::Mention(_) | Piece::Wiki(_) => Some(*m),
         })
         .collect();
     let mut left = vec![Marks::default(); pieces.len()];
@@ -79,10 +84,14 @@ fn line_md(mut pieces: Vec<(Piece, Marks)>) -> String {
         out.push_str(run(open ^ *m));
         open = *m;
         match p {
-            Piece::Mention(attrs) => mention_md(&mut out, attrs),
+            Piece::Mention(attrs) => link_md(&mut out, "@[", "]", &attrs.label, &attrs.id),
+            Piece::Wiki(attrs) => link_md(&mut out, "[[", "]]", &attrs.label, &attrs.id),
             Piece::Char(c) => {
-                let next_is_bracket = matches!(pieces.get(i + 1), Some((Piece::Char('['), _)));
-                if *c == '\\' || *c == '*' || (*c == '@' && next_is_bracket) { out.push('\\'); }
+                let next = pieces.get(i + 1).map(|(p, _)| p);
+                let next_is_bracket = matches!(next, Some(Piece::Char('[')));
+                // A `[` right before `[` or a wiki link would read as the start of a link.
+                let opens_link = *c == '[' && (next_is_bracket || matches!(next, Some(Piece::Wiki(_))));
+                if *c == '\\' || *c == '*' || (*c == '@' && next_is_bracket) || opens_link { out.push('\\'); }
                 out.push(*c);
             }
         }
@@ -117,8 +126,23 @@ fn mention_at(chars: &[char], i: usize) -> Option<(Inline, usize)> {
     if chars.get(i + 1) != Some(&'[') {
         return None;
     }
+    let (label, id, next) = link_at(chars, i + 2, false)?;
+    Some((Inline::Mention { attrs: MentionAttrs { id, label } }, next))
+}
+
+/// `[[label]](id)` starting at `i` (which holds the first `[`): the wiki link and the index after it.
+fn wiki_at(chars: &[char], i: usize) -> Option<(Inline, usize)> {
+    if chars.get(i + 1) != Some(&'[') {
+        return None;
+    }
+    let (label, id, next) = link_at(chars, i + 2, true)?;
+    Some((Inline::WikiLink { attrs: WikiLinkAttrs { id, label } }, next))
+}
+
+/// `label](id)` (or `label]](id)` when `double`) from `start`: the unescaped label, the id and the index after the `)`.
+fn link_at(chars: &[char], start: usize, double: bool) -> Option<(String, String, usize)> {
     let mut label = String::new();
-    let mut j = i + 2;
+    let mut j = start;
     loop {
         match chars.get(j)? {
             '\\' => {
@@ -132,6 +156,12 @@ fn mention_at(chars: &[char], i: usize) -> Option<(Inline, usize)> {
             }
         }
     }
+    if double {
+        if chars.get(j + 1) != Some(&']') {
+            return None;
+        }
+        j += 1;
+    }
     if chars.get(j + 1) != Some(&'(') {
         return None;
     }
@@ -141,7 +171,7 @@ fn mention_at(chars: &[char], i: usize) -> Option<(Inline, usize)> {
         return None;
     }
     let id: String = chars[start..start + len].iter().collect();
-    Some((Inline::Mention { attrs: MentionAttrs { id, label } }, start + len + 1))
+    Some((label, id, start + len + 1))
 }
 
 fn scan(line: &str, with_marks: bool) -> (Vec<Inline>, Marks) {
@@ -159,6 +189,13 @@ fn scan(line: &str, with_marks: bool) -> (Vec<Inline>, Marks) {
         if c == '@' {
             if let Some((mention, next)) = mention_at(&chars, i) {
                 out.push(mention);
+                i = next;
+                continue;
+            }
+        }
+        if c == '[' {
+            if let Some((link, next)) = wiki_at(&chars, i) {
+                out.push(link);
                 i = next;
                 continue;
             }
@@ -288,6 +325,33 @@ mod tests {
             assert_eq!(parse_line(&s), c, "via {s:?}");
         }
         assert_eq!(line(&[t("a "), Inline::mention("x1", "Ana")]), "a @[Ana](x1)");
+    }
+
+    #[test]
+    fn wiki_links_round_trip_with_and_without_alias() {
+        let cases: Vec<Vec<Inline>> = vec![
+            vec![t("Ver "), Inline::wiki("x1a", ""), t(" depois.")],
+            vec![m("Ela", B), t(" "), Inline::wiki("x2", "aquela noite"), t(" "), m("ali", B)],
+            vec![Inline::wiki("x3", "Ra]ul \\ [o"), t("!")],
+            vec![t("lista [[a]] e [ solto")],
+            vec![t("["), Inline::wiki("x4", "a")],
+            vec![t("!"), Inline::wiki("x5", "img")],
+            vec![t("a\\"), Inline::wiki("x6", "")],
+        ];
+        for c in cases {
+            let s = line(&c);
+            assert_eq!(parse_line(&s), c, "via {s:?}");
+        }
+        assert_eq!(line(&[t("a "), Inline::wiki("x1", "")]), "a [[]](x1)");
+        assert_eq!(line(&[Inline::wiki("x1", "Cap")]), "[[Cap]](x1)");
+    }
+
+    #[test]
+    fn broken_wiki_links_stay_text() {
+        assert_eq!(parse_line("[[Ana]](x 1)"), vec![t("[[Ana]](x 1)")]);
+        assert_eq!(parse_line("[[Ana]]"), vec![t("[[Ana]]")]);
+        assert_eq!(parse_line("[[sem fim"), vec![t("[[sem fim")]);
+        assert_eq!(parse_line("[link](x1)"), vec![t("[link](x1)")]);
     }
 
     #[test]

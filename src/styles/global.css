@@ -8,6 +8,7 @@
 @import "./cloudjob.css";
 @import "./sheets.css";
 @import "./mentions.css";
+@import "./wikilinks.css";
 
 /* Theme tokens become utilities: text-ink, bg-panel, border-faint… */
 @theme inline {

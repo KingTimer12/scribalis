@@ -6,7 +6,7 @@ import { openBook, requestDeleteBook, restoreSamples, startNew, startRename } fr
 import { reveal } from "../actions/expanded";
 import { openNode } from "../actions/open";
 import { cycleUiScale, toggleTheme } from "../actions/prefs";
-import { homeTarget, openPanel } from "../actions/ui";
+import { homeTarget, openBookPanel, openPanel, openSettings } from "../actions/ui";
 import { startScrivenerImport } from "../actions/scrivener";
 import { installUpdate } from "../actions/update";
 import { focusTarget } from "../focus";
@@ -32,9 +32,9 @@ function commonCommands(): Command[] {
   return [
     { label: state.prefs.theme === "dark" ? "Tema claro" : "Tema escuro", hint: "Ctrl J", act: toggleTheme },
     { label: "Tamanho da interface: " + UI_SCALE_LABEL[state.prefs.uiScale], hint: "", keep: true, act: cycleUiScale },
-    { label: "Ajustes…", hint: "Ctrl ,", act: () => openPanel("settings") },
+    { label: "Configurações…", hint: "Ctrl ,", act: () => openSettings() },
     { label: "Atalhos", hint: "Ctrl /", act: () => openPanel("help") },
-    { label: "Nuvem", hint: "Ctrl Shift S", act: () => openPanel("cloud") },
+    { label: state.view === "book" ? "Obra: ajustes, backup e links" : "Nuvem", hint: "Ctrl Shift S", act: () => openBookPanel() },
     ...(state.update ? [{ label: "Instalar versão " + state.update.version + " (reinicia)", hint: "", act: () => void installUpdate() }] : []),
   ];
 }

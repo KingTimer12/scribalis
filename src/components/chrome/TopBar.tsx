@@ -9,6 +9,7 @@ import { state } from "../../store/state";
 import { SrLabel } from "../ui/SrLabel";
 import { AppBrand } from "./AppBrand";
 import { BookTabs } from "./BookTabs";
+import { SettingsButton } from "./SettingsButton";
 import { ThemeToggle } from "./ThemeToggle";
 import { TopActions } from "./TopActions";
 import { UpdateBadge } from "./UpdateBadge";
@@ -49,7 +50,10 @@ export function TopBar() {
         </Show>
       </div>
       <div class="flex items-center gap-[18px]">
-        <ThemeToggle />
+        <div class="flex items-center gap-1">
+          <ThemeToggle />
+          <SettingsButton />
+        </div>
         <UpdateBadge />
         <TopActions />
         <Show when={ownButtons}>

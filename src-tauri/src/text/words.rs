@@ -48,4 +48,12 @@ mod tests {
         assert_eq!(doc_words(&doc), 4);
         assert_eq!(crate::markdown::serialize::serialize(&doc).trim(), "Viu @[Ana Lírio](x1) chegar");
     }
+
+    #[test]
+    fn a_wiki_link_counts_as_its_alias() {
+        let doc = crate::markdown::parse::parse("Lembrou [[aquela noite]](x1) e [[]](x2) depois");
+        assert_eq!(doc_text(&doc), "Lembrou aquela noite e  depois");
+        assert_eq!(doc_words(&doc), 5);
+        assert_eq!(crate::markdown::serialize::serialize(&doc).trim(), "Lembrou [[aquela noite]](x1) e [[]](x2) depois");
+    }
 }

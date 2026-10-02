@@ -1,6 +1,7 @@
 import { createSignal, Show } from "solid-js";
 import { ago, pad } from "../../lib/format";
 import { backupNow, confirmForgetBook, fetchComments, setBookBackup } from "../../store/actions/cloud";
+import { setBookEncrypted } from "../../store/actions/cloudCrypto";
 import { currentChapter, currentNumber } from "../../store/selectors/book";
 import { setState, state } from "../../store/state";
 import { ShareForm } from "./ShareForm";
@@ -28,11 +29,26 @@ export function BookCloudSection() {
 
   return (
     <div class="cloud-sec">
-      <div class="ui cap">Esta obra</div>
+      <div class="ui cap set-head">Nuvem</div>
       <label class="cloud-row">
         Backup na nuvem
         <input type="checkbox" checked={!!view()?.enabled} onChange={(e) => void setBookBackup(e.currentTarget.checked)} />
       </label>
+      <label class="cloud-row">
+        Criptografar e comprimir
+        <input type="checkbox" checked={view()?.encrypted ?? true} onChange={(e) => {
+          const box = e.currentTarget;
+          const want = box.checked;
+          // The checkbox follows the store, not the click: it only moves if the user confirms.
+          box.checked = !want;
+          void setBookEncrypted(want);
+        }} />
+      </label>
+      <div class="ui crypt-note">
+        {view()?.encrypted ?? true
+          ? "Só os computadores do cofre leem os backups. Links públicos ficam desligados."
+          : "Backups abertos: o servidor lê a obra para mostrar os links públicos."}
+      </div>
       <Show when={view()?.enabled}>
         <div class="ui">
           {statusText()}
@@ -45,6 +61,18 @@ export function BookCloudSection() {
         <SnapshotList />
       </Show>
       <Show
+        when={!(view()?.encrypted ?? true)}
+        fallback={
+          <Show when={state.shareDraft}>
+            <div class="cloud-warn">
+              Links públicos precisam da obra aberta: o servidor tem que ler o texto para mostrar a página.
+              <button class="cloud-btn" onClick={() => void setBookEncrypted(false)}>Deixar aberta para links</button>
+              <button class="cloud-btn" onClick={() => setState("shareDraft", null)}>Cancelar</button>
+            </div>
+          </Show>
+        }
+      >
+      <Show
         when={state.shareDraft}
         fallback={
           <div class="cloud-row" style={{ "justify-content": "flex-start" }}>
@@ -53,6 +81,7 @@ export function BookCloudSection() {
         }
       >
         {(draft) => <ShareForm draft={draft()} onDone={() => setRefresh((n) => n + 1)} />}
+      </Show>
       </Show>
       <ShareList refresh={refresh()} />
       <Show when={view()?.lastBackupAt}>

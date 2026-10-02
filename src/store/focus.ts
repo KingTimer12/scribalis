@@ -18,7 +18,7 @@ export type FocusTarget =
   | "board"
   | "sheets"
   | "sheetName"
-  | "cloud"
+  | "bookPanel"
   | "settings";
 
 export type Caret = number | "end" | null;

@@ -59,7 +59,7 @@ export function KeyList() {
       >
         {(k) => (
           <div class="cloud-sec" style={{ gap: "6px" }}>
-            <div class="cloud-warn">Cole este código no outro computador, em "Conectar a um cofre". Quem tiver este código acessa todas as obras do cofre.</div>
+            <div class="cloud-warn">Cole este código no outro computador, em "Conectar a um cofre". Ele leva junto a chave de criptografia, então o outro computador abre os backups sem senha. Quem tiver este código acessa e lê todas as obras do cofre.</div>
             <input class="cloud-input" readOnly value={k().secret} onFocus={(e) => e.currentTarget.select()} />
             <button class="cloud-btn" onClick={() => void navigator.clipboard.writeText(k().secret).then(() => flash("Código copiado"))}>Copiar código</button>
           </div>

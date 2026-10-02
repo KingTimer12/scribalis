@@ -13,6 +13,8 @@ import { MentionNode, type MentionOptions } from "./mention";
 import { MentionSuggest, type MentionSuggestOptions } from "./mentionSuggest";
 import { SeparatorNode, type SeparatorView } from "./separator";
 import { ParagraphSpacing } from "./spacing";
+import { WikiLinkNode, type WikiLinkOptions } from "./wikiLink";
+import { WikiLinkSuggest, type WikiLinkSuggestOptions } from "./wikiLinkSuggest";
 import { WriterKeys, type WriterKeysOptions } from "./writerKeys";
 
 export interface WriterEditorOptions extends Omit<WriterKeysOptions, "onSplit" | "separatorKey"> {
@@ -27,6 +29,8 @@ export interface WriterEditorOptions extends Omit<WriterKeysOptions, "onSplit" |
   separatorKey?: boolean;
   /** Sheet mentions: how to show them and the @ menu. Absent in tests: mentions show their label. */
   mentions?: MentionOptions & MentionSuggestOptions;
+  /** `[[links]]` to tree nodes: how to show and open them and the [[ menu. Absent in tests: links show their label. */
+  wikiLinks?: WikiLinkOptions & WikiLinkSuggestOptions;
   ariaLabel: string;
   placeholder: string;
 }
@@ -46,6 +50,8 @@ export function createWriterEditor(o: WriterEditorOptions): Editor {
       BookImageNode.configure({ resolve: o.resolveImage }),
       MentionNode.configure({ lookup: o.mentions?.lookup ?? (() => undefined) }),
       MentionSuggest.configure({ onQuery: o.mentions?.onQuery ?? (() => {}), onKey: o.mentions?.onKey ?? (() => false) }),
+      WikiLinkNode.configure({ lookup: o.wikiLinks?.lookup ?? (() => undefined), open: o.wikiLinks?.open ?? (() => {}) }),
+      WikiLinkSuggest.configure({ onQuery: o.wikiLinks?.onQuery ?? (() => {}), onKey: o.wikiLinks?.onKey ?? (() => false) }),
       WriterKeys.configure({ onSplit: o.onSplit ?? null, separatorKey: o.separatorKey ?? true, onHint: o.onHint, onExitTop: o.onExitTop }),
       Bold,
       Italic,

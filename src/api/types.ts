@@ -8,7 +8,9 @@ export type InlineJSON =
   | { type: "text"; text: string; marks?: MarkJSON[] }
   | { type: "hardBreak" }
   /** `@Name` pointing at a sheet; `label` is the name when it was written. */
-  | { type: "mention"; attrs: { id: string; label: string } };
+  | { type: "mention"; attrs: { id: string; label: string } }
+  /** `[[Title]]` pointing at a tree node; an empty `label` shows the node's current title. */
+  | { type: "wikiLink"; attrs: { id: string; label: string } };
 export type Align = "left" | "center" | "right" | "justify";
 export type ParaAttrsJSON = Partial<{
   textAlign: Align | null;
@@ -152,6 +154,8 @@ export interface CloudOverview {
   apiUrl: string;
   defaultApiUrl: string;
   connected: boolean;
+  /** This computer holds the vault's encryption key. */
+  hasCryptKey: boolean;
 }
 
 export interface VaultInfo {
@@ -199,6 +203,8 @@ export interface BookCloudView {
   lastBackupAt: number | null;
   paused: string | null;
   lastCommentsAt: number | null;
+  /** Sealed and compressed with the vault key; false for books with public links. */
+  encrypted: boolean;
 }
 
 export type ShareKind = "chapter" | "workspace";
