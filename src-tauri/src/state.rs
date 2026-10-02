@@ -86,6 +86,10 @@ impl Library {
         if self.open.as_ref().is_none_or(|(_, m)| m.id != id) {
             let dir = self.dir_of(id)?;
             let meta = open_book(&dir)?;
+            // Texts that older versions left inside the Manuscrito become chapters; their words
+            // were not typed today.
+            let joined = crate::ops::manuscript::repair(&dir)?;
+            self.absorb(joined);
             self.open = Some((dir, meta));
         }
         let (dir, meta) = self.open.as_mut().expect("just loaded");

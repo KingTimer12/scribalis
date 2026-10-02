@@ -93,14 +93,43 @@ fn convert(dir: &Path, node: &mut Node, into: bool, old: &mut Vec<(NodeKind, Str
     Ok(())
 }
 
+/// Texts left inside the Manuscrito (older versions could leave them there) become chapters, so
+/// they count, number and save like the rest. Returns the words that joined the chapters; a
+/// sound tree is left untouched (no write).
+pub fn repair(dir: &Path) -> AppResult<usize> {
+    fn has_text(n: &Node) -> bool {
+        n.kind == NodeKind::Text || n.children.iter().any(has_text)
+    }
+    let mut ws = read_workspace(dir)?;
+    let Some(m) = manuscript::manuscript_mut(&mut ws.items) else { return Ok(0) };
+    if !m.children.iter().any(has_text) {
+        return Ok(0);
+    }
+    let before = manuscript::total_words(&ws.items);
+    let m = manuscript::manuscript_mut(&mut ws.items).expect("found above");
+    let mut old = Vec::new();
+    for child in &mut m.children {
+        convert(dir, child, true, &mut old)?;
+    }
+    write_workspace(dir, &ws)?;
+    for (kind, rel) in &old {
+        if let Err(e) = remove_file_at(dir, *kind, rel) {
+            eprintln!("could not remove converted file {rel}: {e}");
+        }
+    }
+    Ok(manuscript::total_words(&ws.items) - before)
+}
+
 /// Moves `id` under `parent` at `index` under the Manuscrito rules, converting the subtree
 /// when it crosses the Manuscrito's edge. Order: new files, tree, then old files — a failure
 /// midway duplicates a text, never loses it. The id never changes.
 pub fn move_converting(dir: &Path, id: &str, parent: Option<&str>, index: usize) -> AppResult<Vec<Node>> {
     let mut ws = read_workspace(dir)?;
     manuscript::check_move(&ws.items, id, parent)?;
-    let was_inside = in_manuscript(&ws.items, id);
-    let lands_inside = parent.is_some_and(|p| in_manuscript(&ws.items, p));
+    // The Manuscrito itself moves as it is: its chapters stay chapters.
+    let moving_manuscript = manuscript::manuscript(&ws.items).is_some_and(|m| m.id == id);
+    let was_inside = !moving_manuscript && in_manuscript(&ws.items, id);
+    let lands_inside = !moving_manuscript && parent.is_some_and(|p| in_manuscript(&ws.items, p));
     let mut items = ws.items.clone();
     move_node(&mut items, id, parent, index)?;
     let mut old = Vec::new();
@@ -217,6 +246,42 @@ mod tests {
         assert_eq!(move_converting(&dir, &m, Some(&t), 0).unwrap_err().0, "O Manuscrito só fica na raiz ou dentro de pastas");
         assert_eq!(fs::read_to_string(&area_file).unwrap(), before_text);
         assert_ne!(before, before_text);
+    }
+
+    #[test]
+    fn the_manuscript_moves_into_a_folder_and_its_chapters_stay_chapters() {
+        let (_r, dir) = book();
+        let m = manuscript_id(&dir);
+        let f = workspace::create(&dir, None, 0, NodeKind::Folder, "Livro 1").unwrap().id;
+        let items = move_converting(&dir, &m, Some(&f), 0).unwrap();
+        assert_eq!(items[0].id, f);
+        assert_eq!(items[0].children[0].id, m);
+        let list = chapters(&items);
+        assert_eq!(list.len(), 1);
+        assert!(dir.join(list[0].file.as_ref().unwrap()).exists());
+        let back = move_converting(&dir, &m, None, 1).unwrap();
+        assert_eq!(back[1].id, m);
+        assert_eq!(chapters(&back).len(), 1);
+    }
+
+    #[test]
+    fn repair_turns_texts_left_in_the_manuscript_into_chapters() {
+        let (_r, dir) = book();
+        let t = workspace::create(&dir, None, 1, NodeKind::Text, "Capítulo 2").unwrap().id;
+        workspace::save_doc(&dir, &t, &parse("três palavras aqui")).unwrap();
+        // An older version left the text inside the Manuscrito without converting it.
+        let mut ws = read_workspace(&dir).unwrap();
+        let node = crate::model::workspace::remove(&mut ws.items, &t).unwrap();
+        manuscript::manuscript_mut(&mut ws.items).unwrap().children.push(node);
+        write_workspace(&dir, &ws).unwrap();
+        assert_eq!(repair(&dir).unwrap(), 3);
+        let items = read_workspace(&dir).unwrap().items;
+        let list = chapters(&items);
+        assert_eq!(list.len(), 2);
+        assert_eq!((list[1].id.as_str(), list[1].words), (t.as_str(), Some(3)));
+        assert!(dir.join(list[1].file.as_ref().unwrap()).exists());
+        // A sound tree is left as it is.
+        assert_eq!(repair(&dir).unwrap(), 0);
     }
 
     #[test]
