@@ -71,8 +71,8 @@ export function ScrivenerImport() {
           Importar «{s().view.title}»
         </h2>
         <p class="scriv-text">
-          Marque os itens que viram capítulos; cada um leva junto o que estiver dentro dele. O resto vai para a área
-          de trabalho.
+          Marque os itens que viram capítulos; o que estiver dentro de cada um vira subcapítulo. O resto vai para a
+          área de trabalho.
         </p>
         <div class="scriv-tree">
           <For each={s().view.items}>{(item) => <BinderRow item={item} depth={0} />}</For>

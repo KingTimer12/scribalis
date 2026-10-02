@@ -1,5 +1,5 @@
-//! Brings a Scrivener project into a book: each chosen binder item becomes one chapter of the
-//! Manuscrito (its text plus its descendants'), everything else lands in the rest of the tree.
+//! Brings a Scrivener project into a book: each chosen binder item becomes a chapter of the
+//! Manuscrito (its descendants become subchapters), everything else lands in the rest of the tree.
 //! One document in memory at a time.
 use std::{collections::HashSet, path::{Path, PathBuf}};
 
@@ -8,7 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::ids::{new_id, now_ms};
 use crate::model::{
     doc::{Block, Doc},
-    manuscript::{chapters, manuscript_mut, mirror},
+    manuscript::{chapters, chapters_in, manuscript_mut, mirror},
     metadata::Metadata,
     workspace::{remove, Node, NodeKind},
 };
@@ -164,9 +164,10 @@ impl Ctx<'_> {
         }
     }
 
-    /// Depth-first texts and notes under `item` (itself included); media go to attachments.
-    /// Below the top item, each synopsis joins the notes as "Título: sinopse".
-    fn gather(&mut self, item: &BinderItem, top: bool, blocks: &mut Vec<Block>, notes: &mut Vec<String>) -> AppResult<()> {
+    /// Chapter nodes for `item`, pushed onto `out`: the item with its own text, notes and
+    /// synopsis, and its descendants as subchapters in binder order. Media cannot enter the
+    /// Manuscrito: they go to the attachments and their children take their place.
+    fn chapter_nodes(&mut self, item: &BinderItem, out: &mut Vec<Node>) -> AppResult<()> {
         if item.kind == ItemKind::Trash {
             return Ok(());
         }
@@ -174,44 +175,27 @@ impl Ctx<'_> {
             if let Some(n) = self.media_node(item)? {
                 self.attachments.push(n);
             }
-            // The media itself never contributes chapter text, but its children
-            // (if any) are gathered like any other descendant's.
             for child in &item.children {
-                self.gather(child, false, blocks, notes)?;
+                self.chapter_nodes(child, out)?;
             }
             return Ok(());
         }
         let doc = self.text(&item.key);
-        if has_text(&doc) {
-            if !blocks.is_empty() {
-                blocks.push(Block::Separator);
-            }
-            blocks.extend(doc.content);
-        }
-        if !top {
-            let s = self.project.synopsis(&item.key);
-            if !s.is_empty() {
-                notes.push(format!("{}: {s}", title_of(item)));
-            }
-        }
-        let n = self.project.notes(&item.key);
-        if !n.is_empty() {
-            notes.push(n);
-        }
+        let mut node = new_chapter(self.dir, &title_of(item), &doc)?;
+        node.notes = self.project.notes(&item.key);
+        node.synopsis = self.project.synopsis(&item.key);
         for child in &item.children {
-            self.gather(child, false, blocks, notes)?;
+            self.chapter_nodes(child, &mut node.children)?;
         }
+        out.push(node);
         Ok(())
     }
 
-    /// One chapter node from `item`: its text and every descendant's, in binder order.
+    /// A chapter of the Manuscrito from `item`, with its descendants as subchapters.
     fn emit_chapter(&mut self, item: &BinderItem) -> AppResult<()> {
-        let (mut blocks, mut notes) = (Vec::new(), Vec::new());
-        self.gather(item, true, &mut blocks, &mut notes)?;
-        let mut node = new_chapter(self.dir, &title_of(item), &Doc::new(blocks))?;
-        node.notes = notes.join("\n\n");
-        node.synopsis = self.project.synopsis(&item.key);
-        self.chapters.push(node);
+        let mut out = Vec::new();
+        self.chapter_nodes(item, &mut out)?;
+        self.chapters.extend(out);
         Ok(())
     }
 }
@@ -250,7 +234,8 @@ pub fn import_into(
             None => ws.items.extend(nodes),
         }
     }
-    let chapter_count = ctx.chapters.len();
+    // Subchapters count too: the summary tells how many chapters the Manuscrito gained.
+    let chapter_count: usize = ctx.chapters.iter().map(chapters_in).sum();
     if chapter_count > 0 {
         let m = manuscript_mut(&mut ws.items).ok_or_else(|| AppError::msg("Obra sem Manuscrito"))?;
         m.children.extend(ctx.chapters);
@@ -405,10 +390,11 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let (book, _meta, out) = import_new_book(&root, &project, &folders(&["P1"])).unwrap();
         // "Vazio" has no content.rtf: an empty scene, not a warning.
-        assert_eq!((out.chapters, out.warnings), (1, 0));
+        assert_eq!((out.chapters, out.warnings), (3, 0));
         let list = chapter_list(&book);
-        assert_eq!(list[0].0, "Parte I & II");
-        let doc = read_at(&book, &list[0].2).unwrap();
+        let titles: Vec<&str> = list.iter().map(|c| c.0.as_str()).collect();
+        assert_eq!(titles, vec!["Parte I & II", "Chegada", "Vazio"]);
+        let doc = read_at(&book, &list[1].2).unwrap();
         let text = doc_text(&doc);
         assert!(text.starts_with("Ela chegou à cidade — cansada."), "{text:?}");
         assert!(text.contains("Ninguém a esperava."), "{text:?}");
@@ -434,18 +420,20 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let (dir, meta, out) = import_new_book(&root, &p, &folders(&["C1", "C2"])).unwrap();
         assert_eq!(meta.title, "Livro");
-        assert_eq!((out.chapters, out.warnings), (2, 1));
+        assert_eq!((out.chapters, out.warnings), (4, 1));
         let list = chapter_list(&dir);
-        // The imported chapters replace the empty starter.
-        assert_eq!(list.len(), 2);
-        // The chapter keeps its top item's synopsis; the scenes' go into its notes.
-        assert_eq!((list[0].0.as_str(), list[0].1.as_str()), ("Capítulo 1", "Cena 1: Abertura"));
-        let d1 = read_at(&dir, &list[0].2).unwrap();
-        assert_eq!(d1.content.len(), 3);
-        assert_eq!(d1.content[1], Block::Separator);
-        assert_eq!(doc_text(&d1), "Primeira cena.\n\nSegunda cena.");
-        assert_eq!(list[1].0, "Capítulo 2");
+        // The imported chapters replace the empty starter; the scenes are subchapters.
+        let titles: Vec<&str> = list.iter().map(|c| c.0.as_str()).collect();
+        assert_eq!(titles, vec!["Capítulo 1", "Cena 1", "Cena 2", "Capítulo 2"]);
+        assert_eq!(doc_text(&read_at(&dir, &list[0].2).unwrap()), "");
+        assert_eq!(doc_text(&read_at(&dir, &list[1].2).unwrap()), "Primeira cena.");
+        assert_eq!(doc_text(&read_at(&dir, &list[2].2).unwrap()), "Segunda cena.");
         let ws = read_workspace(&dir).unwrap();
+        let c1 = &ws.items[0].children[0];
+        let scenes: Vec<(&str, NodeKind)> = c1.children.iter().map(|n| (n.title.as_str(), n.kind)).collect();
+        assert_eq!(scenes, vec![("Cena 1", NodeKind::Chapter), ("Cena 2", NodeKind::Chapter)]);
+        // Each scene keeps its own synopsis, in its own field.
+        assert_eq!((c1.children[0].synopsis.as_str(), c1.children[0].notes.as_str()), ("Abertura", ""));
         assert_eq!(meta.open.as_deref(), Some(chapters(&ws.items)[0].id.as_str()));
         // The metadata mirror lists exactly the imported chapters, starter gone.
         assert_eq!(meta.chapters, crate::model::manuscript::mirror(&ws.items));
@@ -503,15 +491,15 @@ mod tests {
         let p = project(tmp.path());
         let (dir, mut meta) = create_book(tmp.path(), "Minha").unwrap();
         let out = import_into(&p, &folders(&["C1", "C2"]), &dir, &mut meta, Some("Livro")).unwrap();
-        assert_eq!(out.chapters, 2);
+        assert_eq!(out.chapters, 4);
         let list = chapter_list(&dir);
-        assert_eq!(list.len(), 3);
-        assert_eq!((list[1].0.as_str(), list[2].0.as_str()), ("Capítulo 1", "Capítulo 2"));
+        assert_eq!(list.len(), 5);
+        assert_eq!((list[1].0.as_str(), list[4].0.as_str()), ("Capítulo 1", "Capítulo 2"));
         let ws = read_workspace(&dir).unwrap();
         assert_eq!(ws.items.len(), 2);
         assert_eq!(ws.items[1].title, "Livro");
         assert_eq!(ws.items[1].children[0].title, "Pesquisa");
-        assert_eq!(meta.chapters.len(), 3);
+        assert_eq!(meta.chapters.len(), 5);
     }
 
     #[test]
@@ -574,7 +562,7 @@ mod tests {
     }
 
     #[test]
-    fn media_inside_chapter_subtree_still_gathers_its_children_text() {
+    fn media_inside_a_chapter_goes_to_attachments_and_its_children_stay_subchapters() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("Foto.scriv");
         let data = dir.join("Files/Data");
@@ -599,9 +587,13 @@ mod tests {
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
         let (book_dir, _meta, out) = import_new_book(&root, &p, &folders(&["C1"])).unwrap();
-        assert_eq!(out.chapters, 1);
-        let doc = read_at(&book_dir, &chapter_list(&book_dir)[0].2).unwrap();
-        assert_eq!(doc_text(&doc), "Primeira cena.\n\nTexto da legenda.");
+        assert_eq!(out.chapters, 3);
+        let list = chapter_list(&book_dir);
+        let titles: Vec<&str> = list.iter().map(|c| c.0.as_str()).collect();
+        assert_eq!(titles, vec!["Capítulo 1", "Cena 1", "Legenda"]);
+        assert_eq!(doc_text(&read_at(&book_dir, &list[2].2).unwrap()), "Texto da legenda.");
+        // The caption takes the photo's place under the chapter.
+        assert_eq!(read_workspace(&book_dir).unwrap().items[0].children[0].children.len(), 2);
         let ws = read_workspace(&book_dir).unwrap();
         assert_eq!(ws.items[1].title, "Anexos do manuscrito");
         assert_eq!((ws.items[1].children[0].kind, ws.items[1].children[0].title.as_str()), (NodeKind::Image, "Foto"));
