@@ -13,7 +13,7 @@ import { setState, state } from "../state";
 import { openNode } from "./open";
 import {
   commitNodeRename, createNode, deleteNode, flushNodeNotes, moveIntoManuscript, moveNode, moveOutOfManuscript, moveTo,
-  requestDelete, scheduleNodeNotes, setNodeNotes,
+  requestDelete, scheduleNodeNotes, setNodeNotes, startNodeRename,
 } from "./workspace";
 
 // Lets a test type into the editor in the middle of the move IPC.
@@ -205,10 +205,10 @@ describe("tree actions (mock)", () => {
       ed.type(para("digitado e recusado"));
       scheduleDocSave();
     };
-    // Nothing may sit before the Manuscrito: Rust's rule refuses this.
-    await moveTo(id, null, 0);
+    // A node cannot go inside itself: Rust's rule refuses this.
+    await moveTo(id, id, 0);
     await settleDocSave();
-    expect(state.toast).toBe("Nada pode ficar antes do Manuscrito");
+    expect(state.toast).toBe("Não dá para mover uma pasta para dentro dela mesma");
     expect(findNode(state.area, id)?.kind).toBe("text");
     expect(await mockInvoke("workspace_load_doc", { bookId: book.id, id })).toEqual(para("digitado e recusado"));
   });
@@ -263,5 +263,24 @@ describe("tree actions (mock)", () => {
     await requestDelete(manuscriptId());
     expect(pendingConfirm()).toBeNull();
     expect(state.toast).toBe("O Manuscrito não pode ser excluído.");
+  });
+
+  it("renames the Manuscrito and moves it into a folder, chapters and all", async () => {
+    await newBook();
+    const m = manuscriptId();
+    startNodeRename(m);
+    setState("areaRenameVal", "Livro Um");
+    await commitNodeRename();
+    expect(findNode(state.area, m)?.title).toBe("Livro Um");
+    await createNode("folder");
+    const folder = outside()[0].id;
+    await moveTo(m, folder, 0);
+    expect(state.area[0].id).toBe(folder);
+    expect(state.area[0].children?.[0].id).toBe(m);
+    expect(chapterOrder(state.area)).toHaveLength(1);
+    // The folder now guards the Manuscrito: it cannot be deleted.
+    await requestDelete(folder);
+    expect(pendingConfirm()).toBeNull();
+    expect(state.toast).toBe("A pasta guarda o Manuscrito, que não pode ser excluído.");
   });
 });

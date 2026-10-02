@@ -1,10 +1,10 @@
 import type { AreaNode, Created, DocJSON, NodeKind } from "../types";
 import { SYNOPSIS_MAX } from "../../lib/constants";
 import { docText } from "../../lib/doc";
-import { inManuscript, manuscriptWords } from "../../lib/manuscript";
+import { inManuscript, manuscriptOf, manuscriptWords } from "../../lib/manuscript";
 import { holdsChildren } from "../../lib/tree";
 import { db, EMPTY, findBook, mockId, touch } from "./db";
-import { checkCreate, checkDelete, checkMove, checkRename, convert, NO_MEDIA, rootIndex } from "./manuscript";
+import { checkCreate, checkDelete, checkMove, convert, NO_MEDIA } from "./manuscript";
 
 // Local tree mutations mirroring the Rust `model::workspace`, `model::manuscript` and
 // `ops::manuscript` modules: same messages and move semantics, so the mock behaves like the
@@ -92,14 +92,13 @@ export const workspace = {
     else if (kind === "chapter") node = { id, kind, title, notes: "", file: "capitulos/" + id + ".md", status: "rascunho", words: 0 };
     else throw 'Use "Adicionar arquivos" para imagens e anexos';
     if (kind !== "folder") b.docs[id] = structuredClone(EMPTY);
-    insertNode(b.area, parent, rootIndex(b.area, parent, index), node);
+    insertNode(b.area, parent, index, node);
     touch(b);
     return { id, items: b.area };
   },
 
   workspace_rename: ({ bookId, id, title }: Ids & { title: string }): AreaNode[] => {
     const b = findBook(bookId);
-    checkRename(b.area, id);
     const node = find(b.area, id);
     if (!node) notFound();
     node.title = title;
@@ -128,9 +127,11 @@ export const workspace = {
 
   workspace_move: ({ bookId, id, parent, index }: Ids & { parent: string | null; index: number }): AreaNode[] => {
     const b = findBook(bookId);
-    checkMove(b.area, id, parent, index);
-    const wasInside = inManuscript(b.area, id);
-    const landsInside = !!parent && inManuscript(b.area, parent);
+    checkMove(b.area, id, parent);
+    // The Manuscrito itself moves as it is: its chapters stay chapters.
+    const movingManuscript = manuscriptOf(b.area)?.id === id;
+    const wasInside = !movingManuscript && inManuscript(b.area, id);
+    const landsInside = !movingManuscript && !!parent && inManuscript(b.area, parent);
     const before = manuscriptWords(b.area);
     moveNode(b.area, id, parent, index);
     if (wasInside !== landsInside) convert(b, find(b.area, id)!, landsInside);

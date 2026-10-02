@@ -17,19 +17,11 @@ function takesEveryChapter(items: AreaNode[], node: AreaNode) {
   return n > 0 && n === chapterOrder(items).length;
 }
 
-/** Root position for a new item: never before the Manuscrito. */
-export function rootIndex(items: AreaNode[], parent: string | null, index: number) {
-  return parent === null && manuscriptOf(items) ? Math.max(index, 1) : index;
-}
-
-export function checkRename(items: AreaNode[], id: string) {
-  if (manuscriptOf(items)?.id === id) throw "O Manuscrito não pode ser renomeado";
-}
-
 export function checkDelete(items: AreaNode[], id: string) {
   const node = findNode(items, id);
   if (!node) return;
   if (node.kind === "manuscript") throw "O Manuscrito não pode ser excluído";
+  if (manuscriptOf(node.children ?? [])) throw "A pasta guarda o Manuscrito, que não pode ser excluído";
   if (takesEveryChapter(items, node)) throw LAST_CHAPTER;
 }
 
@@ -41,11 +33,13 @@ export function checkCreate(items: AreaNode[], kind: NodeKind, parent: string | 
   if ((kind === "image" || kind === "file") && inside) throw NO_MEDIA;
 }
 
-export function checkMove(items: AreaNode[], id: string, parent: string | null, index: number) {
+export function checkMove(items: AreaNode[], id: string, parent: string | null) {
   const node = findNode(items, id);
   if (!node) return;
-  if (node.kind === "manuscript") throw "O Manuscrito não pode ser movido";
-  if (parent === null && index === 0 && manuscriptOf(items)) throw "Nada pode ficar antes do Manuscrito";
+  if (node.kind === "manuscript") {
+    if (parent && findNode(items, parent)?.kind !== "folder") throw "O Manuscrito só fica na raiz ou dentro de pastas";
+    return;
+  }
   const inside = landsInside(items, parent);
   if (inside && hasMedia(node)) throw NO_MEDIA;
   if (!inside && inManuscript(items, id) && takesEveryChapter(items, node)) throw LAST_CHAPTER;

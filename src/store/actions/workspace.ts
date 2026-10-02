@@ -104,7 +104,7 @@ export function createNode(kind: NewKind, at?: { parent: string | null; index: n
 
 export function startNodeRename(id: string) {
   const node = findNode(state.area, id);
-  if (!node || node.kind === "manuscript") return;
+  if (!node) return;
   setState({ areaRenaming: id, areaRenameVal: node.title });
 }
 
@@ -182,6 +182,7 @@ export async function requestDelete(id: string) {
   const node = findNode(state.area, id);
   if (!node) return;
   if (node.kind === "manuscript") return flash("O Manuscrito não pode ser excluído.");
+  if (manuscriptOf(node.children ?? [])) return flash("A pasta guarda o Manuscrito, que não pode ser excluído.");
   const inside = descendantCount(node);
   const message = isFolder(node.kind)
     ? inside

@@ -43,10 +43,14 @@ describe("drop rules around the Manuscrito", () => {
     n("f", "folder", [n("t", "text")]),
   ];
 
-  it("never drags the Manuscrito, never drops before it at the root", () => {
-    expect(dropTarget(tree, "m", "f", "after")).toBeNull();
-    expect(dropTarget(tree, "t", "m", "before")).toBeNull();
-    expect(dropTarget(tree, "f", "m", "after")).toEqual({ parent: null, index: 1 });
+  it("moves the Manuscrito among folders, never into a document", () => {
+    expect(dropTarget(tree, "m", "f", "after")).toEqual({ parent: null, index: 1 });
+    expect(dropTarget(tree, "m", "f", "inside")).toEqual({ parent: "f", index: 1 });
+    expect(dropTarget(tree, "m", "t", "inside")).toBeNull();
+    expect(dropTarget(tree, "m", "t", "after")).toEqual({ parent: "f", index: 1 });
+    expect(dropTarget(tree, "m", "c1", "after")).toBeNull();
+    // Anything may stand before it.
+    expect(dropTarget(tree, "t", "m", "before")).toEqual({ parent: null, index: 0 });
   });
 
   it("drops inside the Manuscrito like inside a folder", () => {

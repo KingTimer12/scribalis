@@ -1,5 +1,7 @@
 //! Brings a Scrivener project into a book: each chosen binder item becomes a chapter of the
 //! Manuscrito (its descendants become subchapters), everything else lands in the rest of the tree.
+//! In a new book, a folder whose items were all chosen becomes the Manuscrito itself, keeping its
+//! name and its place in the binder.
 //! One document in memory at a time.
 use std::{collections::HashSet, path::{Path, PathBuf}};
 
@@ -8,7 +10,7 @@ use crate::error::{AppError, AppResult};
 use crate::ids::{new_id, now_ms};
 use crate::model::{
     doc::{Block, Doc},
-    manuscript::{chapters, chapters_in, manuscript_mut, mirror},
+    manuscript::{chapters, chapters_in, manuscript, manuscript_mut, mirror},
     metadata::Metadata,
     workspace::{remove, Node, NodeKind},
 };
@@ -32,6 +34,10 @@ struct Ctx<'a> {
     dir: &'a Path,
     /// Keys of the items that become chapters.
     chapter_items: &'a HashSet<String>,
+    /// Key of the folder that becomes the Manuscrito in place, if any.
+    manuscript_item: Option<&'a str>,
+    /// Chapters inside that Manuscrito, subchapters included.
+    in_place_chapters: usize,
     chapters: Vec<Node>,
     attachments: Vec<Node>,
     items: usize,
@@ -104,6 +110,9 @@ impl Ctx<'_> {
     fn node(&mut self, item: &BinderItem) -> AppResult<Option<Node>> {
         if item.kind == ItemKind::Trash {
             return Ok(None);
+        }
+        if self.manuscript_item == Some(item.key.as_str()) {
+            return self.manuscript_node(item).map(Some);
         }
         if self.chapter_items.contains(&item.key) && can_be_chapter(item) {
             self.emit_chapter(item)?;
@@ -191,6 +200,25 @@ impl Ctx<'_> {
         Ok(())
     }
 
+    /// The folder whose items were all chosen, as the Manuscrito: same name, notes and synopsis,
+    /// its own text (if any) as the opening chapter, then each item as a chapter.
+    fn manuscript_node(&mut self, item: &BinderItem) -> AppResult<Node> {
+        let title = title_of(item);
+        let mut m = Node::manuscript(new_id());
+        m.title = title.clone();
+        m.notes = self.project.notes(&item.key);
+        m.synopsis = self.project.synopsis(&item.key);
+        let doc = self.text(&item.key);
+        if has_text(&doc) {
+            m.children.push(new_chapter(self.dir, &title, &doc)?);
+        }
+        for child in &item.children {
+            self.chapter_nodes(child, &mut m.children)?;
+        }
+        self.in_place_chapters = m.children.iter().map(chapters_in).sum();
+        Ok(m)
+    }
+
     /// A chapter of the Manuscrito from `item`, with its descendants as subchapters.
     fn emit_chapter(&mut self, item: &BinderItem) -> AppResult<()> {
         let mut out = Vec::new();
@@ -198,6 +226,24 @@ impl Ctx<'_> {
         self.chapters.extend(out);
         Ok(())
     }
+}
+
+/// The folder marked as the chapter folder: every chosen item is one of its direct children, and
+/// every item of it that can be a chapter is chosen ("marcar itens"). In a new book it becomes the
+/// Manuscrito in place. Chosen items spread over several places name no folder.
+pub fn chapter_folder<'a>(items: &'a [BinderItem], chosen: &HashSet<String>) -> Option<&'a BinderItem> {
+    fn parent_of<'a>(items: &'a [BinderItem], key: &str) -> Option<&'a BinderItem> {
+        items.iter().find_map(|i| if i.children.iter().any(|c| c.key == key) { Some(i) } else { parent_of(&i.children, key) })
+    }
+    let first = chosen.iter().next()?;
+    let folder = parent_of(items, first)?;
+    if !matches!(folder.kind, ItemKind::Draft | ItemKind::Folder | ItemKind::Research) {
+        return None;
+    }
+    let eligible: Vec<&BinderItem> = folder.children.iter().filter(|c| can_be_chapter(c)).collect();
+    let all_chosen = eligible.iter().all(|c| chosen.contains(&c.key));
+    let only_these = chosen.iter().all(|k| eligible.iter().any(|c| &c.key == k));
+    (all_chosen && only_these).then_some(folder)
 }
 
 /// Imports into an existing (v2) book: chapters go to the end of the Manuscrito, in binder
@@ -209,8 +255,32 @@ pub fn import_into(
     meta: &mut Metadata,
     wrap: Option<&str>,
 ) -> AppResult<Outcome> {
+    import(project, chapter_items, dir, meta, wrap, false)
+}
+
+/// `in_place`: a folder whose items were all chosen replaces the book's Manuscrito, where it sits
+/// in the binder and with its name (new books only: an existing book keeps its own Manuscrito).
+fn import(
+    project: &Project,
+    chapter_items: &HashSet<String>,
+    dir: &Path,
+    meta: &mut Metadata,
+    wrap: Option<&str>,
+    in_place: bool,
+) -> AppResult<Outcome> {
     let binder = project.binder()?;
-    let mut ctx = Ctx { project, dir, chapter_items, chapters: Vec::new(), attachments: Vec::new(), items: 0, warnings: 0 };
+    let manuscript_item = if in_place { chapter_folder(&binder, chapter_items).map(|i| i.key.as_str()) } else { None };
+    let mut ctx = Ctx {
+        project,
+        dir,
+        chapter_items,
+        manuscript_item,
+        in_place_chapters: 0,
+        chapters: Vec::new(),
+        attachments: Vec::new(),
+        items: 0,
+        warnings: 0,
+    };
     let mut nodes = Vec::new();
     for item in &binder {
         if let Some(n) = ctx.node(item)? {
@@ -224,6 +294,12 @@ pub fn import_into(
         nodes.push(folder);
     }
     let mut ws = read_workspace(dir)?;
+    if ctx.in_place_chapters > 0 {
+        // The new book's own Manuscrito (with its empty starter chapter) gives way.
+        if let Some(old) = manuscript(&ws.items).map(|m| m.id.clone()) {
+            remove(&mut ws.items, &old);
+        }
+    }
     if !nodes.is_empty() {
         match wrap {
             Some(title) => {
@@ -235,8 +311,8 @@ pub fn import_into(
         }
     }
     // Subchapters count too: the summary tells how many chapters the Manuscrito gained.
-    let chapter_count: usize = ctx.chapters.iter().map(chapters_in).sum();
-    if chapter_count > 0 {
+    let outside: usize = ctx.chapters.iter().map(chapters_in).sum();
+    if outside > 0 {
         let m = manuscript_mut(&mut ws.items).ok_or_else(|| AppError::msg("Obra sem Manuscrito"))?;
         m.children.extend(ctx.chapters);
     }
@@ -244,7 +320,7 @@ pub fn import_into(
     meta.chapters = mirror(&ws.items);
     meta.updated_at = now_ms();
     write_metadata(dir, meta)?;
-    Ok(Outcome { chapters: chapter_count, items: ctx.items, warnings: ctx.warnings })
+    Ok(Outcome { chapters: outside + ctx.in_place_chapters, items: ctx.items, warnings: ctx.warnings })
 }
 
 /// Creates a book named after the project and imports into it; if anything fails after
@@ -264,8 +340,9 @@ pub fn import_new_book(root: &Path, project: &Project, chapter_items: &HashSet<S
 
 fn fill_new_book(project: &Project, chapter_items: &HashSet<String>, dir: &Path, meta: &mut Metadata) -> AppResult<Outcome> {
     let starter = chapters(&read_workspace(dir)?.items).first().map(|c| (*c).clone());
-    let outcome = import_into(project, chapter_items, dir, meta, None)?;
-    // Imported chapters replace the empty starter; with none, it stays so the book is valid.
+    let outcome = import(project, chapter_items, dir, meta, None, true)?;
+    // Imported chapters replace the empty starter (already gone with its Manuscrito when a folder
+    // took its place); with none, it stays so the book is valid.
     if let (Some(starter), true) = (starter, outcome.chapters > 0) {
         let mut ws = read_workspace(dir)?;
         remove(&mut ws.items, &starter.id);
@@ -657,25 +734,78 @@ mod tests {
     }
 
     #[test]
+    fn the_chapter_folder_becomes_the_manuscrito_where_it_is_and_keeps_its_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("Lugar.scriv");
+        let data = dir.join("Files/Data");
+        for key in ["N", "S", "L", "A", "B", "IMG"] {
+            fs::create_dir_all(data.join(key)).unwrap();
+        }
+        fs::write(dir.join("Lugar.scrivx"), r#"<ScrivenerProject><Binder>
+          <BinderItem UUID="N" Type="Text"><Title>Notas</Title></BinderItem>
+          <BinderItem UUID="S" Type="Folder"><Title>Série</Title><Children>
+            <BinderItem UUID="L" Type="Folder"><Title>Livro Um</Title><Children>
+              <BinderItem UUID="A" Type="Text"><Title>Abertura</Title></BinderItem>
+              <BinderItem UUID="B" Type="Text"><Title>Batalha</Title></BinderItem>
+              <BinderItem UUID="IMG" Type="Image"><Title>Mapa</Title></BinderItem>
+            </Children></BinderItem>
+          </Children></BinderItem>
+        </Binder></ScrivenerProject>"#).unwrap();
+        fs::write(data.join("A/content.rtf"), br"{\rtf1 Era uma vez.\par}").unwrap();
+        fs::write(data.join("L/synopsis.txt"), "O primeiro volume").unwrap();
+        fs::write(data.join("IMG/content.png"), b"png").unwrap();
+        let p = Project::open(&dir).unwrap();
+        let chosen = folders(&["A", "B"]);
+        assert_eq!(chapter_folder(&p.binder().unwrap(), &chosen).unwrap().key, "L");
+        let root = tmp.path().join("Scribalis");
+        fs::create_dir_all(&root).unwrap();
+        let (book, meta, out) = import_new_book(&root, &p, &chosen).unwrap();
+        assert_eq!(out.chapters, 2);
+        let ws = read_workspace(&book).unwrap();
+        let titles: Vec<&str> = ws.items.iter().map(|n| n.title.as_str()).collect();
+        assert_eq!(titles, vec!["Notas", "Série", "Anexos do manuscrito"], "no Manuscrito on top");
+        let m = &ws.items[1].children[0];
+        assert_eq!((m.kind, m.title.as_str(), m.synopsis.as_str()), (NodeKind::Manuscript, "Livro Um", "O primeiro volume"));
+        let list = chapter_list(&book);
+        assert_eq!(list.iter().map(|c| c.0.as_str()).collect::<Vec<_>>(), vec!["Abertura", "Batalha"]);
+        assert_eq!(doc_text(&read_at(&book, &list[0].2).unwrap()), "Era uma vez.");
+        assert_eq!(meta.open.as_deref(), Some(chapters(&ws.items)[0].id.as_str()));
+        // The starter chapter left with the starter Manuscrito, file and all.
+        assert_eq!(std::fs::read_dir(book.join("capitulos")).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn chosen_items_from_several_places_keep_the_manuscrito_on_top() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = project(tmp.path());
+        let binder = p.binder().unwrap();
+        assert!(chapter_folder(&binder, &folders(&["S2", "N1"])).is_none());
+        assert!(chapter_folder(&binder, &folders(&["S1"])).is_none(), "Capítulo 1 has more items");
+        assert_eq!(chapter_folder(&binder, &folders(&["C1", "C2"])).unwrap().key, "D");
+    }
+
+    #[test]
     fn a_folder_left_empty_keeps_itself_when_it_has_a_synopsis() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("Sin.scriv");
         let data = dir.join("Files/Data");
-        for key in ["F", "T"] {
+        for key in ["F", "T", "X"] {
             fs::create_dir_all(data.join(key)).unwrap();
         }
+        // "Fora" is chosen too, so "Parte" is not the chapter folder: it stays as a plain folder.
         fs::write(dir.join("Sin.scrivx"), r#"<ScrivenerProject><Binder>
           <BinderItem UUID="F" Type="Folder"><Title>Parte</Title><Children>
             <BinderItem UUID="T" Type="Text"><Title>Cena</Title></BinderItem>
           </Children></BinderItem>
+          <BinderItem UUID="X" Type="Text"><Title>Fora</Title></BinderItem>
         </Binder></ScrivenerProject>"#).unwrap();
         fs::write(data.join("F/synopsis.txt"), "Onde tudo começa").unwrap();
         fs::write(data.join("T/content.rtf"), br"{\rtf1 Texto.\par}").unwrap();
         let p = Project::open(&dir).unwrap();
         let root = tmp.path().join("Scribalis");
         fs::create_dir_all(&root).unwrap();
-        let (book, _meta, out) = import_new_book(&root, &p, &folders(&["T"])).unwrap();
-        assert_eq!(out.chapters, 1);
+        let (book, _meta, out) = import_new_book(&root, &p, &folders(&["T", "X"])).unwrap();
+        assert_eq!(out.chapters, 2);
         let ws = read_workspace(&book).unwrap();
         assert_eq!((ws.items[1].title.as_str(), ws.items[1].synopsis.as_str()), ("Parte", "Onde tudo começa"));
         assert!(ws.items[1].children.is_empty());

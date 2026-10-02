@@ -17,7 +17,7 @@ const menuOf = (id: string) => treeMenu(findNode(area, id));
 describe("tree menus", () => {
   it("offer per node type what the spec lists", () => {
     setState({ area, areaSel: null });
-    expect(labels(menuOf("m"))).toEqual(["Novo capítulo", "Nova pasta"]);
+    expect(labels(menuOf("m"))).toEqual(["Novo capítulo", "Nova pasta", "Renomear"]);
     expect(labels(menuOf("p"))).toEqual(["Novo capítulo", "Nova pasta", "Renomear", "Excluir"]);
     expect(labels(menuOf("c2"))).toEqual([
       "Novo subdocumento", "Renomear", "Status: Rascunho", "Status: Revisão", "Status: Pronto",

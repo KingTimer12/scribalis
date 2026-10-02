@@ -12,9 +12,14 @@ export const holdsChildren = (kind: NodeKind) => isFolder(kind) || kind === "cha
 /** True when a node shows a chevron in the tree: a folder, or a document with subdocuments. */
 export const foldable = (node: AreaNode) => isFolder(node.kind) || !!node.children?.length;
 
-/** The Manuscrito: always the first root item. */
+/** The Manuscrito, wherever it sits (at the root or inside a folder). */
 export function manuscriptOf(items: AreaNode[]): AreaNode | null {
-  return items[0]?.kind === "manuscript" ? items[0] : null;
+  for (const node of items) {
+    if (node.kind === "manuscript") return node;
+    const found = manuscriptOf(node.children ?? []);
+    if (found) return found;
+  }
+  return null;
 }
 
 /** Depth-first search for a node by id. */
@@ -86,27 +91,28 @@ function withoutNode(items: AreaNode[], id: string): AreaNode[] {
  * Where dropping `dragId` onto `targetId` at `pos` would land it, as `{ parent, index }`
  * with `index` being the position after `dragId` is taken out of the tree (the same
  * semantics `workspace_move` expects). Display-only hint: Rust stays authoritative. Returns
- * `null` when `dragId === targetId`, when `dragId` is the Manuscrito, when `targetId` sits inside
- * `dragId`'s own subtree, when `pos` is "inside" something that holds no children, or when the
- * drop lands before the Manuscrito at the root.
+ * `null` when `dragId === targetId`, when `targetId` sits inside `dragId`'s own subtree, when
+ * `pos` is "inside" something that holds no children, or when the Manuscrito would land inside
+ * something other than a folder.
  */
 export function dropTarget(items: AreaNode[], dragId: string, targetId: string, pos: DropPos): Location | null {
   if (dragId === targetId) return null;
   const dragged = findNode(items, dragId);
   const target = findNode(items, targetId);
-  if (!dragged || !target || dragged.kind === "manuscript") return null;
+  if (!dragged || !target) return null;
   if (pos === "inside" && !holdsChildren(target.kind)) return null;
   if (findNode(dragged.children ?? [], targetId)) return null;
 
   const pruned = withoutNode(items, dragId);
+  // The Manuscrito sits at the root or inside folders, never inside a document.
+  const fits = (parent: string | null) => dragged.kind !== "manuscript" || parent === null || findNode(pruned, parent)?.kind === "folder";
   if (pos === "inside") {
     const prunedTarget = findNode(pruned, targetId);
-    return prunedTarget ? { parent: targetId, index: prunedTarget.children?.length ?? 0 } : null;
+    return prunedTarget && fits(targetId) ? { parent: targetId, index: prunedTarget.children?.length ?? 0 } : null;
   }
   const loc = locate(pruned, targetId);
   if (!loc) return null;
   const index = pos === "after" ? loc.index + 1 : loc.index;
-  // Nothing sits before the Manuscrito (Rust refuses it too).
-  if (loc.parent === null && index === 0 && manuscriptOf(pruned)) return null;
+  if (!fits(loc.parent)) return null;
   return { parent: loc.parent, index };
 }

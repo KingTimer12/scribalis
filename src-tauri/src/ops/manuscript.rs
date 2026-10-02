@@ -98,7 +98,7 @@ fn convert(dir: &Path, node: &mut Node, into: bool, old: &mut Vec<(NodeKind, Str
 /// midway duplicates a text, never loses it. The id never changes.
 pub fn move_converting(dir: &Path, id: &str, parent: Option<&str>, index: usize) -> AppResult<Vec<Node>> {
     let mut ws = read_workspace(dir)?;
-    manuscript::check_move(&ws.items, id, parent, index)?;
+    manuscript::check_move(&ws.items, id, parent)?;
     let was_inside = in_manuscript(&ws.items, id);
     let lands_inside = parent.is_some_and(|p| in_manuscript(&ws.items, p));
     let mut items = ws.items.clone();
@@ -213,7 +213,8 @@ mod tests {
         assert_eq!(move_converting(&dir, &only, None, 1).unwrap_err().0, LAST_CHAPTER);
         let t = workspace::create(&dir, None, 1, NodeKind::Text, "Ana").unwrap().id;
         let before_text = fs::read_to_string(&area_file).unwrap();
-        assert_eq!(move_converting(&dir, &t, None, 0).unwrap_err().0, "Nada pode ficar antes do Manuscrito");
+        let m = manuscript(&read_workspace(&dir).unwrap().items).unwrap().id.clone();
+        assert_eq!(move_converting(&dir, &m, Some(&t), 0).unwrap_err().0, "O Manuscrito só fica na raiz ou dentro de pastas");
         assert_eq!(fs::read_to_string(&area_file).unwrap(), before_text);
         assert_ne!(before, before_text);
     }

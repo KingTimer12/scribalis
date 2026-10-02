@@ -1449,6 +1449,12 @@
     color: var(--muted);
     line-height: 1.6;
   }
+  .scriv-keep {
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: var(--ink);
+    background: var(--soft);
+  }
   .scriv-tree {
     flex-grow: 1;
     min-height: 0;

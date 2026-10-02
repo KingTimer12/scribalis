@@ -86,7 +86,7 @@ export function TreeRow(props: { row: Row; onMenu: (x: number, y: number) => voi
       style={{ "padding-left": 8 + props.row.depth * 16 + "px" }}
       onPointerDown={(e) => pointerDownOnRow(e, id())}
       onClick={() => !consumeDragClick() && void openNode(id(), false)}
-      onDblClick={() => node().kind !== "manuscript" && startNodeRename(id())}
+      onDblClick={() => startNodeRename(id())}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();

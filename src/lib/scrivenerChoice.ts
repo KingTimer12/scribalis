@@ -95,3 +95,27 @@ export function countChapters(view: ScanView, chosen: string[]): number {
     return !!item && canBeChapter(item);
   }).length;
 }
+
+function parentOf(items: ScanItem[], key: string): ScanItem | null {
+  for (const item of items) {
+    if (item.children.some((c) => c.key === key)) return item;
+    const found = parentOf(item.children, key);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * The folder marked as the chapter folder (mirrors Rust's `chapter_folder`): every marked item
+ * is one of its direct children, and all of them are marked. A new book keeps it where it is,
+ * with its name, as the Manuscrito.
+ */
+export function chapterFolder(view: ScanView, chosen: string[]): ScanItem | null {
+  if (!chosen.length) return null;
+  const folder = parentOf(view.items, chosen[0]);
+  if (!folder || !["draft", "folder", "research"].includes(folder.kind)) return null;
+  const eligible = folder.children.filter((c) => c.kind !== "image" && c.kind !== "file").map((c) => c.key);
+  const all = eligible.every((k) => chosen.includes(k));
+  const only = chosen.every((k) => eligible.includes(k));
+  return all && only ? folder : null;
+}

@@ -65,7 +65,7 @@ export function treeMenu(node: AreaNode | null): MenuItem[] {
   const subdoc: MenuItem = { label: "Novo subdocumento", act: () => void createSubdocument(id) };
   switch (node.kind) {
     case "manuscript":
-      return [newChapter, newFolder];
+      return [newChapter, newFolder, rename];
     case "folder":
       return inManuscript(state.area, id)
         ? [newChapter, newFolder, rename, del]

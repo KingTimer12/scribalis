@@ -68,13 +68,12 @@ pub fn tree(dir: &Path) -> AppResult<Vec<Node>> {
     Ok(items)
 }
 
-/// New folder, empty text or empty chapter under `parent` (None = root, never before the Manuscrito).
+/// New folder, empty text or empty chapter under `parent` (None = root).
 pub fn create(dir: &Path, parent: Option<&str>, index: usize, kind: NodeKind, title: &str) -> AppResult<Created> {
     let mut id = String::new();
     let items = edit(dir, |items| {
         parent_exists(items, parent)?;
         manuscript::check_create(items, kind, parent)?;
-        let index = manuscript::root_index(items, parent, index);
         let node = match kind {
             NodeKind::Folder => Node::folder(new_id(), title),
             NodeKind::Text => {
@@ -94,7 +93,6 @@ pub fn create(dir: &Path, parent: Option<&str>, index: usize, kind: NodeKind, ti
 
 pub fn rename(dir: &Path, id: &str, title: &str) -> AppResult<Vec<Node>> {
     edit(dir, |items| {
-        manuscript::check_rename(items, id)?;
         find_mut(items, id).ok_or_else(not_found)?.title = title.to_string();
         Ok(())
     })
@@ -204,9 +202,9 @@ mod tests {
     #[test]
     fn create_text_writes_file_and_saves_tree() {
         let (_r, dir) = book();
-        // Index 0 at the root lands after the Manuscrito.
+        // Index 0 at the root is the very top, before the Manuscrito.
         let folder = create(&dir, None, 0, NodeKind::Folder, "Pesquisa").unwrap();
-        assert_eq!(folder.items[1].id, folder.id);
+        assert_eq!(folder.items[0].id, folder.id);
         let text = create(&dir, Some(&folder.id), 0, NodeKind::Text, "Ana").unwrap();
         let node = find(&text.items, &text.id).unwrap();
         assert_eq!(node.file.as_deref(), Some(format!("{}.md", text.id).as_str()));
@@ -264,7 +262,8 @@ mod tests {
         delete(&dir, &c).unwrap();
         assert!(!file.exists());
         assert_eq!(delete(&dir, &m).unwrap_err().0, "O Manuscrito não pode ser excluído");
-        assert_eq!(rename(&dir, &m, "Livro").unwrap_err().0, "O Manuscrito não pode ser renomeado");
+        let renamed = rename(&dir, &m, "Livro").unwrap();
+        assert_eq!(find(&renamed, &m).unwrap().title, "Livro");
     }
 
     #[test]

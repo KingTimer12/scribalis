@@ -1,6 +1,6 @@
 import { For, onMount, Show } from "solid-js";
 import type { NodeKind, ScanItem, ScanKind } from "../../api/types";
-import { allChildrenChosen, canBeChapter, countChapters, coveredBy, eligibleChildren } from "../../lib/scrivenerChoice";
+import { allChildrenChosen, canBeChapter, chapterFolder, countChapters, coveredBy, eligibleChildren } from "../../lib/scrivenerChoice";
 import {
   cancelScrivenerImport, confirmScrivenerImport, toggleScrivenerChildren, toggleScrivenerItem,
 } from "../../store/actions/scrivener";
@@ -52,6 +52,8 @@ export function ScrivenerImport() {
   let importBtn!: HTMLButtonElement;
   const s = () => state.scrivener!;
   const count = () => countChapters(s().view, s().chosen);
+  /** In a new book, the folder whose items are all marked stays where it is, as the Manuscrito. */
+  const keeps = () => (s().target.type === "new" ? chapterFolder(s().view, s().chosen) : null);
 
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
@@ -74,6 +76,13 @@ export function ScrivenerImport() {
           Marque os itens que viram capítulos; o que estiver dentro de cada um vira subcapítulo. O resto vai para a
           área de trabalho.
         </p>
+        <Show when={keeps()}>
+          {(f) => (
+            <p class="scriv-text scriv-keep">
+              «{f().title || "Sem título"}» fica onde está e com o mesmo nome, como a pasta de capítulos (o Manuscrito).
+            </p>
+          )}
+        </Show>
         <div class="scriv-tree">
           <For each={s().view.items}>{(item) => <BinderRow item={item} depth={0} />}</For>
         </div>

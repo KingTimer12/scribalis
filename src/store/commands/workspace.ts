@@ -26,9 +26,12 @@ export function workspaceCommands(): Command[] {
     { label: "Adicionar arquivos…", hint: "", act: () => void addFiles() },
     { label: "Importar do Scrivener…", hint: "", act: () => importIntoBook() },
   ];
-  if (sel && sel.kind !== "manuscript") {
+  if (sel) {
     const id = sel.id;
     list.push({ label: "Renomear «" + sel.title + "»", hint: "F2", act: () => startNodeRename(id) });
+  }
+  if (sel && sel.kind !== "manuscript") {
+    const id = sel.id;
     if (sel.kind === "text") list.push({ label: "Mover para o Manuscrito", hint: "", act: () => void moveIntoManuscript(id) });
     if (sel.kind === "chapter") list.push({ label: "Mover para fora do Manuscrito", hint: "", act: () => void moveOutOfManuscript(id) });
     list.push({ label: "Excluir «" + sel.title + "»", hint: "Del", danger: true, act: () => void requestDelete(id) });

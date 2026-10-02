@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ScanItem, ScanView } from "../api/types";
 import {
-  allChildrenChosen, canBeChapter, countChapters, coveredBy, defaultChosen, toggleChildren, toggleChosen,
+  allChildrenChosen, canBeChapter, chapterFolder, countChapters, coveredBy, defaultChosen, toggleChildren, toggleChosen,
 } from "./scrivenerChoice";
 
 const it_ = (key: string, kind: ScanItem["kind"], children: ScanItem[] = []): ScanItem => ({ key, kind, title: key, children });
@@ -23,6 +23,14 @@ describe("scrivener chapter choice", () => {
     expect(canBeChapter(view.items[0].children[1])).toBe(true);
     expect(canBeChapter(view.items[0].children[2])).toBe(false);
     expect(canBeChapter(view.items[1].children[1])).toBe(true);
+  });
+
+  it("names the chapter folder only when all its items, and nothing else, are marked", () => {
+    expect(chapterFolder(view, ["cap1", "solto"])?.key).toBe("draft");
+    expect(chapterFolder(view, ["cena1", "cena2"])?.key).toBe("cap1");
+    expect(chapterFolder(view, ["cena1"])).toBeNull();
+    expect(chapterFolder(view, ["cap1", "solto", "ficha"])).toBeNull();
+    expect(chapterFolder(view, [])).toBeNull();
   });
 
   it("marks the manuscript's direct children by default", () => {

@@ -27,7 +27,8 @@ function save(bookId: string, expanded: string[]) {
 /** Expanded folders when a book opens: the remembered ones (the Manuscrito the first time), plus the path to `openId`. */
 export function expandedFor(bookId: string, items: AreaNode[], openId: string | null): string[] {
   const m = manuscriptOf(items);
-  const base = load(bookId) ?? (m ? [m.id] : []);
+  // The first time, the Manuscrito shows open even when it sits inside folders.
+  const base = load(bookId) ?? (m ? [...ancestors(items, m.id), m.id] : []);
   return [...new Set([...base, ...ancestors(items, openId)])];
 }
 

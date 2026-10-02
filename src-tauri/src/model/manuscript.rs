@@ -1,4 +1,5 @@
-//! Pure rules of the Manuscrito: the fixed first node of the tree, which holds the chapters.
+//! Pure rules of the Manuscrito: the one folder of the tree that holds the chapters. The writer
+//! names it and places it anywhere among the folders (at the root or inside a folder).
 
 use super::metadata::{ChapterEntry, Status};
 use super::workspace::{find, Node, NodeKind};
@@ -12,13 +13,25 @@ fn refuse(msg: &str) -> AppResult<()> {
     Err(AppError::msg(msg))
 }
 
-/// The Manuscrito: always the first root item.
+/// The Manuscrito, wherever it sits in the tree.
 pub fn manuscript(items: &[Node]) -> Option<&Node> {
-    items.first().filter(|n| n.kind == NodeKind::Manuscript)
+    items.iter().find_map(|n| if n.kind == NodeKind::Manuscript { Some(n) } else { manuscript(&n.children) })
 }
 
 pub fn manuscript_mut(items: &mut [Node]) -> Option<&mut Node> {
-    items.first_mut().filter(|n| n.kind == NodeKind::Manuscript)
+    for n in items {
+        if n.kind == NodeKind::Manuscript {
+            return Some(n);
+        }
+        if let Some(m) = manuscript_mut(&mut n.children) {
+            return Some(m);
+        }
+    }
+    None
+}
+
+fn holds_manuscript(node: &Node) -> bool {
+    node.kind == NodeKind::Manuscript || node.children.iter().any(holds_manuscript)
 }
 
 /// True when `id` is the Manuscrito or sits anywhere inside it.
@@ -109,23 +122,14 @@ fn takes_every_chapter(items: &[Node], node: &Node) -> bool {
     inside > 0 && inside == chapters(items).len()
 }
 
-/// Root position for a new item: never before the Manuscrito.
-pub fn root_index(items: &[Node], parent: Option<&str>, index: usize) -> usize {
-    if parent.is_none() && manuscript(items).is_some() { index.max(1) } else { index }
-}
-
-pub fn check_rename(items: &[Node], id: &str) -> AppResult<()> {
-    if manuscript(items).is_some_and(|m| m.id == id) {
-        return refuse("O Manuscrito não pode ser renomeado");
-    }
-    Ok(())
-}
-
 /// A missing id passes: the caller reports "Item não encontrado".
 pub fn check_delete(items: &[Node], id: &str) -> AppResult<()> {
     let Some(node) = find(items, id) else { return Ok(()) };
     if node.kind == NodeKind::Manuscript {
         return refuse("O Manuscrito não pode ser excluído");
+    }
+    if holds_manuscript(node) {
+        return refuse("A pasta guarda o Manuscrito, que não pode ser excluído");
     }
     if takes_every_chapter(items, node) {
         return refuse(LAST_CHAPTER);
@@ -145,15 +149,14 @@ pub fn check_create(items: &[Node], kind: NodeKind, parent: Option<&str>) -> App
     }
 }
 
-/// Moving `id` under `parent` at `index` (position after taking it out). A missing id
+/// Moving `id` under `parent`. A missing id
 /// passes: `workspace::move_node` reports it.
-pub fn check_move(items: &[Node], id: &str, parent: Option<&str>, index: usize) -> AppResult<()> {
+pub fn check_move(items: &[Node], id: &str, parent: Option<&str>) -> AppResult<()> {
     let Some(node) = find(items, id) else { return Ok(()) };
     if node.kind == NodeKind::Manuscript {
-        return refuse("O Manuscrito não pode ser movido");
-    }
-    if parent.is_none() && index == 0 && manuscript(items).is_some() {
-        return refuse("Nada pode ficar antes do Manuscrito");
+        // Among the folders only: never inside a document (the cycle check refuses its own subtree).
+        let into_document = parent.and_then(|p| find(items, p)).is_some_and(|p| p.kind != NodeKind::Folder);
+        return if into_document { refuse("O Manuscrito só fica na raiz ou dentro de pastas") } else { Ok(()) };
     }
     let inside = lands_inside(items, parent);
     if inside && has_media(node) {
@@ -223,32 +226,29 @@ mod tests {
     }
 
     #[test]
-    fn the_manuscript_is_fixed() {
+    fn the_manuscript_is_renamed_and_moved_among_folders_but_never_deleted() {
         let t = tree();
-        assert_eq!(check_rename(&t, "m").unwrap_err().0, "O Manuscrito não pode ser renomeado");
         assert_eq!(check_delete(&t, "m").unwrap_err().0, "O Manuscrito não pode ser excluído");
-        assert_eq!(check_move(&t, "m", None, 1).unwrap_err().0, "O Manuscrito não pode ser movido");
-        assert!(check_rename(&t, "c1").is_ok());
-    }
-
-    #[test]
-    fn nothing_goes_before_the_manuscript() {
-        let t = tree();
-        assert_eq!(check_move(&t, "f", None, 0).unwrap_err().0, "Nada pode ficar antes do Manuscrito");
-        assert!(check_move(&t, "t", None, 1).is_ok());
-        assert_eq!(root_index(&t, None, 0), 1);
-        assert_eq!(root_index(&t, Some("f"), 0), 0);
-        assert_eq!(root_index(&t[1..], None, 0), 0);
+        assert!(check_move(&t, "m", None).is_ok());
+        assert!(check_move(&t, "m", Some("f")).is_ok());
+        assert_eq!(check_move(&t, "m", Some("t")).unwrap_err().0, "O Manuscrito só fica na raiz ou dentro de pastas");
+        assert!(check_move(&t, "f", None).is_ok(), "anything may stand before it");
+        let mut nested = t.clone();
+        crate::model::workspace::move_node(&mut nested, "m", Some("f"), 0).unwrap();
+        assert_eq!(manuscript(&nested).unwrap().id, "m");
+        assert!(in_manuscript(&nested, "c1"));
+        assert_eq!(chapters(&nested).len(), 3);
+        assert_eq!(check_delete(&nested, "f").unwrap_err().0, "A pasta guarda o Manuscrito, que não pode ser excluído");
     }
 
     #[test]
     fn only_chapters_and_folders_live_in_the_manuscript() {
         let t = tree();
-        assert_eq!(check_move(&t, "i", Some("p"), 0).unwrap_err().0, NO_MEDIA);
+        assert_eq!(check_move(&t, "i", Some("p")).unwrap_err().0, NO_MEDIA);
         // A folder holding an image cannot go in either.
-        assert_eq!(check_move(&t, "f", Some("m"), 0).unwrap_err().0, NO_MEDIA);
+        assert_eq!(check_move(&t, "f", Some("m")).unwrap_err().0, NO_MEDIA);
         // A text may: it becomes a chapter on the way in.
-        assert!(check_move(&t, "t", Some("p"), 0).is_ok());
+        assert!(check_move(&t, "t", Some("p")).is_ok());
         assert_eq!(check_create(&t, NodeKind::Image, Some("m")).unwrap_err().0, NO_MEDIA);
         assert_eq!(check_create(&t, NodeKind::Text, Some("p")).unwrap_err().0, "Textos livres ficam fora do Manuscrito");
         assert_eq!(check_create(&t, NodeKind::Chapter, Some("f")).unwrap_err().0, "Capítulos ficam dentro do Manuscrito");
@@ -265,16 +265,16 @@ mod tests {
         part.children = vec![ch("c1", 0, Status::Rascunho)];
         m.children = vec![part];
         let t = vec![m];
-        assert_eq!(check_move(&t, "c1", None, 1).unwrap_err().0, LAST_CHAPTER);
+        assert_eq!(check_move(&t, "c1", None).unwrap_err().0, LAST_CHAPTER);
         assert_eq!(check_delete(&t, "c1").unwrap_err().0, LAST_CHAPTER);
         // The folder holding every chapter is refused too.
         assert_eq!(check_delete(&t, "p").unwrap_err().0, LAST_CHAPTER);
-        assert_eq!(check_move(&t, "p", None, 1).unwrap_err().0, LAST_CHAPTER);
+        assert_eq!(check_move(&t, "p", None).unwrap_err().0, LAST_CHAPTER);
         // Moving inside the Manuscrito is fine.
-        assert!(check_move(&t, "c1", Some("m"), 0).is_ok());
+        assert!(check_move(&t, "c1", Some("m")).is_ok());
         // With other chapters around, one may leave.
         let t = tree();
-        assert!(check_move(&t, "c3", None, 2).is_ok());
+        assert!(check_move(&t, "c3", None).is_ok());
         assert!(check_delete(&t, "p").is_ok());
     }
 
@@ -297,6 +297,6 @@ mod tests {
         m.children = vec![Node::folder("p".into(), "Parte")];
         let t = vec![m];
         assert!(check_delete(&t, "p").is_ok());
-        assert!(check_move(&t, "p", None, 1).is_ok());
+        assert!(check_move(&t, "p", None).is_ok());
     }
 }
