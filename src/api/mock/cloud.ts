@@ -102,7 +102,7 @@ export const cloud = {
     delete cloudDb.books[bookId];
     return bookState(bookId);
   },
-  cloud_backup_on_close: () => undefined,
+  cloud_backup_on_close: () => ({ sent: 0, failed: [], timedOut: false }),
   cloud_restore: ({ bookId }: { bookId: string }) => toBookMeta(findBook(bookId)),
   cloud_download: ({ bookId }: { bookId: string }) => toSummary(findBook(bookId)),
   cloud_shares: ({ bookId }: { bookId: string }) => cloudDb.shares.filter((s) => s.bookId === bookId),

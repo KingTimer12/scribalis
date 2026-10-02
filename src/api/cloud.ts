@@ -1,6 +1,6 @@
 import { call } from "./invoke";
 import type {
-  BookCloudView, BookMeta, BookSummary, CloudOverview, KeyInfo, NewKey, RemoteBookView, Share, ShareChange,
+  BookCloudView, BookMeta, BookSummary, CloseReport, CloudOverview, KeyInfo, NewKey, RemoteBookView, Share, ShareChange,
   ShareInput, Snapshot, VaultInfo,
 } from "./types";
 
@@ -20,7 +20,8 @@ export const cloudSetEnabled = (bookId: string, enabled: boolean) => call<BookCl
 export const cloudBackup = (bookId: string, manual: boolean) => call<BookCloudView>("cloud_backup", { bookId, manual });
 export const cloudSnapshots = (bookId: string) => call<Snapshot[]>("cloud_snapshots", { bookId });
 export const cloudForgetBook = (bookId: string) => call<BookCloudView>("cloud_forget_book", { bookId });
-export const cloudBackupOnClose = () => call<void>("cloud_backup_on_close");
+/** Backs up every changed book while the window closes; `manual` ("Tentar de novo") skips the pause. */
+export const cloudBackupOnClose = (manual: boolean) => call<CloseReport>("cloud_backup_on_close", { manual });
 export const cloudRestore = (bookId: string, snapshotId: string) => call<BookMeta>("cloud_restore", { bookId, snapshotId });
 export const cloudDownload = (bookId: string) => call<BookSummary>("cloud_download", { bookId });
 

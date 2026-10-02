@@ -239,3 +239,18 @@ export interface CloudStatus {
   message: string | null;
   fileCount: number | null;
 }
+
+/** `cloud://progress`: a step of a long cloud job (closing, restoring, downloading). */
+export interface CloudProgress {
+  bookId: string;
+  /** "checking": book `done + 1` of `total` on close; "sending" / "downloading": files; "saving" / "swapping": no count. */
+  step: "checking" | "sending" | "downloading" | "saving" | "swapping";
+  done: number;
+  total: number;
+}
+
+export interface CloseReport {
+  sent: number;
+  failed: { bookId: string; message: string }[];
+  timedOut: boolean;
+}

@@ -1,6 +1,4 @@
 //! Backup of one book: manifest → check → upload what is missing → close the snapshot.
-use std::time::Duration;
-
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -9,6 +7,7 @@ use super::{
     client::Client,
     error::{CloudError, CloudResult, LOCAL},
     manifest::{self, Entry},
+    progress,
     CloudState,
 };
 use crate::ids::now_ms;
@@ -135,13 +134,25 @@ fn report(app: &AppHandle, cloud: &CloudState, book_id: &str, result: &CloudResu
     }
 }
 
-async fn upload(client: &Client, dir: &std::path::Path, entries: &[Entry], hashes: &[String]) -> CloudResult<()> {
-    // One at a time: a book changes one or two files between backups.
-    for hash in hashes {
-        let Some(entry) = entries.iter().find(|e| &e.hash == hash) else { continue };
-        client.put_file(&format!("/blobs/{hash}"), &safe_join(dir, &entry.path)?).await?;
+struct Upload<'a> {
+    app: &'a AppHandle,
+    client: &'a Client,
+    book_id: &'a str,
+    dir: &'a std::path::Path,
+    entries: &'a [Entry],
+}
+
+impl Upload<'_> {
+    async fn send(&self, hashes: &[String]) -> CloudResult<()> {
+        // One at a time: a book changes one or two files between backups.
+        for (i, hash) in hashes.iter().enumerate() {
+            progress::emit(self.app, self.book_id, "sending", i, hashes.len());
+            let Some(entry) = self.entries.iter().find(|e| &e.hash == hash) else { continue };
+            self.client.put_file(&format!("/blobs/{hash}"), &safe_join(self.dir, &entry.path)?).await?;
+        }
+        progress::emit(self.app, self.book_id, "sending", hashes.len(), hashes.len());
+        Ok(())
     }
-    Ok(())
 }
 
 async fn run_once(app: &AppHandle, cloud: &CloudState, book_id: &str, manual: bool) -> CloudResult<Outcome> {
@@ -177,13 +188,14 @@ async fn run_once(app: &AppHandle, cloud: &CloudState, book_id: &str, manual: bo
             file_count: Some(missing.missing.len()),
         },
     );
-    upload(&client, &dir, &entries, &missing.missing).await?;
+    let up = Upload { app, client: &client, book_id, dir: &dir, entries: &entries };
+    up.send(&missing.missing).await?;
 
     let body = SnapshotBody { files: entries.iter().map(|e| FileRef { path: &e.path, hash: &e.hash }).collect() };
     let path = format!("/books/{book_id}/snapshots");
     let created: SnapshotCreated = match client.post(&path, &body).await {
         Err(e) if e.is("missing_blobs") => {
-            upload(&client, &dir, &entries, &e.missing).await?;
+            up.send(&e.missing).await?;
             client.post(&path, &body).await?
         }
         other => other?,
@@ -212,27 +224,6 @@ pub async fn run_all_changed(app: &AppHandle) {
     }
 }
 
-/// Same as `run_all_changed`, but for a book whose backup is already running (the scheduler started
-/// it just before the window closed), it waits for that run — and its rerun, if the book changed again
-/// meanwhile — instead of returning right away. The caller wraps this in a timeout, so the wait is
-/// bounded by that same cap; never holds the `CloudState` lock across the sleep below.
-pub async fn run_all_changed_on_close(app: &AppHandle) {
-    let cloud = app.state::<CloudState>();
-    let ids = match cloud.lock() {
-        Ok(g) if g.file.has_vault() => g.file.enabled_books(),
-        _ => return,
-    };
-    for id in ids {
-        let already_running = cloud.lock().map(|g| g.running.contains(&id)).unwrap_or(false);
-        if already_running {
-            while cloud.lock().map(|g| g.running.contains(&id)).unwrap_or(false) {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-            }
-        } else if let Err(e) = run(app, &id, false).await {
-            eprintln!("cloud backup of {id} failed: {}", e.message);
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

@@ -22,7 +22,7 @@ export function SnapshotList() {
               </span>
               <button
                 class="cloud-btn danger"
-                onClick={() => void confirmRestoreSnapshot(s.id)}
+                onClick={() => void confirmRestoreSnapshot(s)}
               >
                 Restaurar
               </button>

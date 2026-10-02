@@ -5,6 +5,7 @@
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "./board.css";
 @import "./settings.css";
+@import "./cloudjob.css";
 
 /* Theme tokens become utilities: text-ink, bg-panel, border-faint… */
 @theme inline {

@@ -6,10 +6,14 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::cloud::{
     api::{BookDetail, Snapshot},
-    backup, restore, CloudState,
+    backup,
+    on_close::{self, CloseReport},
+    restore, CloudState,
 };
 use crate::error::{AppError, AppResult};
 use crate::model::views::{BookMeta, BookSummary};
+
+const CLOSE_CAP: Duration = Duration::from_secs(60);
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -87,11 +91,14 @@ pub async fn cloud_forget_book(cloud: State<'_, CloudState>, book_id: String) ->
     view(&cloud, &book_id)
 }
 
-/// Called by the webview while the window closes: at most 10 seconds of backup.
+/// Called by the webview while the window closes, which shows the progress and the report. The cap
+/// keeps a dead connection from holding the window forever; the overlay also offers "Fechar sem esperar".
 #[tauri::command]
-pub async fn cloud_backup_on_close(app: AppHandle) -> AppResult<()> {
-    let _ = tokio::time::timeout(Duration::from_secs(10), backup::run_all_changed_on_close(&app)).await;
-    Ok(())
+pub async fn cloud_backup_on_close(app: AppHandle, manual: bool) -> AppResult<CloseReport> {
+    let mut report = CloseReport::default();
+    let finished = tokio::time::timeout(CLOSE_CAP, on_close::run(&app, manual, &mut report)).await.is_ok();
+    report.timed_out = !finished;
+    Ok(report)
 }
 
 #[tauri::command]

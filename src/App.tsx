@@ -2,10 +2,11 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEffect, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { isTauri } from "./api/invoke";
-import type { CloudStatus } from "./api/types";
+import type { CloudProgress, CloudStatus } from "./api/types";
 import { BottomBar } from "./components/chrome/BottomBar";
 import { TopBar } from "./components/chrome/TopBar";
 import { ConfirmDialog } from "./components/ui/ConfirmDialog";
+import { CloudJobOverlay } from "./components/cloud/CloudJobOverlay";
 import { CloudPanel } from "./components/cloud/CloudPanel";
 import { Library } from "./components/library/Library";
 import { CommandPalette } from "./components/panels/CommandPalette";
@@ -17,7 +18,9 @@ import { ScrivenerImport } from "./components/scrivener/ScrivenerImport";
 import { Workspace } from "./components/workspace/Workspace";
 import { TEXT_PX_DEFAULT, UI_SCALES } from "./lib/constants";
 import { applyUiZoom } from "./lib/uiZoom";
-import { applyCloudStatus, backupOnClose, loadCloud, syncCloudBadges } from "./store/actions/cloud";
+import { applyCloudStatus, loadCloud, syncCloudBadges } from "./store/actions/cloud";
+import { backupBeforeClose } from "./store/actions/cloudClose";
+import { applyCloudProgress } from "./store/actions/cloudJob";
 import { refreshLibrary } from "./store/actions/library";
 import { loadPrefs } from "./store/actions/prefs";
 import { checkForUpdate } from "./store/actions/update";
@@ -41,14 +44,17 @@ export default function App() {
     if (isTauri) {
       // The window is destroyed only after this handler resolves, so pending saves land.
       void getCurrentWindow()
-        .onCloseRequested(async () => {
+        .onCloseRequested(async (e) => {
           // Never throw here: a rejected handler would keep the window from closing.
           await flushAll().catch(() => {});
-          await backupOnClose();
+          // A failed backup keeps the window open on the overlay, whose buttons retry or close.
+          const close = await backupBeforeClose().catch(() => true);
+          if (!close) e.preventDefault();
         })
         .then(keep);
       void listenImageDrops().then(keep);
       void listen<CloudStatus>("cloud://status", (e) => applyCloudStatus(e.payload)).then(keep);
+      void listen<CloudProgress>("cloud://progress", (e) => applyCloudProgress(e.payload)).then(keep);
     }
     await Promise.all([loadPrefs(), refreshLibrary()]);
     await loadCloud();
@@ -107,6 +113,7 @@ export default function App() {
         <ScrivenerImport />
       </Show>
       <ConfirmDialog />
+      <CloudJobOverlay />
     </div>
   );
 }

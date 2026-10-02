@@ -1,6 +1,6 @@
 import { createStore, produce } from "solid-js/store";
 import type {
-  AreaNode, BookCloudView, BookMeta, BookSummary, CloudOverview, CloudStatus, ImportTarget, Prefs, ScanView,
+  AreaNode, BookCloudView, BookMeta, BookSummary, CloudOverview, CloudProgress, CloudStatus, ImportTarget, Prefs, ScanView,
   SearchHit, ShareKind, UpdateInfo,
 } from "../api/types";
 import { DEFAULT_PREFS } from "../lib/constants";
@@ -27,6 +27,22 @@ export interface ShareDraft {
   target: string | null;
   /** What the form says is being shared ("Capítulo 03", "Área de trabalho", item title). */
   label: string;
+}
+
+/** Long cloud job (closing, restoring, downloading) drawn by the big overlay. */
+export interface CloudJob {
+  kind: "close" | "restore" | "download";
+  phase: "working" | "done" | "error";
+  /** Book being worked on; on close it changes as each book is checked. */
+  bookId: string | null;
+  /** "reopening" is the webview opening the restored book. */
+  step: CloudProgress["step"] | "reopening" | null;
+  done: number;
+  total: number;
+  /** Book `n` of `of`, while closing. */
+  book: { n: number; of: number } | null;
+  /** Detail line of the done or error card. */
+  message: string;
 }
 
 export interface AppState {
@@ -82,6 +98,7 @@ export interface AppState {
   cloudStatus: CloudStatus | null;
   /** Link being created from a context menu or command: opens the share form in the cloud panel. */
   shareDraft: ShareDraft | null;
+  cloudJob: CloudJob | null;
   /** Board of the open folder (or document): opening text of its documents, by id, as card placeholders. */
   boardExcerpts: Record<string, string>;
   /** The selected index card. */
@@ -123,6 +140,7 @@ export const [state, setState] = createStore<AppState>({
   cloudBook: null,
   cloudStatus: null,
   shareDraft: null,
+  cloudJob: null,
   boardExcerpts: {},
   boardSel: null,
 });

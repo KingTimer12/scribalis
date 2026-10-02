@@ -1,10 +1,18 @@
 import * as api from "../../api/cloud";
-import type { CloudStatus, ShareInput } from "../../api/types";
+import type { CloudStatus, ShareInput, Snapshot } from "../../api/types";
 import { areaTree } from "../../api/workspace";
 import { askConfirm } from "../confirm";
 import { flushAll } from "../saving";
 import { setState, state } from "../state";
+import { errorMessage, failCloudJob, finishCloudJob, setCloudJobStep, startCloudJob } from "./cloudJob";
 import { flash, flashError } from "./ui";
+
+/** A backup's moment for the restore texts: "02/10 às 14:30". */
+function when(t: number) {
+  const d = new Date(t);
+  const date = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return date + " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
 
 export async function loadCloud() {
   try {
@@ -104,10 +112,6 @@ export function backupAuto(bookId: string) {
   void api.cloudBackup(bookId, false).catch(() => {});
 }
 
-export async function backupOnClose() {
-  await api.cloudBackupOnClose().catch(() => {});
-}
-
 export async function forgetBook() {
   const id = state.book?.id;
   if (!id) return;
@@ -120,32 +124,35 @@ export async function forgetBook() {
   }
 }
 
-/** Replaces the open book with a backup, then reopens it. */
-export async function restoreSnapshot(snapshotId: string) {
+/** Replaces the open book with a backup, then reopens it; the overlay shows each step. */
+export async function restoreSnapshot(snapshot: Snapshot) {
   const id = state.book?.id;
   if (!id) return;
+  startCloudJob("restore", id);
   try {
     await flushAll();
-    flash("Restaurando…");
-    await api.cloudRestore(id, snapshotId);
+    await api.cloudRestore(id, snapshot.id);
+    setCloudJobStep("reopening");
     const { openBook } = await import("./library");
     await openBook(id);
-    flash("Backup restaurado");
+    finishCloudJob(
+      "A obra voltou para a cópia de " + when(snapshot.createdAt) + ". A versão de antes ficou guardada na nuvem como um backup novo.",
+    );
   } catch (e) {
-    flashError(e);
+    failCloudJob(errorMessage(e));
   }
 }
 
 export async function downloadBook(bookId: string) {
+  startCloudJob("download", bookId);
   try {
     const summary = await api.cloudDownload(bookId);
     setState("library", (list) => [summary, ...list.filter((b) => b.id !== bookId)]);
-    flash("Obra baixada");
+    finishCloudJob("«" + (summary.title.trim() || "Obra sem título") + "» já está na sua biblioteca.");
   } catch (e) {
-    flashError(e);
+    failCloudJob(errorMessage(e));
   }
 }
-
 export async function createShare(input: ShareInput) {
   try {
     await flushAll();
@@ -216,12 +223,12 @@ export async function confirmForgetBook() {
 }
 
 /** "Restaurar" behind a confirmation dialog. */
-export async function confirmRestoreSnapshot(snapshotId: string) {
+export async function confirmRestoreSnapshot(snapshot: Snapshot) {
   const ok = await askConfirm({
-    title: "Restaurar esta cópia?",
-    message: "A obra atual será substituída por esta cópia.",
+    title: "Restaurar a cópia de " + when(snapshot.createdAt) + "?",
+    message: "A obra atual será substituída por esta cópia. Antes de trocar, a versão atual vai para a nuvem como um backup novo.",
     confirmLabel: "Restaurar",
     danger: true,
   });
-  if (ok) await restoreSnapshot(snapshotId);
+  if (ok) await restoreSnapshot(snapshot);
 }

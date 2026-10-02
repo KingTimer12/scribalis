@@ -9,6 +9,7 @@ use super::{
     client::Client,
     error::{CloudError, CloudResult},
     manifest::{hash_file, verify_staged},
+    progress,
     swap, CloudState,
 };
 use crate::model::metadata::Metadata;
@@ -20,9 +21,11 @@ use crate::storage::{
 
 /// Downloads every file of the snapshot into `staging`, checks each hash as it lands, and returns the
 /// manifest so the caller can re-verify staging right before the swap.
-async fn download_snapshot(client: &Client, book_id: &str, snapshot_id: &str, staging: &Path) -> CloudResult<Vec<RemoteFile>> {
+async fn download_snapshot(app: &AppHandle, client: &Client, book_id: &str, snapshot_id: &str, staging: &Path) -> CloudResult<Vec<RemoteFile>> {
     let listing: SnapshotFiles = client.get(&format!("/books/{book_id}/snapshots/{snapshot_id}")).await?;
-    for file in &listing.files {
+    let total = listing.files.len();
+    for (i, file) in listing.files.iter().enumerate() {
+        progress::emit(app, book_id, "downloading", i, total);
         let to = safe_join(staging, &file.path)?;
         if let Some(parent) = to.parent() {
             tokio::fs::create_dir_all(parent).await?;
@@ -35,12 +38,13 @@ async fn download_snapshot(client: &Client, book_id: &str, snapshot_id: &str, st
     if !staging.join(META_FILE).exists() {
         return Err(CloudError::new("invalid_metadata", "O backup não tem metadata.json. Nada foi alterado."));
     }
+    progress::emit(app, book_id, "downloading", total, total);
     Ok(listing.files)
 }
 
-async fn fetch_into_staging(client: &Client, root: &Path, book_id: &str, snapshot_id: &str) -> CloudResult<Vec<RemoteFile>> {
+async fn fetch_into_staging(app: &AppHandle, client: &Client, root: &Path, book_id: &str, snapshot_id: &str) -> CloudResult<Vec<RemoteFile>> {
     swap::fresh_staging(root, book_id)?;
-    let result = download_snapshot(client, book_id, snapshot_id, &swap::staging_dir(root, book_id)).await;
+    let result = download_snapshot(app, client, book_id, snapshot_id, &swap::staging_dir(root, book_id)).await;
     if result.is_err() {
         swap::abort(root, book_id);
     }
@@ -70,12 +74,14 @@ pub async fn restore(app: &AppHandle, book_id: &str, snapshot_id: &str) -> Cloud
         let lib = lock(&libs)?;
         (lib.root.clone(), lib.dir_of(book_id)?)
     };
-    let files = fetch_into_staging(&client, &root, book_id, snapshot_id).await?;
+    let files = fetch_into_staging(app, &client, &root, book_id, snapshot_id).await?;
+    progress::emit(app, book_id, "saving", 0, 0);
     if let Err(e) = backup::require_fresh_backup(backup::run(app, book_id, true).await) {
         swap::abort(&root, book_id);
         return Err(e);
     }
     verify_before_swap(&root, book_id, &files)?;
+    progress::emit(app, book_id, "swapping", 0, 0);
     swap::mark_destination(&root, book_id, &dir)?;
     let meta = {
         let mut lib = lock(&libs)?;
@@ -111,8 +117,9 @@ pub async fn download_new(app: &AppHandle, book_id: &str) -> CloudResult<(PathBu
         .cloned()
         .ok_or_else(|| CloudError::new("no_snapshot", "Esta obra não tem backup na nuvem."))?;
     std::fs::create_dir_all(&root)?;
-    let files = fetch_into_staging(&client, &root, book_id, &snap.id).await?;
+    let files = fetch_into_staging(app, &client, &root, book_id, &snap.id).await?;
     verify_before_swap(&root, book_id, &files)?;
+    progress::emit(app, book_id, "swapping", 0, 0);
     let (target, meta) = {
         let mut lib = lock(&libs)?;
         let target = unique_dir(&root, &slugify(&detail.title));

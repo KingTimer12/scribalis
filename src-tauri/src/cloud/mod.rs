@@ -8,6 +8,8 @@ pub mod error;
 pub mod inbox;
 pub mod keychain;
 pub mod manifest;
+pub mod on_close;
+pub mod progress;
 pub mod restore;
 pub mod scheduler;
 pub mod shares;
