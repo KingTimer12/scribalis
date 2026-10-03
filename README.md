@@ -215,9 +215,8 @@ bun run build          # build do front
 ### Arquitetura
 
 - **Rust (`src-tauri/`)** cuida de todo dado e processamento: disco, parsing e serialização de Markdown,
-  leitura de RTF e do binder do Scrivener, imagens, contagem de palavras, busca, fichas, nuvem e criptografia
-  dos backups e preferências. Um módulo por
-  assunto (`storage`, `markdown`, `model`, `ops`, `scrivener`, `cloud`, `commands`…).
+  leitura de RTF e do binder do Scrivener, imagens, contagem de palavras, busca, fichas, preferências, nuvem e
+  criptografia dos backups. Um módulo por assunto (`storage`, `markdown`, `model`, `ops`, `scrivener`, `cloud`, `commands`…).
 - **SolidJS + TipTap + Tailwind v4 (`src/`)** guardam só estado de tela e o capítulo aberto. `src/api/`
   conversa com o Rust; `src/api/mock/` simula o backend para rodar no navegador e nos testes.
 
